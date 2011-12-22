@@ -114,7 +114,7 @@ def _run_different_meshes( ginla_modelval,
         # generate random numbers within the unit circle
         radius = np.random.rand( num_unknowns )
         arg    = np.random.rand( num_unknowns )
-        current_psi = np.zeros( num_unknowns,
+        current_psi = np.empty( num_unknowns,
                                 dtype = complex
                               )
         for k in range( num_unknowns ):

@@ -41,7 +41,6 @@ class GinlaModelEvaluator:
         self._temperature = 0.0
         self._keo = None
         self.control_volumes = None
-        self._edge_midpoints = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
         self._psi = None
@@ -68,7 +67,7 @@ class GinlaModelEvaluator:
         self._psi = current_psi
         return
     # ==========================================================================
-    def compute_jacobian( self, phi ):
+    def apply_jacobian( self, phi ):
         '''Defines the matrix vector multiplication scheme for the
         Jacobian operator as in
 
@@ -105,6 +104,9 @@ class GinlaModelEvaluator:
         '''Compute the Gibbs free energy.
         Not really a norm, but a good measure for our purposes here.
         '''
+        if self.control_volumes is None:
+            self._compute_control_volumes()
+
         alpha = - np.vdot( self.control_volumes * psi**2, psi**2 )
         assert( abs( alpha.imag ) < 1.0e-10 )
 
@@ -135,8 +137,7 @@ class GinlaModelEvaluator:
         return
     # ==========================================================================
     def _assemble_keo( self ):
-        '''Take a pick for the KEO assembler.
-        '''
+        '''Take a pick for the KEO assembler.'''
         return self._assemble_keo1()
     # ==========================================================================
     def _assemble_keo1( self ):
@@ -491,10 +492,9 @@ class GinlaModelEvaluator:
         self.control_volumes = np.empty( num_nodes, dtype = float )
 
         for cell in self.mesh.cells:
-            #if cell.cell_type != vtk.VTK_TRIANGLE:
-                #print "Control volumes can only be constructed consistently " \
-                      #"with triangular elements."
-                #raise NameError
+            if len( cell.node_indices ) != 3:
+                raise ValueError( 'Control volumes can only be constructed ' \
+                                  'consistently with triangular elements.' )
 
             # compute the circumcenter of the element
             x0 = self.mesh.nodes[ cell.node_indices[0] ].coords
