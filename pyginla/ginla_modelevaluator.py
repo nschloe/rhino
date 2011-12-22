@@ -6,6 +6,7 @@ Provide tools for solving the Ginzburg--Landau equations.
 import mesh_io
 import numpy as np
 import scipy
+from scipy import sparse, linalg
 import math, cmath
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 # ==============================================================================
@@ -35,7 +36,7 @@ class GinlaModelEvaluator:
         '''Initialization. Set mesh.
         '''
         self.mesh = mesh
-        self._magnetic_vector_potential = A
+        self._raw_magnetic_vector_potential = A
         self.mu = mu
         self._temperature = 0.0
         self._keo = None
@@ -143,9 +144,9 @@ class GinlaModelEvaluator:
 
         # Create the matrix structure.
         num_nodes = len( self.mesh.nodes )
-        self._keo = scipy.sparse.lil_matrix( ( num_nodes, num_nodes ),
-                                             dtype = complex
-                                           )
+        self._keo = sparse.lil_matrix( ( num_nodes, num_nodes ),
+                                       dtype = complex
+                                     )
 
         # Build caches.
         if self._edgecoeff_cache is None:
@@ -378,9 +379,9 @@ class GinlaModelEvaluator:
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
-            self._edgecoeff_cache.append( scipy.linalg.solve( A, rhs,
-                                                              sym_pos = True
-                                                            )
+            self._edgecoeff_cache.append( linalg.solve( A, rhs,
+                                                        sym_pos = True
+                                                      )
                                         )
         return
     # ==========================================================================
@@ -409,12 +410,14 @@ class GinlaModelEvaluator:
                     #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
                     #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
                     #
-                    mvp = 0.5 * ( self._magnetic_vector_potential[index0] \
-                                + self._magnetic_vector_potential[index1] )
+                    mvp = 0.5 * (self._get_mvp(index0) + self._get_mvp(index1))
                     self._mvp_edge_cache[cell_index].append(
                                                    np.vdot( node1 - node0, mvp )
                                                            )
         return
+    # ==========================================================================
+    def _get_mvp( self, index ):
+        return self.mu * self._raw_magnetic_vector_potential[index]
     # ==========================================================================
     #def keo_smallest_eigenvalue_approximation( self ):
         #'''Returns
