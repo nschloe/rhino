@@ -1,52 +1,48 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Solve Poisson's equation with finite volumes.
+Solve the linearized Ginzburg--Landau problem.
 '''
 # ==============================================================================
-import vtkio
+import mesh_io
+import ginla_modelevaluator
 import numerical_methods as nm
-import sys
-from scipy.sparse.linalg import cg, bicgstab, gmres, LinearOperator, arpack
+from scipy.sparse.linalg import cg, bicgstab, LinearOperator, arpack
 import time
+
+import numpy as np
+import cmath
 
 import matplotlib.pyplot as pp
 from matplotlib import rc
 rc( 'text', usetex = True )
 rc( 'font', family = 'serif' )
 
-from model_evaluator import *
 from preconditioners import *
 import matplotlib2tikz
 # ==============================================================================
 def _main():
+    '''Main function.
     '''
-    Main function.
-    '''
-    opts, args = _parse_input_arguments()
+    filename = _parse_input_arguments()
 
     # read the mesh
-    print "Reading the state (and mesh)..."
-    try:
-        mesh, psi, field_data = vtkio.read_mesh( opts.filename )
-    except AttributeError:
-        print "Could not read from file ", opts.filename, "."
-        sys.exit()
-    print " done."
+    print "Reading the mesh...",
+    mesh, psi, A, field_data = mesh_io.read_mesh( filename )
+    print "done."
 
     # build the model evaluator
     mu = 0.8e-0
-    ginla_modelval = ginla_model_evaluator( mu )
-    ginla_modelval.set_mesh( mesh )
+    ginla_modelval = ginla_modelevaluator.GinlaModelEvaluator( mesh, A, mu )
 
     # initialize the preconditioners
-    precs = preconditioners( ginla_modelval )
+    precs = Preconditioners( ginla_modelval )
 
     num_unknowns = len( mesh.nodes )
 
     # create the linear operator
     ginla_jacobian = LinearOperator( (num_unknowns, num_unknowns),
-                                     matvec = ginla_modelval.compute_jacobian,
+                                     matvec = ginla_modelval.apply_jacobian,
                                      dtype = complex
                                    )
 
@@ -57,40 +53,60 @@ def _main():
     #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns,
                                  #dtype = complex
                                #)
+    current_psi = 0.5* np.ones( num_unknowns,
+                                dtype = complex
+                              )
     # generate random numbers within the unit circle
-    current_psi = np.empty( num_unknowns,
-                            dtype = complex
-                          )
-    radius = np.random.rand( num_unknowns )
-    arg    = np.random.rand( num_unknowns )
-    for k in range( num_unknowns ):
-        current_psi[ k ] = cmath.rect(radius[k], arg[k])
+    #current_psi = np.empty( num_unknowns,
+                            #dtype = complex
+                          #)
+    #radius = np.random.rand( num_unknowns )
+    #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
+    #for k in range( num_unknowns ):
+        #current_psi[ k ] = cmath.rect(radius[k], arg[k])
+
     ginla_modelval.set_current_psi( current_psi )
     # --------------------------------------------------------------------------
     # create right hand side and initial guess
     # initial guess for all operations
-    psi0 =  np.random.rand( num_unknowns ) \
-        + 1j * np.random.rand( num_unknowns )
-    #psi0 = np.ones( num_unknowns,
-                   #dtype = complex
-                 #)
+    phi0 = np.zeros( num_unknowns, dtype=complex )
 
     # right hand side
-    rhs = np.zeros( num_unknowns,
-                    dtype = complex
-                  )
+    rhs = np.ones( num_unknowns,
+                   dtype = complex
+                 )
 
-    # create the list of preconditioners to test
-    test_preconditioners = _create_preconditioner_list( precs, num_unknowns )
+    ## create the list of preconditioners to test
+    #test_preconditioners = _create_preconditioner_list( precs, num_unknowns )
 
     # --------------------------------------------------------------------------
-    _run_one_mu( ginla_modelval,
-                 precs,
-                 ginla_jacobian,
-                 rhs,
-                 psi0,
-                 test_preconditioners
-               )
+    print "Solving the system (dim = %d)..." % (2*num_unknowns),
+    tol = 1.0e-15
+    maxiter = 2000
+    start_time = time.clock()
+    sol, info, relresvec = nm.cg_wrap( ginla_jacobian, rhs,
+                                           x0 = phi0,
+                                           tol = tol,
+                                           maxiter = maxiter,
+                                           #M = prec['precondictioner'],
+                                           inner_product = ginla_modelval.inner_product
+                                         )
+    end_time = time.clock()
+    if info == 0:
+        print "success!",
+    else:
+        print "no convergence.",
+    print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
+    pp.semilogy( relresvec )
+    pp.show()
+    # --------------------------------------------------------------------------
+    #_run_one_mu( ginla_modelval,
+                 #precs,
+                 #ginla_jacobian,
+                 #rhs,
+                 #psi0,
+                 #test_preconditioners
+               #)
     #_run_along_top( ginla_modelval,
                     #precs,
                     #ginla_jacobian,
@@ -354,8 +370,7 @@ def _run_different_meshes( ginla_modelval,
         try:
             mesh = vtkio.read_mesh( mesh_file )
         except AttributeError:
-            print "Could not read from file ", mesh_file, "."
-            sys.exit()
+            raise IOError( "Could not read from file ", mesh_file, "." )
         print " done."
         ginla_modelval.set_mesh( mesh )
         precs.set_mesh( mesh )
@@ -561,24 +576,22 @@ def _construct_matrix( linear_operator ):
     return A
 # ==============================================================================
 def _parse_input_arguments():
+    '''Parse input arguments.
     '''
-    Parse input arguments.
-    '''
-    from optparse import OptionParser
+    import argparse
 
-    parser = OptionParser()
-    parser.add_option( "-f", "--file",
-                       dest = "filename",
-                       type = str,
-                       help = "read mesh from VTKFILE",
-                       metavar = "VTKFILE"
-                     )
-    #parser.add_option("-q", "--quiet",
-                      #action="store_false", dest="verbose", default=True,
-                      #help="don't print status messages to stdout")
+    parser = argparse.ArgumentParser( description = 'Solve the linearized Ginzburg--Landau problem.'
+                                    )
 
-    (opts, args) = parser.parse_args()
-    return opts, args
+    parser.add_argument( 'filename',
+                         metavar = 'FILE',
+                         type    = str,
+                         help    = 'ExodusII file containing the geometry and initial state'
+                       )
+
+    args = parser.parse_args()
+
+    return args.filename
 # ==============================================================================
 if __name__ == "__main__":
     _main()

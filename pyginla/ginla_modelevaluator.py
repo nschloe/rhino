@@ -89,6 +89,11 @@ class GinlaModelEvaluator:
                   ( 1.0-self._temperature - 2.0*abs(self._psi)**2 ) * phi \
             - self.control_volumes * self._psi**2 * phi.conjugate()
     # ==========================================================================
+    def inner_product( self, phi0, phi1 ):
+        '''The natural inner product of the problem.
+        '''
+        return np.vdot( phi0, phi1 ).real
+    # ==========================================================================
     def norm( self, psi ):
         '''Compute the discretized L2-norm.
         '''

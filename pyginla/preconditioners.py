@@ -6,7 +6,7 @@ Preconditioners for the Jacobian of the Ginzburg--Landau problem.
 from scipy import sparse
 from scipy.sparse.linalg import LinearOperator, cg, splu, spilu
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-class preconditioners:
+class Preconditioners:
     '''
     Ginzburg--Landau model evaluator class.
     '''
