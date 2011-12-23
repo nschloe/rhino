@@ -5,7 +5,6 @@ Provide tools for solving the Ginzburg--Landau equations.
 '''
 import mesh_io
 import numpy as np
-import scipy
 from scipy import sparse, linalg
 import math, cmath
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
@@ -22,14 +21,13 @@ def get_tetrahedron_volume( edge0, edge1, edge2 ):
               * np.linalg.norm(edge1) \
               * np.linalg.norm(edge2)
     if abs(alpha) / norm_prod < 1.0e-5:
-        raise 'The following edges seem to be conplanar:'
+        raise ValueError( 'The edges seem to be conplanar.' )
 
     return abs( alpha ) / 6.0
 # ==============================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class GinlaModelEvaluator:
-    '''
-    Ginzburg--Landau model evaluator class.
+    '''Ginzburg--Landau model evaluator class.
     '''
     # ==========================================================================
     def __init__( self, mesh, A, mu ):
@@ -350,7 +348,7 @@ class GinlaModelEvaluator:
                     vol = get_tetrahedron_volume( local_edge_coords[0],
                                                   local_edge_coords[1],
                                                   local_edge_coords[2] )
-                except:
+                except ValueError:
                     # If computing the volume throws an exception, then the
                     # edges chosen happened to be conplanar. Changing one of
                     # those fixes this.
@@ -358,7 +356,8 @@ class GinlaModelEvaluator:
                                                   local_edge_coords[1],
                                                   local_edge_coords[3] )
             else:
-                raise 'Unknown geometry with %d edges.' % num_local_edges
+                raise RuntimeError( 'Unknown geometry with %d edges.'
+                                    % num_local_edges )
 
             # Build the equation system:
             # The equation
@@ -501,13 +500,13 @@ class GinlaModelEvaluator:
             c = x[2] - x[0]
             d = x[3] - x[0]
 
-            omega = ( 2.0 * np.dot( b, np.cross(c,d)) )
+            omega = (2.0 * np.dot( b, np.cross(c, d)))
 
             if abs(omega) < 1.0e-10:
                 raise ZeroDivisionError( "Tetrahedron is degenerate." )
-            return x[0] + (   np.dot(b,b) * np.cross(c,d)
-                            + np.dot(c,c) * np.cross(d,b)
-                            + np.dot(d,d) * np.cross(b,c)
+            return x[0] + (   np.dot(b, b) * np.cross(c, d)
+                            + np.dot(c, c) * np.cross(d, b)
+                            + np.dot(d, d) * np.cross(b, c)
                           ) / omega
         # ----------------------------------------------------------------------
         def _compute_covolume_2d( x0, x1, circumcenter, other0 ):
@@ -546,7 +545,7 @@ class GinlaModelEvaluator:
 
             # Add the area of the first triangle (MP,ccFace0,cc).
             # This makes use of the right angles.
-            triangleHeight0 = np.linalg.norm(edge_midpoint - ccFace0);
+            triangleHeight0 = np.linalg.norm(edge_midpoint - ccFace0)
             triangleArea0 = 0.5 \
                           * triangleHeight0 \
                           * np.linalg.norm(ccFace0 - cc)
@@ -563,7 +562,7 @@ class GinlaModelEvaluator:
 
             # Add the area of the second triangle (MP,cc,ccFace1).
             # This makes use of the right angles.
-            triangleHeight1 = np.linalg.norm(edge_midpoint - ccFace1);
+            triangleHeight1 = np.linalg.norm(edge_midpoint - ccFace1)
             triangleArea1 = 0.5 \
                           * triangleHeight1 \
                           * np.linalg.norm(ccFace1 - cc)
