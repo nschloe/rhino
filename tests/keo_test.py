@@ -67,7 +67,7 @@ class TestJacobian(unittest.TestCase):
         # Set current psi.
         self.ginla_modeleval.set_current_psi( psi )
 
-        tol = 1.0e-13
+        tol = 1.0e-12
 
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones( len(psi), dtype=complex )
@@ -128,7 +128,7 @@ class TestMesh(unittest.TestCase):
         # Compute the control volumes.
         self.ginla_modeleval._compute_control_volumes()
 
-        tol = 1.0e-15
+        tol = 1.0e-12
 
         # Get their norms
         norm = np.linalg.norm( self.ginla_modeleval.control_volumes, ord=1 )

@@ -471,53 +471,116 @@ class GinlaModelEvaluator:
         '''Computes the area of the control volumes.
         '''
         # ----------------------------------------------------------------------
-        def _triangle_circumcenter( x0, x1, x2 ):
+        def _triangle_circumcenter( x ):
+            '''Compute the circumcenter of a triangle.
             '''
-            Compute the circumcenter of a triangle.
-            '''
-            w = np.cross( x0-x1, x1-x2 )
+            w = np.cross( x[0]-x[1], x[1]-x[2] )
             omega = 2.0 * np.dot( w, w )
 
             if abs(omega) < 1.0e-10:
-                raise ZeroDivisionError( "Division by 0." )
+                raise ZeroDivisionError( 'The nodes don''t seem to form '
+                                       + 'a proper triangle.' )
 
-            alpha = np.dot( x1-x2, x1-x2 ) * np.dot( x0-x1, x0-x2 ) / omega
-            beta  = np.dot( x2-x0, x2-x0 ) * np.dot( x1-x2, x1-x0 ) / omega
-            gamma = np.dot( x0-x1, x0-x1 ) * np.dot( x2-x0, x2-x1 ) / omega
+            alpha = np.dot( x[1]-x[2], x[1]-x[2] ) \
+                  * np.dot( x[0]-x[1], x[0]-x[2] ) \
+                  / omega
+            beta  = np.dot( x[2]-x[0], x[2]-x[0] ) \
+                  * np.dot( x[1]-x[2], x[1]-x[0] ) \
+                  / omega
+            gamma = np.dot( x[0]-x[1], x[0]-x[1] ) \
+                  * np.dot( x[2]-x[0], x[2]-x[1] ) \
+                  / omega
 
-            return alpha * x0 + beta * x1 + gamma * x2
+            return alpha * x[0] + beta * x[1] + gamma * x[2]
+        # ----------------------------------------------------------------------
+        def _tetrahedron_circumcenter( x ):
+            '''Computes the center of the circumsphere of a tetrahedron.
+            '''
+            # http://www.cgafaq.info/wiki/Tetrahedron_Circumsphere
+            b = x[1] - x[0]
+            c = x[2] - x[0]
+            d = x[3] - x[0]
+
+            omega = ( 2 * np.dot( b, np.cross(c,d)) )
+
+            if abs(omega) < 1.0e-10:
+                raise ZeroDivisionError( "Tetrahedron is degenerate." )
+            return (   np.dot(d,d) * np.cross(b,c)
+                     + np.dot(c,c) * np.cross(d,b)
+                     + np.dot(b,b) * np.cross(c,d)
+                   ) / omega
+        # ----------------------------------------------------------------------
+        def _compute_covolume_2d( x0, x1, circumcenter, other0 ):
+            edge_midpoint = 0.5 * ( x0 + x1 )
+            coedge_length = np.linalg.norm( edge_midpoint - circumcenter )
+
+            # The only difficulty here is to determine whether the length of
+            # coedge is to be taken positive or negative.
+            # To this end, make sure that the order (x0, cc, edge_midpoint)
+            # is of the same orientation as (x0, other0, edge_midpoint).
+            cell_normal = np.cross( other0 - x0, edge_midpoint - x0 )
+            cc_normal = np.cross( cc - x0, edge_midpoint - x0 )
+
+            # math.copysign() takes the absolute value of the first argument
+            # and the sign of the second.
+            return math.copysign( coedge_length,
+                                  np.dot( cc_normal, cell_normal ) )
+        # ----------------------------------------------------------------------
+        def _get_other_indices( e0, e1 ):
+            '''Given to indices between 0 and 3, return the other two out of
+            [0, 1, 2, 3].'''
+            other_indices = []
+            for k in xrange(4):
+                if k != e0 and k != e1:
+                    other_indices.append( k )
+
+            return other_indices
         # ----------------------------------------------------------------------
 
         num_nodes = len( self.mesh.nodes )
-        self.control_volumes = np.empty( num_nodes, dtype = float )
-
+        self.control_volumes = np.zeros( num_nodes, dtype = float )
         for cell in self.mesh.cells:
-            if len( cell.node_indices ) != 3:
-                raise ValueError( 'Control volumes can only be constructed ' \
-                                  'consistently with triangular elements.' )
 
-            # compute the circumcenter of the element
-            x0 = self.mesh.nodes[ cell.node_indices[0] ].coords
-            x1 = self.mesh.nodes[ cell.node_indices[1] ].coords
-            x2 = self.mesh.nodes[ cell.node_indices[2] ].coords
-            cc = _triangle_circumcenter( x0, x1, x2 )
+            local_node_coords = []
+            for node_index in cell.node_indices:
+                local_node_coords.append( self.mesh.nodes[node_index].coords )
 
+            # Compute the circumcenter of the cell.
             num_local_nodes = len( cell.node_indices )
+            if num_local_nodes == 3:
+                cell_dim = 2
+                cc = _triangle_circumcenter( local_node_coords )
+            elif num_local_nodes == 4:
+                cell_dim = 3
+                cc = _tetrahedron_circumcenter( local_node_coords )
+            else:
+                raise ValueError( 'Control volumes can only be constructed ' \
+                                  'for triangles and tetrahedra.' )
 
             # Iterate over pairs of nodes aka local edges.
             for e0 in xrange( num_local_nodes ):
                 index0 = cell.node_indices[e0]
-                x0 = self.mesh.nodes[ index0 ].coords
                 for e1 in xrange( e0+1, num_local_nodes ):
                     index1 = cell.node_indices[e1]
-                    x1 = self.mesh.nodes[ index1 ].coords
-                    midpoint = 0.5 * ( x0 + x1 )
-                    # control volume contributions
-                    self.control_volumes[ index0 ] += \
-                        get_triangle_area( cc-x0, midpoint-x0 )
-                    self.control_volumes[ index1 ] += \
-                        get_triangle_area( cc-x1, midpoint-x1 )
+                    edge_length = np.linalg.norm( local_node_coords[e0]
+                                                - local_node_coords[e1] )
 
+                    other_indices = _get_other_indices( e0, e1 )
+                    if cell_dim == 2:
+                        covolume = _compute_covolume_2d( local_node_coords[e0],
+                                                         local_node_coords[e1],
+                                                         cc,
+                                                         local_node_coords[other_indices[0]]
+                                                       )
+                    else:
+                        raise ValueError( 'Control volumes can only be constructed ' \
+                                          'for triangles and tetrahedra.' )
+
+                    pyramid_volume = 0.5*edge_length * covolume / cell_dim
+
+                    # control volume contributions
+                    self.control_volumes[ index0 ] += pyramid_volume
+                    self.control_volumes[ index1 ] += pyramid_volume
         return
     # ==========================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
