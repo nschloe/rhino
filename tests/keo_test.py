@@ -154,10 +154,10 @@ class TestMesh(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_cubesmall(self):
         filename = 'cubesmall.e'
-        actual_values = [ 1000.0,
-                          6.23840106458169,
-                          0.0410021145682357 ]
-        self._run_test(filename, actual_values )
+        actual_values = [ 10.0,
+                          3.53553390593274,
+                          1.25 ]
+        self._run_test(filename, actual_values)
 # ==============================================================================
 if __name__ == '__main__':
     unittest.main()

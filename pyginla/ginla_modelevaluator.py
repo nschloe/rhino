@@ -501,14 +501,14 @@ class GinlaModelEvaluator:
             c = x[2] - x[0]
             d = x[3] - x[0]
 
-            omega = ( 2 * np.dot( b, np.cross(c,d)) )
+            omega = ( 2.0 * np.dot( b, np.cross(c,d)) )
 
             if abs(omega) < 1.0e-10:
                 raise ZeroDivisionError( "Tetrahedron is degenerate." )
-            return (   np.dot(d,d) * np.cross(b,c)
-                     + np.dot(c,c) * np.cross(d,b)
-                     + np.dot(b,b) * np.cross(c,d)
-                   ) / omega
+            return x[0] + (   np.dot(b,b) * np.cross(c,d)
+                            + np.dot(c,c) * np.cross(d,b)
+                            + np.dot(d,d) * np.cross(b,c)
+                          ) / omega
         # ----------------------------------------------------------------------
         def _compute_covolume_2d( x0, x1, circumcenter, other0 ):
             edge_midpoint = 0.5 * ( x0 + x1 )
@@ -525,6 +525,59 @@ class GinlaModelEvaluator:
             # and the sign of the second.
             return math.copysign( coedge_length,
                                   np.dot( cc_normal, cell_normal ) )
+        # ----------------------------------------------------------------------
+        def _compute_covolume_3d( x0, x1, cc, other0, other1 ):
+            covolume = 0.0
+            edge_midpoint = 0.5 * ( x0 + x1 )
+
+            # Compute the circumcenters of the adjacent faces.
+            ccFace0 = _triangle_circumcenter( [x0, x1, other0] )
+            ccFace1 = _triangle_circumcenter( [x0, x1, other1] )
+
+            # Compute the area of the quadrilateral.
+            # There are some really tricky degenerate cases here, i.e.,
+            # combinations of when ccFace{0,1}, cc, sit outside of the
+            # tetrahedron.
+
+            # Use the triangle (MP, localNodes[other[0]], localNodes[other[1]] )
+            # (in this order) to gauge the orientation of the two triangles that
+            # compose the quadrilateral.
+            gauge = np.cross(other0 - edge_midpoint, other1 - edge_midpoint )
+
+            # Add the area of the first triangle (MP,ccFace0,cc).
+            # This makes use of the right angles.
+            triangleHeight0 = np.linalg.norm(edge_midpoint - ccFace0);
+            triangleArea0 = 0.5 \
+                          * triangleHeight0 \
+                          * np.linalg.norm(ccFace0 - cc)
+
+            # Check if the orientation of the triangle (MP,ccFace0,cc)
+            # coincides with the orientation of the gauge triangle. If yes, add
+            # the area, subtract otherwise.
+            triangleNormal0 = np.cross(ccFace0 - edge_midpoint,
+                                       cc - edge_midpoint)
+            # copysign takes the absolute value of the first argument and the
+            # sign of the second.
+            covolume += math.copysign( triangleArea0,
+                                       np.dot( triangleNormal0, gauge ) )
+
+            # Add the area of the second triangle (MP,cc,ccFace1).
+            # This makes use of the right angles.
+            triangleHeight1 = np.linalg.norm(edge_midpoint - ccFace1);
+            triangleArea1 = 0.5 \
+                          * triangleHeight1 \
+                          * np.linalg.norm(ccFace1 - cc)
+
+            # Check if the orientation of the triangle (MP,cc,ccFace1)
+            # coincides with the orientation of the gauge triangle. If yes, add
+            # the area, subtract otherwise.
+            triangleNormal1 = np.cross(cc - edge_midpoint,
+                                       ccFace1 - edge_midpoint)
+            # copysign takes the absolute value of the first argument and the
+            # sign of the second.
+            covolume += math.copysign( triangleArea1,
+                                       np.dot( triangleNormal1, gauge ) )
+            return covolume
         # ----------------------------------------------------------------------
         def _get_other_indices( e0, e1 ):
             '''Given to indices between 0 and 3, return the other two out of
@@ -572,6 +625,13 @@ class GinlaModelEvaluator:
                                                          cc,
                                                          local_node_coords[other_indices[0]]
                                                        )
+                    elif cell_dim == 3:
+                        covolume = _compute_covolume_3d( local_node_coords[e0],
+                                                         local_node_coords[e1],
+                                                         cc,
+                                                         local_node_coords[other_indices[0]],
+                                                         local_node_coords[other_indices[1]]
+                                                       )
                     else:
                         raise ValueError( 'Control volumes can only be constructed ' \
                                           'for triangles and tetrahedra.' )
@@ -581,6 +641,7 @@ class GinlaModelEvaluator:
                     # control volume contributions
                     self.control_volumes[ index0 ] += pyramid_volume
                     self.control_volumes[ index1 ] += pyramid_volume
+
         return
     # ==========================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
