@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-'''
-Solve Poisson's equation with finite volumes.
+'''void
 '''
 # ==============================================================================
 import vtkio
@@ -21,8 +20,7 @@ from preconditioners import *
 import matplotlib2tikz
 # ==============================================================================
 def _main():
-    '''
-    Main function.
+    '''Main function.
     '''
     # parse input arguments
     opts, args = _parse_input_arguments()
