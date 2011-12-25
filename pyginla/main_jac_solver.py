@@ -32,7 +32,7 @@ def _main():
     print "done."
 
     # build the model evaluator
-    mu = 0.8e-0
+    mu = 1.0e-1
     ginla_modelval = ginla_modelevaluator.GinlaModelEvaluator( mesh, A, mu )
 
     # initialize the preconditioners
@@ -50,16 +50,13 @@ def _main():
 
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
-    #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns,
-                                 #dtype = complex
-                               #)
-    current_psi = 0.5* np.ones( num_unknowns,
-                                dtype = complex
-                              )
+    #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns, dtype = complex )
+    #current_psi = 1.0 * np.ones( num_unknowns, dtype = complex )
+
+    current_psi = psi
+
     # generate random numbers within the unit circle
-    #current_psi = np.empty( num_unknowns,
-                            #dtype = complex
-                          #)
+    #current_psi = np.empty( num_unknowns, dtype = complex )
     #radius = np.random.rand( num_unknowns )
     #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
     #for k in range( num_unknowns ):
@@ -68,13 +65,16 @@ def _main():
     ginla_modelval.set_current_psi( current_psi )
     # --------------------------------------------------------------------------
     # create right hand side and initial guess
-    # initial guess for all operations
     phi0 = np.zeros( num_unknowns, dtype=complex )
 
     # right hand side
-    rhs = np.ones( num_unknowns,
-                   dtype = complex
-                 )
+    rhs = (1+1j) * np.ones( num_unknowns, dtype = complex )
+
+    #rhs = np.empty( num_unknowns, dtype = complex )
+    #radius = np.random.rand( num_unknowns )
+    #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
+    #for k in range( num_unknowns ):
+        #rhs[ k ] = cmath.rect(radius[k], arg[k])
 
     ## create the list of preconditioners to test
     #test_preconditioners = _create_preconditioner_list( precs, num_unknowns )
@@ -84,12 +84,13 @@ def _main():
     tol = 1.0e-15
     maxiter = 2000
     start_time = time.clock()
-    sol, info, relresvec = nm.cg_wrap( ginla_jacobian, rhs,
+    sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
                                            tol = tol,
                                            maxiter = maxiter,
                                            #M = prec['precondictioner'],
-                                           inner_product = ginla_modelval.inner_product
+                                           inner_product = ginla_modelval.inner_product,
+                                           #explicit_residual = True
                                          )
     end_time = time.clock()
     if info == 0:
@@ -98,6 +99,8 @@ def _main():
         print "no convergence.",
     print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
     pp.semilogy( relresvec )
+    #pp.semilogy( errorvec )
+    #pp.semilogy( trilinos_relresvec )
     pp.show()
     # --------------------------------------------------------------------------
     #_run_one_mu( ginla_modelval,
