@@ -26,6 +26,21 @@ def l2_condition_number( linear_operator ):
 
     return large_eigenval[0] / small_eigenval[0]
 # ==============================================================================
+def _norm_squared( x, M = None, inner_product = np.vdot ):
+    '''Compute the norm^2 w.r.t. to a given scalar product.'''
+    Mx = _apply( M, x )
+    rho = inner_product( x, Mx )
+
+    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
+        raise ValueError( 'M not positive definite?' )
+
+    return rho.real, Mx
+# ==============================================================================
+def _norm( x, M = None, inner_product = np.vdot ):
+    '''Compute the norm w.r.t. to a given scalar product.'''
+    norm2, Mx = _norm_squared( x, M = M, inner_product = inner_product )
+    return sqrt(norm2), Mx
+# ==============================================================================
 def _apply( A, x ):
     '''Implement A*x for different types of linear operators.'''
     if A is None:
@@ -77,26 +92,11 @@ def cg_wrap( linear_operator,
 
     return sol, info, relresvec, errorvec
 # ==============================================================================
-def _norm_squared( x, M = None, inner_product = np.vdot ):
-    '''Compute the norm^2 w.r.t. to a given scalar product.'''
-    Mx = _apply( M, x )
-    rho = inner_product( x, Mx )
-
-    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
-        raise ValueError( 'M not positive definite?' )
-
-    return rho.real, Mx
-# ==============================================================================
-def _norm( x, M = None, inner_product = np.vdot ):
-    '''Compute the norm w.r.t. to a given scalar product.'''
-    norm2, Mx = _norm_squared( x, M = M, inner_product = inner_product )
-    return sqrt(norm2), Mx
-# ==============================================================================
 def cg( A,
         rhs,
         x0,
         tol = 1.0e-5,
-        maxiter = 1000,
+        maxiter = None,
         xtype = None,
         M = None,
         callback = None,
@@ -114,6 +114,9 @@ def cg( A,
         p = z.copy()
     else:
         p = r.copy()
+
+    if maxiter is None:
+        maxiter = len(rhs)
 
     info = maxiter
 
@@ -161,17 +164,47 @@ def cg( A,
 
     return x, info
 # ==============================================================================
+def minres_wrap( linear_operator,
+                 rhs,
+                 x0,
+                 tol = 1.0e-5,
+                 maxiter = None,
+                 M = None,
+                 inner_product = np.vdot
+               ):
+    '''
+    Wrapper around the MINRES method to get a vector with the relative residuals
+    as return argument.
+    '''
+    # --------------------------------------------------------------------------
+    def _callback( norm_rel_residual, x ):
+        #r = rhs - linear_operator * x
+        #relresvec.append(_norm(r, M=M, inner_product=inner_product))
+        relresvec.append( norm_rel_residual )
+    # --------------------------------------------------------------------------
+
+    relresvec = []
+
+    rhs = np.ones( len(rhs) )
+    sol, info = berlin_minres( linear_operator,
+                        rhs,
+                        x0,
+                        tol = tol,
+                        maxiter = maxiter,
+                        xtype = xtype,
+                        M = M,
+                        callback = _callback
+                      )
+
+    return sol, info, relresvec
+# ==============================================================================
 def berlin_minres( A,
             b,
             x0,
-            shift = 0.0,
             tol = 1e-5,
             maxiter = None,
-            xtype = None,
             M = None,
             callback = None,
-            show = False,
-            check = False,
             inner_product = np.vdot,
             x_cor = None,
             r0_proj = None,
@@ -189,7 +222,6 @@ def berlin_minres( A,
     iter_proj = proj
     # --------------------------------------------------------------------------
     # Init Lanczos and MINRES
-    resvec = []
     r0 = _apply(r0_proj, r0)
     Mr0 = _apply(M, r0)
 
@@ -202,7 +234,7 @@ def berlin_minres( A,
     # ||M\Proj(b-A*xk)||_M / ||M\b||_M = ||M\(b-A*xcor(xk))||_M / ||M\b||_M < tol
     norm_Mb, Mb = _norm(b, M=M, inner_product = inner_product)
 
-    resvec.append(norm_Mr0 / norm_Mb)
+    norm_rel_residual = norm_Mr0 / norm_Mb
     # --------------------------------------------------------------------------
 
     # Allocate and initialize the 'large' memory blocks.
@@ -219,16 +251,19 @@ def berlin_minres( A,
     G1 = np.eye(2)     # even older givens rotation ;)
     iter = 0
 
+    if callback is not None:
+        callback( norm_rel_residual, xk )
+
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
     # --------------------------------------------------------------------------
-    while resvec[iter] > tol and iter <= maxiter:
+    while norm_rel_residual > tol and iter <= maxiter:
         # ---------------------------------------------------------------------
         # Lanczos
         tsold = ts
         z  = _apply(A, V[1])
         z  = _apply(proj, z)
-        # tsold = inner_product(z, V(:,1))
+        # tsold = inner_product(z, V[0])
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
         td = inner_product(z, V[1])
@@ -236,11 +271,11 @@ def berlin_minres( A,
         z  = z - td * P[1]
 
         ## local reorthogonalization
-        #tsold2 = inner_product(z, V(:,1))
-        #z   = z - tsold2 * P(:,1)
-        #td2 = inner_product( z, V(:,2))
+        #tsold2 = inner_product(z, V[0])
+        #z   = z - tsold2 * P[0]
+        #td2 = inner_product( z, V[1])
         #td  = td + td2
-        #z   = z - td2*P(:,2)
+        #z   = z - td2*P[1]
         #tsold = tsold + tsold2
 
         # needed for QR-update:
@@ -282,29 +317,32 @@ def berlin_minres( A,
 
         # ----------------------------------------------------------------------
         # update residual
-        resvec.append(abs(y[0]) / norm_Mb)
+        norm_rel_residual = abs(y[0]) / norm_Mb
 
         # Compute residual explicitly if updated residual is below tolerance.
-        if resvec[iter+1] <= tol:
+        if norm_rel_residual <= tol:
             # Compute the exact residual norm.
             xkcor = _apply(x_cor, xk)
             r = b - _apply(A, xkcor)
-            resEx, _ = _norm(r, M, inner_product=inner_product)
-
-            if resEx / norm_Mb > tol:
+            norm_res_exact, _ = _norm(r, M, inner_product=inner_product)
+            norm_rel_res_exact = norm_res_exact / norm_Mb
+            if norm_rel_res_exact > tol:
                 print 'Info (iter %d): Updated residual is below tolerance,' \
                     + 'explicit residual is NOT!\n  (resEx=%e > tol=%e >= ' \
-                    + 'resup=%e\n' % (iter, resEx / norm_Mb, tol, resvec(iter+1) )
-            resvec[iter+1] = resEx / norm_Mb;
+                    + 'resup=%e\n' % (iter, norm_rel_res_exact, tol, norm_rel_residual )
+            norm_rel_residual = norm_rel_res_exact
+
+        if callback is not None:
+            callback( norm_rel_residual, xk )
 
         iter += 1
     # end MINRES iteration
     # --------------------------------------------------------------------------
 
     # Ultimate convergence test.
-    if resvec[iter] > tol:
+    if norm_rel_residual > tol:
         print 'No convergence after iter %d (res=%e > tol=%e)' % \
-              (iter-1, resvec[iter], tol)
+              (iter-1, norm_rel_residual, tol)
         xkcor = _apply(x_cor, xk)
         info = 1
 
@@ -312,41 +350,6 @@ def berlin_minres( A,
     #resvec = resvec[1:iter+1]
 
     return xkcor, info
-# ==============================================================================
-def minres_wrap( linear_operator,
-                 rhs,
-                 x0,
-                 tol = 1.0e-5,
-                 maxiter = 1000,
-                 xtype = None,
-                 M = None
-               ):
-    '''
-    Wrapper around the MINRES method to get a vector with the relative residuals
-    as return argument.
-    '''
-    # --------------------------------------------------------------------------
-    def _callback( x ):
-        relresvec.append( norm(linear_operator * x - rhs) )
-    # --------------------------------------------------------------------------
-
-    relresvec = []
-
-    rhs = np.ones( len(rhs) )
-    sol, info = minres( linear_operator,
-                        rhs,
-                        x0,
-                        shift = 0.0,
-                        tol = tol,
-                        maxiter = maxiter,
-                        xtype = xtype,
-                        M = M,
-                        callback = _callback,
-                        show = False,
-                        check = False
-                      )
-
-    return sol, info, relresvec
 # ==============================================================================
 def minres( A,
             b,
