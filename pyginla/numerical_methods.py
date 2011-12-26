@@ -292,11 +292,11 @@ def berlin_minres( A,
             r = b - _apply(A, xkcor)
             resEx, _ = _norm(r, M, inner_product=inner_product)
 
-            if resEx / Mbn > tol:
+            if resEx / norm_Mb > tol:
                 print 'Info (iter %d): Updated residual is below tolerance,' \
                     + 'explicit residual is NOT!\n  (resEx=%e > tol=%e >= ' \
-                    + 'resup=%e\n' % (iter, resEx / Mbn, tol, resvec(iter+1) )
-            resvec[iter+1] = resEx / Mbn;
+                    + 'resup=%e\n' % (iter, resEx / norm_Mb, tol, resvec(iter+1) )
+            resvec[iter+1] = resEx / norm_Mb;
 
         iter += 1
     # end MINRES iteration
