@@ -50,12 +50,8 @@ class GinlaModelEvaluator:
         if self._keo is None:
             self._assemble_keo()
 
-        if self.control_volumes is None:
-            self._compute_control_volumes()
-
         res = - self._keo * psi \
-              + self.control_volumes * psi * \
-                ( 1.0-self._temperature - abs( psi )**2 )
+              + psi * ( 1.0-self._temperature - abs( psi )**2 )
 
         return res
     # ==========================================================================
@@ -79,29 +75,18 @@ class GinlaModelEvaluator:
         if self._keo is None:
             self._assemble_keo()
 
-        if self.control_volumes is None:
-            self._compute_control_volumes()
-
         assert( self._psi is not None )
 
         return - self._keo * phi \
-            + self.control_volumes * \
-                  ( 1.0-self._temperature - 2.0*abs(self._psi)**2 ) * phi \
-            - self.control_volumes * self._psi**2 * phi.conjugate()
+            + ( 1.0-self._temperature - 2.0*abs(self._psi)**2 ) * phi \
+            - self._psi**2 * phi.conjugate()
     # ==========================================================================
     def inner_product( self, phi0, phi1 ):
         '''The natural inner product of the problem.
         '''
-        return np.vdot( phi0, phi1 ).real
-    # ==========================================================================
-    def norm( self, psi ):
-        '''Compute the discretized L2-norm.
-        '''
-        alpha = np.vdot( self.control_volumes * psi, psi )
-
-        assert( abs( alpha.imag ) <= 1.0e-10 * abs( alpha ) )
-
-        return math.sqrt( alpha.real )
+        if self.control_volumes is None:
+            self._compute_control_volumes()
+        return np.vdot( phi0, self.control_volumes * phi1 ).real
     # ==========================================================================
     def energy( self, psi ):
         '''Compute the Gibbs free energy.
@@ -110,7 +95,7 @@ class GinlaModelEvaluator:
         if self.control_volumes is None:
             self._compute_control_volumes()
 
-        alpha = - np.vdot( self.control_volumes * psi**2, psi**2 )
+        alpha = - np.vdot( psi**2, self.control_volumes * psi**2 )
         assert( abs( alpha.imag ) < 1.0e-10 )
 
         return alpha.real / self.control_volumes.sum()
@@ -157,6 +142,8 @@ class GinlaModelEvaluator:
             self._build_edgecoeff_cache()
         if self._mvp_edge_cache is None:
             self._build_mvp_edge_cache()
+        if self.control_volumes is None:
+            self._compute_control_volumes()
 
         # Loop over the all local edges of all cells.
         for ( cell_index, cell ) in enumerate( self.mesh.cells ):
@@ -173,12 +160,16 @@ class GinlaModelEvaluator:
                     alpha = self._edgecoeff_cache[cell_index][local_edge_index]
 
                     # Sum them into the matrix.
-                    self._keo[ index0, index0 ] += alpha
+                    self._keo[ index0, index0 ] += alpha \
+                                               / self.control_volumes[index0]
                     self._keo[ index0, index1 ] -= alpha \
-                                                 * cmath.exp( -1j * a_integral )
+                                               * cmath.exp( -1j * a_integral ) \
+                                               / self.control_volumes[index0]
                     self._keo[ index1, index0 ] -= alpha \
-                                                 * cmath.exp(  1j * a_integral )
-                    self._keo[ index1, index1 ] += alpha
+                                               * cmath.exp(  1j * a_integral ) \
+                                               / self.control_volumes[index1]
+                    self._keo[ index1, index1 ] += alpha \
+                                               / self.control_volumes[index1]
 
                     local_edge_index += 1
 

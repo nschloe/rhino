@@ -74,7 +74,7 @@ def _main():
     phi0 = np.zeros( num_unknowns, dtype=complex )
 
     # right hand side
-    rhs = np.ones( num_unknowns, dtype = complex )
+    rhs = np.ones( num_unknowns, dtype=complex )
 
     #rhs = np.empty( num_unknowns, dtype = complex )
     #radius = np.random.rand( num_unknowns )
@@ -85,7 +85,7 @@ def _main():
     # Get reference solution
     ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
-                                           tol = 1.0e-13,
+                                           tol = 1.0e-14,
                                            M = keo_prec,
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True
@@ -96,7 +96,7 @@ def _main():
     start_time = time.clock()
     sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
-                                           tol = 1.0e-11,
+                                           tol = 1.0e-12,
                                            M = keo_prec,
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True,

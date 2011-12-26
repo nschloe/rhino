@@ -4,7 +4,8 @@
 Preconditioners for the Jacobian of the Ginzburg--Landau problem.
 '''
 from scipy import sparse
-from scipy.sparse.linalg import LinearOperator, cg, splu, spilu
+from scipy.sparse.linalg import LinearOperator, splu, spilu
+import numerical_methods as nm
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class Preconditioners:
     '''
@@ -15,7 +16,7 @@ class Preconditioners:
         '''
         Initialization.
         '''
-        self._model_evaluator = model_evaluator
+        self._modeleval = model_evaluator
         self._keo_lu = None
         self._keo_ilu = None
         self._keo_ilu_droptol = None
@@ -32,18 +33,18 @@ class Preconditioners:
         Solves the equation system with
 
             self._keo.diagonal() * x \
-            - self.control_volumes * ( 1.0 - 2.0*abs(current_psi)**2 ) * x \
-            + self.control_volumes * current_psi**2 * x.conjugate()
+            - ( 1.0 - 2.0*abs(current_psi)**2 ) * x \
+            + current_psi**2 * x.conjugate()
             = psi.
         '''
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
+        if self._modeleval._keo is None:
+            self._modeleval._assemble_kinetic_energy_operator()
 
-        # Mind tht all operations below are executed elementwise.
-        a = self._model_evaluator._keo.diagonal() \
-              - self._model_evaluator.control_volumes \
-                * ( 1.0 - 2.0*abs(self._model_evaluator._psi)**2 )
-        b = self._model_evaluator.control_volumes *self._model_evaluator._psi**2
+        # Mind that all operations below are executed elementwise.
+        a = self._modeleval._keo.diagonal() \
+          - ( 1.0-self._modeleval._temperature \
+            - 2.0*abs(self._modeleval._psi)**2 )
+        b = self._modeleval._psi**2
 
         # One needs to solve
         #    a*z + b z.conj = psi
@@ -55,24 +56,23 @@ class Preconditioners:
         return ( a.conjugate() * psi - b * psi.conjugate() ) / alpha
     # ==========================================================================
     def keo_cgapprox( self, psi ):
+        '''Solves a system with the kinetic energy operator only using
+        ordinary CG.
         '''
-        Solves a system with the kinetic energy operator only via ordinary CG.
-        '''
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
+        if self._modeleval._keo is None:
+            self._modeleval._assemble_kinetic_energy_operator()
 
-        sol, info = cg( self._model_evaluator._keo, psi,
-                        x0 = None,
-                        tol = 1.0e-3,
-                        maxiter = 1000,
-                        xtype = None,
-                        M = None,
-                        callback = None
-                      )
+        sol, info = nm.cg_wrap( self._modeleval._keo,
+                                psi,
+                                x0 = None,
+                                inner_product = self._modeleval.inner_product,
+                                tol = 1.0e-10,
+                                M = None,
+                                callback = None
+                             )
 
         # make sure it could be solved
-        #print info
-        #assert( info == 0 )
+        assert info == 0
 
         return sol
     # ==========================================================================
@@ -81,10 +81,10 @@ class Preconditioners:
         '''
         import pyamg
         if self._keo_amg_solver is None:
-            if self._model_evaluator._keo is None:
-                self._model_evaluator._assemble_keo()
+            if self._modeleval._keo is None:
+                self._modeleval._assemble_keo()
             self._keo_amg_solver = \
-                pyamg.smoothed_aggregation_solver( self._model_evaluator._keo )
+                pyamg.smoothed_aggregation_solver( self._modeleval._keo )
 
         return self._keo_amg_solver.solve( psi,
                                            tol = 1e-10,
@@ -95,8 +95,8 @@ class Preconditioners:
         '''
         Solves a system with the kinetic energy operator only via ordinary CG.
         '''
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
+        if self._modeleval._keo is None:
+            self._modeleval._assemble_kinetic_energy_operator()
 
         # From http://crd.lbl.gov/~xiaoye/SuperLU/faq.html#sym-problem:
         # SuperLU cannot take advantage of symmetry, but it can still solve the
@@ -116,7 +116,7 @@ class Preconditioners:
         #    options.DiagPivotThresh = 0.001; /* or 0.0, 0.01, etc. */
         #
         if self._keo_lu is None:
-            self._keo_lu = splu( self._model_evaluator._keo,
+            self._keo_lu = splu( self._modeleval._keo,
                                  options = { 'SymmetricMode': True },
                                  permc_spec = 'MMD_AT_PLUS_A', # minimum deg
                                  diag_pivot_thresh = 0.0
@@ -140,13 +140,13 @@ class Preconditioners:
         '''
         Solves a system with the kinetic energy operator only via ordinary CG.
         '''
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
+        if self._modeleval._keo is None:
+            self._modeleval._assemble_kinetic_energy_operator()
 
         if self._keo_symmetric_ilu is None \
            or self._keo_symmetric_ilu_droptol is None \
            or droptol != self._keo_symmetric_ilu_droptol:
-            self._keo_symmetric_ilu = spilu( self._model_evaluator._keo,
+            self._keo_symmetric_ilu = spilu( self._modeleval._keo,
                                              drop_tol = droptol,
                                              fill_factor = 10,
                                              drop_rule = None,
@@ -171,13 +171,13 @@ class Preconditioners:
         '''
         Solves a system with the kinetic energy operator only via ordinary CG.
         '''
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
+        if self._modeleval._keo is None:
+            self._modeleval._assemble_kinetic_energy_operator()
 
         if self._keo_ilu is None \
            or self._keo_ilu_droptol is None \
            or droptol != self._keo_ilu_droptol:
-            self._keo_ilu = spilu( self._model_evaluator._keo,
+            self._keo_ilu = spilu( self._modeleval._keo,
                                    drop_tol = droptol,
                                    fill_factor = 10,
                                    drop_rule = None,
@@ -192,11 +192,11 @@ class Preconditioners:
         '''
         Solves a system with the kinetic energy operator only via ordinary CG.
         '''
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
+        if self._modeleval._keo is None:
+            self._modeleval._assemble_kinetic_energy_operator()
 
         if self._keoai_lu is None:
-            self._keoai_lu = splu( self._model_evaluator._keo
+            self._keoai_lu = splu( self._modeleval._keo
                                    + 1.0e-2 * sparse.identity( len(psi) )
                                  )
 
@@ -209,7 +209,7 @@ class Preconditioners:
         but to make sure that all the corresponding objects (the factorizations)
         are recreated next time they are needed.
         '''
-        self._model_evaluator.set_parameter( mu )
+        self._modeleval.set_parameter( mu )
 
         self._keo_lu = None
         self._keo_ilu = None
@@ -228,7 +228,7 @@ class Preconditioners:
         but to make sure that all the corresponding objects (the factorizations)
         are recreated next time they are needed.
         '''
-        self._model_evaluator.set_mesh( mesh )
+        self._modeleval.set_mesh( mesh )
 
         self._keo_lu = None
         self._keo_ilu = None
