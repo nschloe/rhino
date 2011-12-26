@@ -81,7 +81,7 @@ def _main():
 
     # --------------------------------------------------------------------------
     print "Solving the system (dim = %d)..." % (2*num_unknowns),
-    tol = 1.0e-15
+    tol = 1.0e-14
     maxiter = 2000
     start_time = time.clock()
     sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
@@ -90,7 +90,7 @@ def _main():
                                            maxiter = maxiter,
                                            #M = prec['precondictioner'],
                                            inner_product = ginla_modelval.inner_product,
-                                           #explicit_residual = True
+                                           explicit_residual = True
                                          )
     end_time = time.clock()
     if info == 0:

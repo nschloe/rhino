@@ -78,6 +78,21 @@ class TestLinearSolvers(unittest.TestCase):
         res = rhs - np.dot(A, x)
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=tol )
     # --------------------------------------------------------------------------
+    def test_minres_dense_complex(self):
+        # Create regular dense problem.
+        num_unknowns = 3
+        A = np.array( [[1,-2+1j,0], [-2-1j,2,-1], [0,-1,3]] )
+        rhs = np.ones( num_unknowns )
+        x0 = np.zeros( num_unknowns )
+        # Solve using MINRES.
+        tol = 1.0e-15
+        x, info = numerical_methods.berlin_minres( A, rhs, x0, tol=tol )
+        # Make sure the method converged.
+        self.assertEqual(info, 0)
+        # Check the residual.
+        res = rhs - np.dot(A, x)
+        self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=tol )
+    # --------------------------------------------------------------------------
     def test_minres_sparse(self):
         # Create sparse symmetric problem.
         num_unknowns = 100

@@ -50,6 +50,8 @@ def _apply( A, x ):
     elif isinstance( A, scipy.sparse.dia_matrix ) \
       or isinstance( A, scipy.sparse.csr_matrix ):
         return A * x
+    elif isinstance( A, scipy.sparse.linalg.LinearOperator ):
+        return A * x
     else:
         raise ValueError( 'Unknown operator type "%s".' % type(A) )
 # ==============================================================================
@@ -170,7 +172,8 @@ def minres_wrap( linear_operator,
                  tol = 1.0e-5,
                  maxiter = None,
                  M = None,
-                 inner_product = np.vdot
+                 inner_product = np.vdot,
+                 explicit_residual = False
                ):
     '''
     Wrapper around the MINRES method to get a vector with the relative residuals
@@ -184,31 +187,34 @@ def minres_wrap( linear_operator,
     # --------------------------------------------------------------------------
 
     relresvec = []
+    errorvec = None
 
     rhs = np.ones( len(rhs) )
-    sol, info = berlin_minres( linear_operator,
+    sol, info = minres( linear_operator,
                         rhs,
                         x0,
                         tol = tol,
                         maxiter = maxiter,
-                        xtype = xtype,
                         M = M,
-                        callback = _callback
+                        inner_product = inner_product,
+                        callback = _callback,
+                        explicit_residual = explicit_residual
                       )
 
-    return sol, info, relresvec
+    return sol, info, relresvec, errorvec
 # ==============================================================================
-def berlin_minres( A,
+def minres( A,
             b,
             x0,
             tol = 1e-5,
             maxiter = None,
             M = None,
-            callback = None,
             inner_product = np.vdot,
             x_cor = None,
             r0_proj = None,
-            proj = None
+            proj = None,
+            callback = None,
+            explicit_residual = False
             ):
     # --------------------------------------------------------------------------
     info = 0
@@ -239,7 +245,7 @@ def berlin_minres( A,
 
     # Allocate and initialize the 'large' memory blocks.
     # Last and current Lanczos vector:
-    V = [np.zeros(N), Mr0 / norm_Mr0]
+    V = [np.empty(N), Mr0 / norm_Mr0]
     # M*v{i} = P(:,2), M*v{i-1} = P(:,1)
     P = [np.zeros(N), r0 / norm_Mr0]
     # Necessary for efficient update of xk:
@@ -263,17 +269,18 @@ def berlin_minres( A,
         tsold = ts
         z  = _apply(A, V[1])
         z  = _apply(proj, z)
-        # tsold = inner_product(z, V[0])
+        # tsold = inner_product(V[0], z)
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
-        td = inner_product(z, V[1])
-        assert td.imag == 0.0
+        td = inner_product(V[1], z)
+        assert abs(td.imag) < 1.0e-15
+        td = td.real
         z  = z - td * P[1]
 
         ## local reorthogonalization
-        #tsold2 = inner_product(z, V[0])
+        #tsold2 = inner_product(V[0], z)
         #z   = z - tsold2 * P[0]
-        #td2 = inner_product( z, V[1])
+        #td2 = inner_product(V[1], z)
         #td  = td + td2
         #z   = z - td2*P[1]
         #tsold = tsold + tsold2
@@ -284,7 +291,7 @@ def berlin_minres( A,
 
         # Apply the preconditioner.
         v  = _apply(M, z)
-        alpha = inner_product(v, z)
+        alpha = inner_product(z, v)
         assert alpha.imag == 0.0
         alpha = alpha.real
         assert alpha > 0.0
@@ -317,7 +324,13 @@ def berlin_minres( A,
 
         # ----------------------------------------------------------------------
         # update residual
-        norm_rel_residual = abs(y[0]) / norm_Mb
+        if explicit_residual:
+            xkcor = _apply(x_cor, xk)
+            r = b - _apply(A, xkcor)
+            norm_res_exact, _ = _norm(r, M, inner_product=inner_product)
+            norm_rel_residual = norm_res_exact / norm_Mb
+        else:
+            norm_rel_residual = abs(y[0]) / norm_Mb
 
         # Compute residual explicitly if updated residual is below tolerance.
         if norm_rel_residual <= tol:
@@ -327,9 +340,10 @@ def berlin_minres( A,
             norm_res_exact, _ = _norm(r, M, inner_product=inner_product)
             norm_rel_res_exact = norm_res_exact / norm_Mb
             if norm_rel_res_exact > tol:
-                print 'Info (iter %d): Updated residual is below tolerance,' \
-                    + 'explicit residual is NOT!\n  (resEx=%e > tol=%e >= ' \
-                    + 'resup=%e\n' % (iter, norm_rel_res_exact, tol, norm_rel_residual )
+                print ( 'Info (iter %d): Updated residual is below tolerance, '
+                      + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
+                      + 'resup=%g)\n' \
+                      ) % (iter, norm_rel_res_exact, tol, norm_rel_residual)
             norm_rel_residual = norm_rel_res_exact
 
         if callback is not None:
@@ -346,366 +360,7 @@ def berlin_minres( A,
         xkcor = _apply(x_cor, xk)
         info = 1
 
-    ## Crop the residual vector.
-    #resvec = resvec[1:iter+1]
-
     return xkcor, info
-# ==============================================================================
-def minres( A,
-            b,
-            x0 = None,
-            shift = 0.0,
-            tol = 1e-5,
-            maxiter = None,
-            xtype = None,
-            M = None,
-            callback = None,
-            show = False,
-            check = False
-          ):
-    # --------------------------------------------------------------------------
-    def SymOrtho( a, b ):
-        aa = abs(a)
-        ab = abs(b)
-        if b == 0.:
-            s = 0.
-            r = aa
-            if aa == 0.:
-                c = 1.
-            else:
-                c = a/aa
-        elif a == 0.:
-            c = 0.
-            s = b/ab
-            r = ab
-        elif ab >= aa:
-            sb = 1
-            if b < 0:
-                sb = -1
-            tau = a/b
-            s = sb*(1+tau**2)**-0.5
-            c = s*tau
-            r = b/s
-        elif aa > ab:
-            print 'my regime'
-            sa = 1
-            if a < 0:
-                sa=-1
-            tau = b/a
-            c = sa*(1+tau**2)**-0.5
-            s = c*tau
-            r = a/c
-        return c,s,r
-    # --------------------------------------------------------------------------
-
-    show = False
-    check = False
-    eps = 2.2e-16
-
-    n = len(b)
-    if maxiter is None: maxiter = 5*n
-
-    precon = True
-    if M is None:
-        precon = False
-
-    if show:
-        print '\n minres.m   SOL, Stanford University   Version of 10 May 2009'
-        print '\n Solution of symmetric Ax = b or (A-shift*I)x = b'
-        print '\n\n n      =%8g    shift =%22.14e' % (n,shift)
-        print '\n maxiter =%8g    tol  =%10.2e\n'  % (maxiter,tol)
-
-    istop = 0;   itn   = 0;   Anorm = 0;    Acond = 0;
-    rnorm = 0;   ynorm = 0;   done  = False;
-    x     = np.zeros( n )
-
-    """
-    %------------------------------------------------------------------
-    % Set up y and v for the first Lanczos vector v1.
-    % y  =  beta1 P' v1,  where  P = C**(-1).
-    % v is really P' v1.
-    %------------------------------------------------------------------
-    """
-    y     = +b;
-    r1    = +b;
-    if precon:
-        M(y) # y = minresxxxM( M,b ); end
-    beta1 = np.vdot(b, y)  # beta1 = b'*y;
-    print "beta1: ", beta1
-
-    """
-    %  Test for an indefinite preconditioner.
-    %  If b = 0 exactly, stop with x = 0.
-    """
-    if beta1 < 0:
-        istop = 8
-        show = True
-        done = True
-    if beta1 == 0:
-        show = True
-        done = True
-
-    if beta1 > 0:
-        beta1  = sqrt( beta1 );       # Normalize y to get v1 later.
-
-    """
-    % See if M is symmetric.
-    """
-    r2 = np.zeros( n )
-    if check and precon:
-        copy(r2, y)                     # r2     = minresxxxM( M,y );
-        M( r2 )
-        s = nrm2(y)**2                  # s      = y' *y;
-        t = dotu(r1, r2)                # t      = r1'*r2;
-        z = abs(s-t)                    # z      = abs(s-t);
-        epsa = (s+eps)*eps**(1./3.)     # epsa   = (s+eps)*eps^(1/3);
-        if z > epsa: istop = 7;  show = True;  done = True;
-    # end if
-    """
-    % See if A is symmetric.
-    """
-    w = np.zeros( n )
-    if check:
-        A(y, w)                         # w    = minresxxxA( A,y );
-        A(w, r2)                        # r2   = minresxxxA( A,w );
-        s = nrm2(w)**2                  # s    = w'*w;
-        t= dotu(y, r2)                  # t    = y'*r2;
-        z = abs(s-t)                    # z    = abs(s-t);
-        epsa = (s+eps)*eps**(1./3.)     # epsa = (s+eps)*eps^(1/3);
-        if z > epsa: istop = 6;  done  = True;  show = True # end if
-    # end if
-
-    """
-    %------------------------------------------------------------------
-    % Initialize other quantities.
-    % ------------------------------------------------------------------
-    """
-    oldb   = 0;       beta   = beta1;   dbar   = 0;       epsln  = 0;
-    qrnorm = beta1;   phibar = beta1;   rhs1   = beta1;
-    rhs2   = 0;       tnorm2 = 0;       ynorm2 = 0;
-    cs     = -1;      sn     = 0;
-    Arnorm = 0;
-
-    w  = np.zeros( n )
-    w2 = np.zeros( n )
-    r2 = r1.copy() # r2     = r1;
-    v  = np.zeros( n ) 
-    w1 = np.zeros( n )
-
-    if show:
-        print ' '
-        print ' '
-        head1 = '   Itn     x[0]     Compatible    LS';
-        head2 = '         norm(A)  cond(A)';
-        head2 +=' gbar/|A|';  # %%%%%% Check gbar
-        print head1 + head2
-
-    print "v", v
-    print "y", y
-    """
-    %---------------------------------------------------------------------
-    % Main iteration loop.
-    % --------------------------------------------------------------------
-    """
-    if not done:                     #  k = itn = 1 first time through
-        while itn < maxiter:
-            itn    = itn+1;
-            """
-            %-----------------------------------------------------------------
-            % Obtain quantities for the next Lanczos vector vk+1, k = 1, 2,...
-            % The general iteration is similar to the case k = 1 with v0 = 0:
-            %
-            %   p1      = Operator * v1  -  beta1 * v0,
-            %   alpha1  = v1'p1,
-            %   q2      = p2  -  alpha1 * v1,
-            %   beta2^2 = q2'q2,
-            %   v2      = (1/beta2) q2.
-            %
-            % Again, y = betak P vk,  where  P = C**(-1).
-            % .... more description needed.
-            %-----------------------------------------------------------------
-            """
-            print "beta: ", beta
-            s = 1 / beta;                 # Normalize previous vector (in y).
-            print "s: ", s
-            """
-            v = s*y;                    # v = vk if P = I
-            y = minresxxxA( A,v ) - shift*v;
-            if itn >= 2, y = y - (beta/oldb)*r1; end
-            """
-            v = s * y.copy()
-            print "v", v
-            y = A * v
-            if abs(shift) > 0:
-                y -= shift*v
-            if itn >= 2:
-                y -= beta/oldb * r1
-
-            print "v", v
-            print "y", y
-            alfa = np.vdot( v, y ) # alphak
-            print "r2", r2
-            y   -= alfa/beta * r2  # y    = (- alfa/beta)*r2 + y;
-            print "yy ", y
-
-            # r1     = r2;
-            # r2     = y;
-            r1 = y.copy()
-            _y = r1
-            r1 = r2
-            r2 = y
-            y  = _y
-            print "r22 ", r2
-
-            if precon:
-                 y = M * r2     # y = minresxxxM( M,r2 ); # end if
-            oldb   = beta;              # oldb = betak
-            beta   = np.vdot( r2, y )    # beta = betak+1^2
-            if beta < 0:
-                istop = 6
-                break
-            beta   = sqrt(beta)
-            tnorm2 = tnorm2 + alfa**2 + oldb**2 + beta**2
-
-            if itn == 1:                # Initialize a few things.
-                if beta/beta1 < 10*eps: # beta2 = 0 or ~ 0.
-                    istop = -1         # Terminate later.
-                # %tnorm2 = alfa**2  ??
-                gmax   = abs(alfa)      # alpha1
-                gmin   = gmax           # alpha1
-            """
-            % Apply previous rotation Qk-1 to get
-            %   [deltak epslnk+1] = [cs  sn][dbark    0   ]
-            %   [gbar k dbar k+1]   [sn -cs][alfak betak+1].
-            """
-            oldeps = epsln
-            delta  = cs*dbar + sn*alfa  # delta1 = 0         deltak
-            print "sn, dbar, cs, alfa ", sn, dbar, cs, alfa
-            gbar   = sn*dbar - cs*alfa  # gbar 1 = alfa1     gbar k
-            epsln  =           sn*beta  # epsln2 = 0         epslnk+1
-            dbar   =         - cs*beta  # dbar 2 = beta2     dbar k+1
-            root   = sqrt(gbar**2 + dbar**2)
-            Arnorm = phibar*root;       # ||Ar{k-1}||
-            """
-            % Compute the next plane rotation Qk
-            gamma  = norm([gbar beta]); % gammak
-            gamma  = max([gamma eps]);
-            cs     = gbar/gamma;        % ck
-            sn     = beta/gamma;        % sk
-            """
-            print "gbar, beta" , gbar, beta
-            cs,sn,gamma = SymOrtho( gbar, beta )
-            print "sn: ", sn
-            phi    = cs * phibar ;      # phik
-            phibar = sn * phibar ;      # phibark+1
-
-            print 'phibar', phibar
-
-            """
-            % Update  x.
-            """
-            denom = 1 / gamma;
-            """
-            w1    = w2;
-            w2    = w;
-            w     = (v - oldeps*w1 - delta*w2)*denom;
-            x     = x + phi*w;
-            """
-            w1 = w.copy()
-            _w = w1
-            w1 = w2
-            w2 = w
-            w  = _w
-
-            w = denom * ( v - oldeps*w1 - delta*w2 )
-            x += phi*w
-
-            if callback is not None:
-                callback( x )
-            """
-            % Go round again.
-            """
-            gmax   = max( gmax, gamma );
-            gmin   = min( gmin, gamma );
-            z      = rhs1 / gamma;
-            # ynorm2 = z**2  + ynorm2;
-            ynorm2 = np.vdot( x, x )
-            #rhs1   = rhs2 - delta*z;
-            #rhs2   =      - epsln*z;
-            """
-            % Estimate various norms.
-            """
-            Anorm  = sqrt( tnorm2 )
-            ynorm  = sqrt( ynorm2 )
-            epsa   = Anorm*eps
-            epsx   = Anorm*ynorm*eps
-            epsr   = Anorm*ynorm*tol
-            diag   = gbar
-            if diag==0:
-                diag = epsa
-
-            qrnorm = phibar
-            rnorm  = qrnorm
-            test1  = rnorm / (Anorm*ynorm) #  ||r|| / (||A|| ||x||)
-            test2  = root  / Anorm # ||Ar{k-1}|| / (||A|| ||r_{k-1}||)
-            """
-            % Estimate  cond(A).
-            % In this version we look at the diagonals of  R  in the
-            % factorization of the lower Hessenberg matrix,  Q * H = R,
-            % where H is the tridiagonal matrix from Lanczos with one
-            % extra row, beta(k+1) e_k^T.
-            """
-            Acond  = gmax / gmin;
-            """
-            % See if any of the stopping criteria are satisfied.
-            % In rare cases, istop is already -1 from above (Abar = const*I).
-            """
-            if istop==0:
-                t1 = 1 + test1;       # These tests work if tol < eps
-                t2 = 1 + test2;
-                if t2    <= 1      :istop = 2; # end if
-                if t1    <= 1      :istop = 1; # end if
-                if itn   >= maxiter :istop = 5; # end if
-                if Acond >= 0.1/eps:istop = 4; # end if
-                if epsx  >= beta1  :istop = 3; # end if
-                if test2 <= tol   :istop = 2; # end if
-                if test1 <= tol   :istop = 1; # end if
-            # end if
-            """
-            % See if it is time to print something.
-            """
-            prnt   = False;
-            if n      <= 40       : prnt = True; # end if
-            if itn    <= 10       : prnt = True; # end if
-            if itn    >= maxiter-10: prnt = True; # end if
-            if itn%10 == 0        : prnt = True  # end if
-            if qrnorm <= 10*epsx  : prnt = True; # end if
-            if qrnorm <= 10*epsr  : prnt = True; # end if
-            if Acond  <= 1e-2/eps : prnt = True; # end if
-            if istop  !=  0       : prnt = True; # end if
-
-            if show and prnt:
-                str1 = '%6g %12.5e %10.3e' % ( itn, x[0], test1 );
-                str2 = ' %10.3e'           % ( test2 );
-                str3 = ' %8.1e %8.1e'      % ( Anorm, Acond );
-                str3 +=' %8.1e'            % ( gbar/Anorm);
-                print str1, str2, str3
-            # end if
-            if abs(istop) > 0: break;        # end if
-        # end while % main loop
-    # end % if ~done early
-    """
-    % Display final status.
-    """
-    if show:
-        print " "
-        print ' istop   =  %3g               itn   =%5g'% (istop,itn)
-        print ' Anorm   =  %12.4e      Acond =  %12.4e' % (Anorm,Acond)
-        print ' rnorm   =  %12.4e      ynorm =  %12.4e' % (rnorm,ynorm)
-        print ' Arnorm  =  %12.4e' % Arnorm
-        print msg[istop+2]
-    #return x, istop, itn, rnorm, Arnorm, Anorm, Acond, ynorm
-    return x, 0
 # ==============================================================================
 def newton( x0,
             model_evaluator,
