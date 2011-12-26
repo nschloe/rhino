@@ -80,17 +80,25 @@ def _main():
     #test_preconditioners = _create_preconditioner_list( precs, num_unknowns )
 
     # --------------------------------------------------------------------------
-    print "Solving the system (dim = %d)..." % (2*num_unknowns),
-    tol = 1.0e-14
-    maxiter = 2000
-    start_time = time.clock()
-    sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
+    # Get reference solution
+    ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
-                                           tol = tol,
-                                           maxiter = maxiter,
+                                           tol = 1.0e-13,
                                            #M = prec['precondictioner'],
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True
+                                         )
+    assert info == 0
+
+    print "Solving the system (dim = %d)..." % (2*num_unknowns),
+    start_time = time.clock()
+    sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
+                                           x0 = phi0,
+                                           tol = 1.0e-11,
+                                           #M = prec['precondictioner'],
+                                           inner_product = ginla_modelval.inner_product,
+                                           explicit_residual = True,
+                                           exact_solution = ref_sol
                                          )
     end_time = time.clock()
     if info == 0:
@@ -99,7 +107,7 @@ def _main():
         print "no convergence.",
     print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
     pp.semilogy( relresvec )
-    #pp.semilogy( errorvec )
+    pp.semilogy( errorvec )
     #pp.semilogy( trilinos_relresvec )
     pp.show()
     # --------------------------------------------------------------------------

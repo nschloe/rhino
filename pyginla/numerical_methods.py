@@ -74,7 +74,8 @@ def cg_wrap( linear_operator,
         relresvec.append( relative_residual )
         if exact_solution is not None:
             error = exact_solution - x
-            errorvec.append( sqrt(inner_product(error,error)) )
+            nrm, _ = _norm(error, inner_product=inner_product)
+            errorvec.append( nrm )
     # --------------------------------------------------------------------------
 
     relresvec = []
@@ -167,13 +168,14 @@ def cg( A,
     return x, info
 # ==============================================================================
 def minres_wrap( linear_operator,
-                 rhs,
+                 b,
                  x0,
                  tol = 1.0e-5,
                  maxiter = None,
                  M = None,
                  inner_product = np.vdot,
-                 explicit_residual = False
+                 explicit_residual = False,
+                 exact_solution = None
                ):
     '''
     Wrapper around the MINRES method to get a vector with the relative residuals
@@ -181,17 +183,18 @@ def minres_wrap( linear_operator,
     '''
     # --------------------------------------------------------------------------
     def _callback( norm_rel_residual, x ):
-        #r = rhs - linear_operator * x
-        #relresvec.append(_norm(r, M=M, inner_product=inner_product))
         relresvec.append( norm_rel_residual )
+        if exact_solution is not None:
+            error = exact_solution - x
+            nrm, _ = _norm(error, inner_product=inner_product)
+            errorvec.append( nrm )
     # --------------------------------------------------------------------------
 
     relresvec = []
-    errorvec = None
+    errorvec = []
 
-    rhs = np.ones( len(rhs) )
     sol, info = minres( linear_operator,
-                        rhs,
+                        b,
                         x0,
                         tol = tol,
                         maxiter = maxiter,
@@ -229,7 +232,6 @@ def minres( A,
     # --------------------------------------------------------------------------
     # Init Lanczos and MINRES
     r0 = _apply(r0_proj, r0)
-    Mr0 = _apply(M, r0)
 
     norm_Mr0, Mr0 = _norm(r0, M=M, inner_product = inner_product)
     norm_r0, _ = _norm(r0, inner_product = inner_product)
@@ -246,7 +248,7 @@ def minres( A,
     # Allocate and initialize the 'large' memory blocks.
     # Last and current Lanczos vector:
     V = [np.empty(N), Mr0 / norm_Mr0]
-    # M*v{i} = P(:,2), M*v{i-1} = P(:,1)
+    # M*v[i] = P[1], M*v[i-1] = P[0]
     P = [np.zeros(N), r0 / norm_Mr0]
     # Necessary for efficient update of xk:
     W = [np.zeros(N), np.zeros(N)]
