@@ -213,7 +213,7 @@ def berlin_minres( A,
     # Necessary for efficient update of xk:
     W = [np.zeros(N), np.zeros(N)]
     # some small helpers
-    ts = 0             # (non-existing) first off-diagonal entry (corresponds to pi1)
+    ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
     y  = [norm_Mr0, 0] # first entry is (updated) residual
     G2 = np.eye(2)     # old givens rotation
     G1 = np.eye(2)     # even older givens rotation ;)
@@ -228,7 +228,6 @@ def berlin_minres( A,
         tsold = ts
         z  = _apply(A, V[1])
         z  = _apply(proj, z)
-
         # tsold = inner_product(z, V(:,1))
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):

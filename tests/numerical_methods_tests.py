@@ -70,34 +70,33 @@ class TestLinearSolvers(unittest.TestCase):
         rhs = np.random.rand( num_unknowns )
         x0 = np.zeros( num_unknowns )
         # Solve using MINRES.
-        tol = 1.0e-15
+        tol = 1.0e-13
         x, info = numerical_methods.berlin_minres( A, rhs, x0, tol=tol )
+        # Make sure the method converged.
+        self.assertEqual(info, 0)
+        # Check the residual.
+        res = rhs - np.dot(A, x)
+        self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=tol )
+    # --------------------------------------------------------------------------
+    def test_minres_sparse(self):
+        # Create sparse symmetric problem.
+        num_unknowns = 100
+        data = np.array([ -1.0 * np.ones(num_unknowns),
+                           2.0 * np.ones(num_unknowns),
+                          -1.0 * np.ones(num_unknowns)
+                       ])
+        diags = np.array([-1,0,1])
+        A = scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
+        rhs = np.random.rand(num_unknowns)
+        x0 = np.zeros( num_unknowns )
+        # Solve using CG.
+        tol = 1.0e-11
+        x, info = numerical_methods.cg( A, rhs, x0, tol=tol )
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.
         res = rhs - A * x
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=tol )
-    # --------------------------------------------------------------------------
-    #def test_minres_sparse(self):
-        #self._create_spd_matrix( 5 )
-        ## Create sparse problem.
-        #num_unknowns = 100
-        #data = np.array([ -1.0 * np.ones(num_unknowns),
-                           #2.0 * np.ones(num_unknowns),
-                          #-1.0 * np.ones(num_unknowns)
-                       #])
-        #diags = np.array([-1,0,1])
-        #A = scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
-        #rhs = np.random.rand(num_unknowns)
-        #x0 = np.zeros( num_unknowns )
-        ## Solve using CG.
-        #tol = 1.0e-11
-        #x, info = numerical_methods.cg( A, rhs, x0, tol=tol )
-        ## Make sure the method converged.
-        #self.assertEqual(info, 0)
-        ## Check the residual.
-        #res = rhs - A * x
-        #self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=tol )
     ## --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
