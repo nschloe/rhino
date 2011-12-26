@@ -85,7 +85,8 @@ class Preconditioners:
             self._model_evaluator._assemble_kinetic_energy_operator()
 
         if self._keo_amg_solver is None:
-            self._keo_amg_solver = pyamg.smoothed_aggregation_solver( self._model_evaluator._keo )
+            self._keo_amg_solver = \
+                pyamg.smoothed_aggregation_solver( self._model_evaluator._keo )
 
         return self._keo_amg_solver.solve( psi,
                                            tol = 1e-5,

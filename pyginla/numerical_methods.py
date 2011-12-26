@@ -6,7 +6,6 @@ Collection of numerical algorithms.
 # ==============================================================================
 from scipy.sparse.linalg import LinearOperator, arpack
 import numpy as np
-from scipy.linalg import norm
 import scipy
 from math import sqrt
 # ==============================================================================
@@ -60,7 +59,6 @@ def cg_wrap( linear_operator,
              x0,
              tol = 1.0e-5,
              maxiter = 1000,
-             xtype = None,
              M = None,
              explicit_residual = False,
              exact_solution = None,
@@ -86,7 +84,6 @@ def cg_wrap( linear_operator,
                     x0,
                     tol = tol,
                     maxiter = maxiter,
-                    xtype = xtype,
                     M = M,
                     callback = _callback,
                     explicit_residual = explicit_residual,
@@ -100,7 +97,6 @@ def cg( A,
         x0,
         tol = 1.0e-5,
         maxiter = None,
-        xtype = None,
         M = None,
         callback = None,
         explicit_residual = False,
@@ -228,19 +224,17 @@ def minres( A,
     r0 = b - _apply(A, x0)
 
     xk = x0.copy()
-    iter_proj = proj
     # --------------------------------------------------------------------------
     # Init Lanczos and MINRES
     r0 = _apply(r0_proj, r0)
 
     norm_Mr0, Mr0 = _norm(r0, M=M, inner_product = inner_product)
-    norm_r0, _ = _norm(r0, inner_product = inner_product)
 
     # Compute M-norm of b.
     # Note: stopping criterion is ||M\(b-A*xk)||_M / ||M\b||_M < tol
     # If a projection is applied we obtain with b-A*xcor(xk)=Proj(b-A*xk) also
     # ||M\Proj(b-A*xk)||_M / ||M\b||_M = ||M\(b-A*xcor(xk))||_M / ||M\b||_M < tol
-    norm_Mb, Mb = _norm(b, M=M, inner_product = inner_product)
+    norm_Mb, _ = _norm(b, M=M, inner_product = inner_product)
 
     norm_rel_residual = norm_Mr0 / norm_Mb
     # --------------------------------------------------------------------------
@@ -257,7 +251,7 @@ def minres( A,
     y  = [norm_Mr0, 0] # first entry is (updated) residual
     G2 = np.eye(2)     # old givens rotation
     G1 = np.eye(2)     # even older givens rotation ;)
-    iter = 0
+    k = 0
 
     if callback is not None:
         callback( norm_rel_residual, xk )
@@ -265,7 +259,7 @@ def minres( A,
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
     # --------------------------------------------------------------------------
-    while norm_rel_residual > tol and iter <= maxiter:
+    while norm_rel_residual > tol and k <= maxiter:
         # ---------------------------------------------------------------------
         # Lanczos
         tsold = ts
@@ -345,20 +339,20 @@ def minres( A,
                 print ( 'Info (iter %d): Updated residual is below tolerance, '
                       + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
                       + 'resup=%g)\n' \
-                      ) % (iter, norm_rel_res_exact, tol, norm_rel_residual)
+                      ) % (k, norm_rel_res_exact, tol, norm_rel_residual)
             norm_rel_residual = norm_rel_res_exact
 
         if callback is not None:
             callback( norm_rel_residual, xk )
 
-        iter += 1
+        k += 1
     # end MINRES iteration
     # --------------------------------------------------------------------------
 
     # Ultimate convergence test.
     if norm_rel_residual > tol:
         print 'No convergence after iter %d (res=%e > tol=%e)' % \
-              (iter-1, norm_rel_residual, tol)
+              (k-1, norm_rel_residual, tol)
         xkcor = _apply(x_cor, xk)
         info = 1
 
