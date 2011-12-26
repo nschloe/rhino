@@ -18,7 +18,7 @@ from matplotlib import rc
 rc( 'text', usetex = True )
 rc( 'font', family = 'serif' )
 
-from preconditioners import *
+import preconditioners
 import matplotlib2tikz
 # ==============================================================================
 def _main():
@@ -36,7 +36,7 @@ def _main():
     ginla_modelval = ginla_modelevaluator.GinlaModelEvaluator( mesh, A, mu )
 
     # initialize the preconditioners
-    precs = Preconditioners( ginla_modelval )
+    precs = preconditioners.Preconditioners( ginla_modelval )
 
     num_unknowns = len( mesh.nodes )
 
@@ -45,6 +45,12 @@ def _main():
                                      matvec = ginla_modelval.apply_jacobian,
                                      dtype = complex
                                    )
+
+    # create precondictioner obj
+    keo_prec = LinearOperator( (num_unknowns, num_unknowns),
+                                matvec = precs.keo_amg,
+                                dtype = complex
+                             )
 
     #_plot_l2_condition_numbers( ginla_modelval )
 
@@ -68,23 +74,19 @@ def _main():
     phi0 = np.zeros( num_unknowns, dtype=complex )
 
     # right hand side
-    rhs = (1+1j) * np.ones( num_unknowns, dtype = complex )
+    rhs = np.ones( num_unknowns, dtype = complex )
 
     #rhs = np.empty( num_unknowns, dtype = complex )
     #radius = np.random.rand( num_unknowns )
     #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
     #for k in range( num_unknowns ):
         #rhs[ k ] = cmath.rect(radius[k], arg[k])
-
-    ## create the list of preconditioners to test
-    #test_preconditioners = _create_preconditioner_list( precs, num_unknowns )
-
     # --------------------------------------------------------------------------
     # Get reference solution
     ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
                                            tol = 1.0e-13,
-                                           #M = prec['precondictioner'],
+                                           M = keo_prec,
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True
                                          )
@@ -95,7 +97,7 @@ def _main():
     sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
                                            tol = 1.0e-11,
-                                           #M = prec['precondictioner'],
+                                           M = keo_prec,
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True,
                                            exact_solution = ref_sol
@@ -108,7 +110,6 @@ def _main():
     print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
     pp.semilogy( relresvec )
     pp.semilogy( errorvec )
-    #pp.semilogy( trilinos_relresvec )
     pp.show()
     # --------------------------------------------------------------------------
     #_run_one_mu( ginla_modelval,

@@ -77,19 +77,17 @@ class Preconditioners:
         return sol
     # ==========================================================================
     def keo_amg( self, psi ):
-        '''
-        Algebraic multigrid solve.
+        '''Algebraic multigrid solve.
         '''
         import pyamg
-        if self._model_evaluator._keo is None:
-            self._model_evaluator._assemble_kinetic_energy_operator()
-
         if self._keo_amg_solver is None:
+            if self._model_evaluator._keo is None:
+                self._model_evaluator._assemble_keo()
             self._keo_amg_solver = \
                 pyamg.smoothed_aggregation_solver( self._model_evaluator._keo )
 
         return self._keo_amg_solver.solve( psi,
-                                           tol = 1e-5,
+                                           tol = 1e-10,
                                            accel = None
                                          )
     # ==========================================================================

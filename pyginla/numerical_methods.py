@@ -38,6 +38,8 @@ def _norm_squared( x, M = None, inner_product = np.vdot ):
 def _norm( x, M = None, inner_product = np.vdot ):
     '''Compute the norm w.r.t. to a given scalar product.'''
     norm2, Mx = _norm_squared( x, M = M, inner_product = inner_product )
+    if norm2 < 0.0:
+        raise ValueError( '<x,Mx> = %g. M not positive definite?' % norm2 )
     return sqrt(norm2), Mx
 # ==============================================================================
 def _apply( A, x ):
