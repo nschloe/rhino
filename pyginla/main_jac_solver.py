@@ -6,25 +6,25 @@ Solve the linearized Ginzburg--Landau problem.
 # ==============================================================================
 import mesh_io
 import ginla_modelevaluator
+import preconditioners
 import numerical_methods as nm
-from scipy.sparse.linalg import cg, bicgstab, LinearOperator, arpack
+from scipy.sparse.linalg import LinearOperator, arpack
 import time
 
 import numpy as np
 import cmath
 
 import matplotlib.pyplot as pp
-from matplotlib import rc
-rc( 'text', usetex = True )
-rc( 'font', family = 'serif' )
+#from matplotlib import rc
+#rc( 'text', usetex = True )
+#rc( 'font', family = 'serif' )
 
-import preconditioners
 import matplotlib2tikz
 # ==============================================================================
 def _main():
     '''Main function.
     '''
-    filename = _parse_input_arguments()
+    filename, use_preconditioner = _parse_input_arguments()
 
     # read the mesh
     print "Reading the mesh...",
@@ -47,19 +47,22 @@ def _main():
                                    )
 
     # create precondictioner obj
-    keo_prec = LinearOperator( (num_unknowns, num_unknowns),
-                                matvec = precs.keo_amg,
-                                dtype = complex
-                             )
+    if use_preconditioner:
+        keo_prec = LinearOperator( (num_unknowns, num_unknowns),
+                                    matvec = precs.keo_amg,
+                                    dtype = complex
+                                 )
+    else:
+        keo_prec = None
 
     #_plot_l2_condition_numbers( ginla_modelval )
 
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
     #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns, dtype = complex )
-    #current_psi = 1.0 * np.ones( num_unknowns, dtype = complex )
+    current_psi = 1.0 * np.ones( num_unknowns, dtype = complex )
 
-    current_psi = psi
+    #current_psi = psi
 
     # generate random numbers within the unit circle
     #current_psi = np.empty( num_unknowns, dtype = complex )
@@ -83,14 +86,21 @@ def _main():
         #rhs[ k ] = cmath.rect(radius[k], arg[k])
     # --------------------------------------------------------------------------
     # Get reference solution
-    ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
-                                           x0 = phi0,
-                                           tol = 1.0e-14,
-                                           M = keo_prec,
-                                           inner_product = ginla_modelval.inner_product,
-                                           explicit_residual = True
-                                         )
-    assert info == 0
+    #print "Get reference solution (dim = %d)..." % (2*num_unknowns),
+    #start_time = time.clock()
+    #ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
+                                           #x0 = phi0,
+                                           #tol = 1.0e-14,
+                                           #M = keo_prec,
+                                           #inner_product = ginla_modelval.inner_product,
+                                           #explicit_residual = True
+                                         #)
+    #end_time = time.clock()
+    #if info == 0:
+        #print "success!",
+    #else:
+        #print "no convergence.",
+    #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
 
     print "Solving the system (dim = %d)..." % (2*num_unknowns),
     start_time = time.clock()
@@ -100,7 +110,7 @@ def _main():
                                            M = keo_prec,
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True,
-                                           exact_solution = ref_sol
+                                           #exact_solution = ref_sol
                                          )
     end_time = time.clock()
     if info == 0:
@@ -109,7 +119,7 @@ def _main():
         print "no convergence.",
     print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
     pp.semilogy( relresvec )
-    pp.semilogy( errorvec )
+    #pp.semilogy( errorvec )
     pp.show()
     # --------------------------------------------------------------------------
     #_run_one_mu( ginla_modelval,
@@ -566,7 +576,7 @@ def _plot_l2_condition_numbers( model_evaluator ):
     pp.title( 'Smallest magnitude eigenvalues of J' )
 
     #pp.plot( mus, large_eigenvals, 'gv' )
-    #pp.title( 'Largest magnitude eigenvalue of the KEO' )
+   #pp.title( 'Largest magnitude eigenvalue of the KEO' )
 
     pp.xlabel( '$\mu$' )
     pp.show()
@@ -601,9 +611,16 @@ def _parse_input_arguments():
                          help    = 'ExodusII file containing the geometry and initial state'
                        )
 
+    parser.add_argument( '--noprec', '-n',
+                         dest='use_preconditioner',
+                         action='store_const',
+                         const=False,
+                         default=True,
+                         help='don\'t use a preconditioner (default: use keo)')
+
     args = parser.parse_args()
 
-    return args.filename
+    return args.filename, args.use_preconditioner
 # ==============================================================================
 if __name__ == "__main__":
     _main()

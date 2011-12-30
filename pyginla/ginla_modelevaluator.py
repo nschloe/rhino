@@ -212,8 +212,8 @@ class GinlaModelEvaluator:
                 ##
                 ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
                 ##
-                #node0 = self.mesh.nodes[ edge[0] ].coords
-                #node1 = self.mesh.nodes[ edge[1] ].coords
+                #node0 = self.mesh.nodes[ edge[0] ]
+                #node1 = self.mesh.nodes[ edge[1] ]
                 #midpoint = 0.5 * ( node0 + node1 )
 
                 ## Instead of projecting onto the normalized edge and then
@@ -289,8 +289,8 @@ class GinlaModelEvaluator:
                 ##
                 ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
                 ##
-                #node0 = self.mesh.nodes[ edge[0] ].coords
-                #node1 = self.mesh.nodes[ edge[1] ].coords
+                #node0 = self.mesh.nodes[ edge[0] ]
+                #node1 = self.mesh.nodes[ edge[1] ]
                 #midpoint = 0.5 * ( node0 + node1 )
 
                 ## Instead of projecting onto the normalized edge and then
@@ -328,29 +328,29 @@ class GinlaModelEvaluator:
             num_local_nodes = len( cell.node_indices )
             # We only deal with simplices.
             num_local_edges = num_local_nodes*(num_local_nodes-1) / 2
-            local_edge_coords = []
+            local_edge = []
             for e0 in xrange( num_local_nodes ):
-                node0 = self.mesh.nodes[cell.node_indices[e0]].coords
+                node0 = self.mesh.nodes[cell.node_indices[e0]]
                 for e1 in xrange( e0+1, num_local_nodes ):
-                    node1 = self.mesh.nodes[cell.node_indices[e1]].coords
-                    local_edge_coords.append( node1 - node0 )
+                    node1 = self.mesh.nodes[cell.node_indices[e1]]
+                    local_edge.append( node1 - node0 )
 
             # Compute the volume of the simplex.
             if num_local_edges == 3:
-                vol = get_triangle_area( local_edge_coords[0],
-                                         local_edge_coords[1] )
+                vol = get_triangle_area( local_edge[0],
+                                         local_edge[1] )
             elif num_local_edges == 6:
                 try:
-                    vol = get_tetrahedron_volume( local_edge_coords[0],
-                                                  local_edge_coords[1],
-                                                  local_edge_coords[2] )
+                    vol = get_tetrahedron_volume( local_edge[0],
+                                                  local_edge[1],
+                                                  local_edge[2] )
                 except ValueError:
                     # If computing the volume throws an exception, then the
                     # edges chosen happened to be conplanar. Changing one of
                     # those fixes this.
-                    vol = get_tetrahedron_volume( local_edge_coords[0],
-                                                  local_edge_coords[1],
-                                                  local_edge_coords[3] )
+                    vol = get_tetrahedron_volume( local_edge[0],
+                                                  local_edge[1],
+                                                  local_edge[3] )
             else:
                 raise RuntimeError( 'Unknown geometry with %d edges.'
                                     % num_local_edges )
@@ -365,13 +365,13 @@ class GinlaModelEvaluator:
             A   = np.empty( (num_local_edges, num_local_edges), dtype = float )
             rhs = np.empty( num_local_edges, dtype = float )
             for i in xrange( num_local_edges ):
-                rhs[i] = vol * np.vdot( local_edge_coords[i], \
-                                        local_edge_coords[i] )
+                rhs[i] = vol * np.vdot( local_edge[i], \
+                                        local_edge[i] )
                 for j in xrange( num_local_edges ):
-                    A[i, j] = np.vdot( local_edge_coords[i],  \
-                                       local_edge_coords[j] ) \
-                            * np.vdot( local_edge_coords[j],  \
-                                       local_edge_coords[i] )
+                    A[i, j] = np.vdot( local_edge[i],  \
+                                       local_edge[j] ) \
+                            * np.vdot( local_edge[j],  \
+                                       local_edge[i] )
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
@@ -392,10 +392,10 @@ class GinlaModelEvaluator:
             num_local_nodes = len( cell.node_indices )
             for e0 in xrange( num_local_nodes ):
                 index0 = cell.node_indices[e0]
-                node0 = self.mesh.nodes[index0].coords
+                node0 = self.mesh.nodes[index0]
                 for e1 in xrange( e0+1, num_local_nodes ):
                     index1 = cell.node_indices[e1]
-                    node1 = self.mesh.nodes[index1].coords
+                    node1 = self.mesh.nodes[index1]
                     # ----------------------------------------------------------
                     # Approximate the integral
                     #
@@ -443,8 +443,8 @@ class GinlaModelEvaluator:
                 ##
                 ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
                 ##
-                #node0 = self.mesh.nodes[ edge[0] ].coords
-                #node1 = self.mesh.nodes[ edge[1] ].coords
+                #node0 = self.mesh.nodes[ edge[0] ]
+                #node1 = self.mesh.nodes[ edge[1] ]
                 #midpoint = 0.5 * ( node0 + node1 )
 
                 ## Instead of projecting onto the normalized edge and then
@@ -589,18 +589,18 @@ class GinlaModelEvaluator:
         self.control_volumes = np.zeros( num_nodes, dtype = float )
         for cell in self.mesh.cells:
 
-            local_node_coords = []
+            local_node = []
             for node_index in cell.node_indices:
-                local_node_coords.append( self.mesh.nodes[node_index].coords )
+                local_node.append( self.mesh.nodes[node_index] )
 
             # Compute the circumcenter of the cell.
             num_local_nodes = len( cell.node_indices )
             if num_local_nodes == 3:
                 cell_dim = 2
-                cc = _triangle_circumcenter( local_node_coords )
+                cc = _triangle_circumcenter( local_node )
             elif num_local_nodes == 4:
                 cell_dim = 3
-                cc = _tetrahedron_circumcenter( local_node_coords )
+                cc = _tetrahedron_circumcenter( local_node )
             else:
                 raise ValueError( 'Control volumes can only be constructed ' \
                                   'for triangles and tetrahedra.' )
@@ -610,22 +610,22 @@ class GinlaModelEvaluator:
                 index0 = cell.node_indices[e0]
                 for e1 in xrange( e0+1, num_local_nodes ):
                     index1 = cell.node_indices[e1]
-                    edge_length = np.linalg.norm( local_node_coords[e0]
-                                                - local_node_coords[e1] )
+                    edge_length = np.linalg.norm( local_node[e0]
+                                                - local_node[e1] )
 
                     other_indices = _get_other_indices( e0, e1 )
                     if cell_dim == 2:
-                        covolume = _compute_covolume_2d( local_node_coords[e0],
-                                                         local_node_coords[e1],
+                        covolume = _compute_covolume_2d( local_node[e0],
+                                                         local_node[e1],
                                                          cc,
-                                                         local_node_coords[other_indices[0]]
+                                                         local_node[other_indices[0]]
                                                        )
                     elif cell_dim == 3:
-                        covolume = _compute_covolume_3d( local_node_coords[e0],
-                                                         local_node_coords[e1],
+                        covolume = _compute_covolume_3d( local_node[e0],
+                                                         local_node[e1],
                                                          cc,
-                                                         local_node_coords[other_indices[0]],
-                                                         local_node_coords[other_indices[1]]
+                                                         local_node[other_indices[0]],
+                                                         local_node[other_indices[1]]
                                                        )
                     else:
                         raise ValueError( 'Control volumes can only be constructed ' \
