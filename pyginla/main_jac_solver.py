@@ -24,11 +24,13 @@ import matplotlib2tikz
 def _main():
     '''Main function.
     '''
-    filename, use_preconditioner = _parse_input_arguments()
+    args = _parse_input_arguments()
 
     # read the mesh
     print "Reading the mesh...",
-    mesh, psi, A, field_data = mesh_io.read_mesh( filename )
+    mesh, psi, A, field_data = mesh_io.read_mesh( args.filename,
+                                                  timestep=args.timestep
+                                                )
     print "done."
 
     # build the model evaluator
@@ -47,7 +49,7 @@ def _main():
                                    )
 
     # create precondictioner obj
-    if use_preconditioner:
+    if args.use_preconditioner:
         keo_prec = LinearOperator( (num_unknowns, num_unknowns),
                                     matvec = precs.keo_amg,
                                     dtype = complex
@@ -611,6 +613,16 @@ def _parse_input_arguments():
                          help    = 'ExodusII file containing the geometry and initial state'
                        )
 
+    parser.add_argument( '--timestep', '-t',
+                         metavar='TIMESTEP',
+                         dest='timestep',
+                         nargs='?',
+                         type=int,
+                         const=0,
+                         default=0,
+                         help='read a particular time step (default: 0)'
+                       )
+
     parser.add_argument( '--noprec', '-n',
                          dest='use_preconditioner',
                          action='store_const',
@@ -620,7 +632,7 @@ def _parse_input_arguments():
 
     args = parser.parse_args()
 
-    return args.filename, args.use_preconditioner
+    return args
 # ==============================================================================
 if __name__ == "__main__":
     _main()

@@ -28,7 +28,9 @@ def _main():
     # --------------------------------------------------------------------------
     # read the mesh
     print "Reading the state (and mesh)..."
-    mesh, psi, A, field_data = mesh_io.read_mesh( args.filename )
+    mesh, psi, A, field_data = mesh_io.read_mesh( args.filename,
+                                                  timestep=args.timestep
+                                                )
     print " done."
     # --------------------------------------------------------------------------
     # build the model evaluator
