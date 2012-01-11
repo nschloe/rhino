@@ -234,7 +234,7 @@ def minres( A,
 
     # Compute M-norm of b.
     # Note: stopping criterion is ||M\(b-A*xk)||_M / ||M\b||_M < tol
-    # If a projection is applied we obtain with b-A*xcor(xk)=Proj(b-A*xk) also
+    # If a projection is _applyied we obtain with b-A*xcor(xk)=Proj(b-A*xk) also
     # ||M\Proj(b-A*xk)||_M / ||M\b||_M = ||M\(b-A*xcor(xk))||_M / ||M\b||_M < tol
     norm_Mb, _ = _norm(b, M=M, inner_product = inner_product)
 
@@ -359,6 +359,152 @@ def minres( A,
         info = 1
 
     return xkcor, info
+# ==============================================================================
+def gmres( A,
+           b,
+           x0,
+           tol = 1e-5,
+           maxiter = None,
+           Mleft = None,
+           Mright = None,
+           inner_product = np.vdot,
+           callback = None,
+           explicit_residual = False
+         ):
+    '''Preconditioned GMRES, pretty standard.
+    memory consumption is about maxiter+1 vectors for the Arnoldi basis.
+    Solves   Ml*A*Mr*y = Ml*b,  x=Mr*y. '''
+    from scipy.sparse.sputils import upcast
+    xtype = upcast( A.dtype, b.dtype, x0.dtype )
+    if Mleft:
+        xtype = upcast( xtype, Mleft )
+    if Mright:
+        xtype = upcast( xtype, Mright )
+
+    N = len(b)
+    if not maxiter:
+        maxiter = N
+
+    #% get memory for working variables
+    relresvec = np.empty(maxiter+1, dtype=float) # relresvec(i) = norm(r_{i-1})/norm(b)
+    V      = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
+    H      = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
+
+    # initialize working variables
+    MleftB = _apply(Mleft, b)
+    norm_MleftB, _ = _norm(MleftB, inner_product=inner_product)
+    # This may only save us the application of Ml to the same vector again if
+    # x0 is the zero vector.
+    norm_x0, _ = _norm(x0, inner_product=inner_product)
+    if norm_x0 > np.finfo(float).eps:
+        r    = b - _apply(A, x0)
+        r    = _apply(Mleft, r)
+        norm_r, _ = _norm( r, inner_product=inner_product)
+    else:
+        x0 = np.zeros( N )
+        r    = MleftB
+        norm_r = norm_MleftB
+
+    V[:, 0] = r / norm_r
+    relresvec[0]  = norm_r / norm_MleftB
+    # Right hand side of projected system:
+    y = np.zeros( maxiter+1, dtype=xtype )
+    y[0] = norm_r
+    # Givens rotations:
+    G = []
+    xk = x0
+    k = 0
+
+    info = 0
+    while relresvec[k] > tol and k < maxiter:
+        # Apply operator Ml*A*Mr
+        V[:, k+1] = _apply(Mleft, _apply(A, _apply(Mright, V[:, k])))
+
+        # orthogonalize (MGS)
+        for i in xrange(k+1):
+            H[i, k] = inner_product(V[:, i], V[:, k+1])
+            V[:, k+1] = V[:, k+1] - H[i, k] * V[:, i]
+        H[k+1, k], _ = _norm(V[:, k+1], inner_product=inner_product)
+        V[:, k+1] = V[:, k+1] / H[k+1, k]
+
+        # Apply previous Givens rotations.
+        for i in xrange(k):
+            H[i:i+2, k] = _apply(G[i], H[i:i+2, k])
+
+        # Compute and apply new Givens rotation.
+        G.append(_givens(H[k, k], H[k+1, k]))
+        H[k:k+2, k] = _apply(G[k], H[k:k+2, k])
+        y[k:k+2] = _apply(G[k], y[k:k+2])
+
+        # Update residual norm.
+        if explicit_residual:
+            # Compute approximation xk to the solution.
+            yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
+            u  = _apply(Mright, _apply(V[:, :k+1], yy))
+            xk = x0 + u
+            # Compute residual explicitly.
+            r  = b - _apply(A, xk)
+            r  = _apply(Mleft, r)
+            norm_r, _ = _norm(r, inner_product=inner_product)
+            relresvec[k+1] = norm_r / norm_MleftB
+        else:
+            relresvec[k+1] = abs(y[k+1]) / norm_MleftB
+
+        # convergence of updated residual or maxiter reached?
+        if relresvec[k+1] < tol or k+1 == maxiter:
+            # Updated residual norm.
+            norm_ur = relresvec[k+1]
+            # Compute approximation xk to the solution.
+            yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
+            u  = _apply(Mright, _apply(V[:, :k+1], yy))
+            xk = x0 + u
+            # Compute residual explicitly.
+            r  = b - _apply(A, xk)
+            r  = _apply(Mleft, r)
+            norm_r, _ = _norm(r, inner_product=inner_product)
+            relresvec[k+1] = norm_r / norm_MleftB
+
+            # No convergence of expl. residual?
+            if relresvec[k+1] >= tol:
+                # Was this the last iteration?
+                if k+1 == maxiter:
+                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' % (relresvec[k+1], tol, k, norm_ur)
+                    info = 1
+                else:
+                    print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' % (relresvec[k+1], tol, norm_ur, k)
+        k += 1
+
+    return xk, info
+# ==============================================================================
+def _givens(a, b):
+    '''Givens rotation
+    [   c       s    ] * [a] = [r]
+    [-conj(s) conj(c)]   [b]   [0]
+    r real and non-negative.'''
+    if abs(b) == 0:
+        r = abs(a)
+        c = a.conjugate() / r
+        s = 0
+    elif abs(a) == 0:
+        r = abs(b)
+        c = 0
+        s = b.conjugate() / r
+    elif abs(b) > abs(a):
+        absb = abs(b)
+        t = a.conjugate() / absb
+        u = sqrt(1 + t.real**2 + t.imag**2)
+        c = t / u
+        s = (b.conjugate()/absb) / u
+        r = absb * u
+    else:
+        absa = abs(a)
+        t = b.conjugate()/absa
+        u = sqrt(1 + t.real**2 + t.imag**2)
+        c = (a.conjugate()/absa)/u
+        s = t/u
+        r = absa*u
+    return np.array([[c, s],
+                     [-s.conjugate(), c.conjugate()]])
 # ==============================================================================
 def newton( x0,
             model_evaluator,
