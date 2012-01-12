@@ -106,10 +106,19 @@ def _main():
 
     print "Solving the system (dim = %d)..." % (2*num_unknowns),
     start_time = time.clock()
-    sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
+    #sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
+                                           #x0 = phi0,
+                                           #tol = 1.0e-12,
+                                           #M = keo_prec,
+                                           #inner_product = ginla_modelval.inner_product,
+                                           #explicit_residual = True,
+                                           ##exact_solution = ref_sol
+                                         #)
+
+    sol, info, relresvec, errorvec = nm.gmres_wrap( ginla_jacobian, rhs,
                                            x0 = phi0,
                                            tol = 1.0e-12,
-                                           M = keo_prec,
+                                           Mleft = keo_prec,
                                            inner_product = ginla_modelval.inner_product,
                                            explicit_residual = True,
                                            #exact_solution = ref_sol

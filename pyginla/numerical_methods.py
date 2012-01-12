@@ -25,7 +25,23 @@ def l2_condition_number( linear_operator ):
 
     return large_eigenval[0] / small_eigenval[0]
 # ==============================================================================
-def _norm_squared( x, M = None, inner_product = np.vdot ):
+def _norm_squared( x, inner_product = np.vdot ):
+    '''Compute the norm^2 w.r.t. to a given scalar product.'''
+    rho = inner_product( x, x )
+
+    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
+        raise ValueError( 'inner_product not a proper inner product?' )
+
+    return rho.real
+# ==============================================================================
+def _norm( x, inner_product = np.vdot ):
+    '''Compute the norm w.r.t. to a given scalar product.'''
+    norm2 = _norm_squared( x, inner_product = inner_product )
+    if norm2 < 0.0:
+        raise ValueError( '<x,x> = %g. Improper inner product?' % norm2 )
+    return sqrt(norm2)
+# ==============================================================================
+def _normM_squared( x, M, inner_product = np.vdot ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     Mx = _apply( M, x )
     rho = inner_product( x, Mx )
@@ -35,9 +51,9 @@ def _norm_squared( x, M = None, inner_product = np.vdot ):
 
     return rho.real, Mx
 # ==============================================================================
-def _norm( x, M = None, inner_product = np.vdot ):
+def _normM( x, M, inner_product = np.vdot ):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    norm2, Mx = _norm_squared( x, M = M, inner_product = inner_product )
+    norm2, Mx = _normM_squared( x, M, inner_product = inner_product )
     if norm2 < 0.0:
         raise ValueError( '<x,Mx> = %g. M not positive definite?' % norm2 )
     return sqrt(norm2), Mx
@@ -74,8 +90,7 @@ def cg_wrap( linear_operator,
         relresvec.append( relative_residual )
         if exact_solution is not None:
             error = exact_solution - x
-            nrm, _ = _norm(error, inner_product=inner_product)
-            errorvec.append( nrm )
+            errorvec.append( _norm(error, inner_product=inner_product) )
     # --------------------------------------------------------------------------
 
     relresvec = []
@@ -109,12 +124,8 @@ def cg( A,
     x = x0.copy()
     r = rhs - _apply(A, x)
 
-    rho_old, z = _norm_squared( r, M=M, inner_product = inner_product )
-
-    if M is not None:
-        p = z.copy()
-    else:
-        p = r.copy()
+    rho_old, z = _normM_squared( r, M, inner_product = inner_product )
+    p = z.copy()
 
     if maxiter is None:
         maxiter = len(rhs)
@@ -138,13 +149,13 @@ def cg( A,
         else:
             r -= alpha * Ap
 
-        rho_new, z = _norm_squared( r, M=M, inner_product = inner_product )
+        rho_new, z = _normM_squared( r, M, inner_product = inner_product )
 
         relative_rho = sqrt(rho_new / rho0)
         if relative_rho < tol:
             # Compute exact residual
             r = rhs - _apply(A, x)
-            rho_new, z = _norm_squared( r, M=M, inner_product = inner_product )
+            rho_new, z = _normM_squared( r, M, inner_product = inner_product )
             relative_rho = sqrt(rho_new / rho0)
             if relative_rho < tol:
                 info = 0
@@ -156,10 +167,7 @@ def cg( A,
             callback( x, relative_rho )
 
         # update the search direction
-        if M is not None:
-            p = z + rho_new/rho_old * p
-        else:
-            p = r + rho_new/rho_old * p
+        p = z + rho_new/rho_old * p
 
         rho_old = rho_new
 
@@ -184,8 +192,7 @@ def minres_wrap( linear_operator,
         relresvec.append( norm_rel_residual )
         if exact_solution is not None:
             error = exact_solution - x
-            nrm, _ = _norm(error, inner_product=inner_product)
-            errorvec.append( nrm )
+            errorvec.append( _norm(error, inner_product=inner_product) )
     # --------------------------------------------------------------------------
 
     relresvec = []
@@ -230,13 +237,13 @@ def minres( A,
     # Init Lanczos and MINRES
     r0 = _apply(r0_proj, r0)
 
-    norm_Mr0, Mr0 = _norm(r0, M=M, inner_product = inner_product)
+    norm_Mr0, Mr0 = _normM(r0, M, inner_product = inner_product)
 
     # Compute M-norm of b.
     # Note: stopping criterion is ||M\(b-A*xk)||_M / ||M\b||_M < tol
     # If a projection is _applyied we obtain with b-A*xcor(xk)=Proj(b-A*xk) also
     # ||M\Proj(b-A*xk)||_M / ||M\b||_M = ||M\(b-A*xcor(xk))||_M / ||M\b||_M < tol
-    norm_Mb, _ = _norm(b, M=M, inner_product = inner_product)
+    norm_Mb, _ = _normM(b, M, inner_product = inner_product)
 
     norm_rel_residual = norm_Mr0 / norm_Mb
     # --------------------------------------------------------------------------
@@ -325,7 +332,7 @@ def minres( A,
         if explicit_residual:
             xkcor = _apply(x_cor, xk)
             r = b - _apply(A, xkcor)
-            norm_res_exact, _ = _norm(r, M, inner_product=inner_product)
+            norm_res_exact, _ = _normM(r, M, inner_product=inner_product)
             norm_rel_residual = norm_res_exact / norm_Mb
         else:
             norm_rel_residual = abs(y[0]) / norm_Mb
@@ -335,7 +342,7 @@ def minres( A,
             # Compute the exact residual norm.
             xkcor = _apply(x_cor, xk)
             r = b - _apply(A, xkcor)
-            norm_res_exact, _ = _norm(r, M, inner_product=inner_product)
+            norm_res_exact, _ = _normM(r, M, inner_product=inner_product)
             norm_rel_res_exact = norm_res_exact / norm_Mb
             if norm_rel_res_exact > tol:
                 print ( 'Info (iter %d): Updated residual is below tolerance, '
@@ -360,6 +367,45 @@ def minres( A,
 
     return xkcor, info
 # ==============================================================================
+def gmres_wrap( linear_operator,
+                b,
+                x0,
+                tol = 1.0e-5,
+                maxiter = None,
+                Mleft = None,
+                Mright = None,
+                inner_product = np.vdot,
+                explicit_residual = False,
+                exact_solution = None
+              ):
+    '''Wrapper around the GMRES method to get a vector with the relative
+    residuals as return argument.
+    '''
+    # --------------------------------------------------------------------------
+    def _callback( norm_rel_residual, x ):
+        relresvec.append( norm_rel_residual )
+        if exact_solution is not None:
+            error = exact_solution - x
+            errorvec.append( _norm(error, inner_product=inner_product) )
+    # --------------------------------------------------------------------------
+
+    relresvec = []
+    errorvec = []
+
+    sol, info = gmres( linear_operator,
+                       b,
+                       x0,
+                       tol = tol,
+                       maxiter = maxiter,
+                       Mleft = Mleft,
+                       Mright = Mright,
+                       inner_product = inner_product,
+                       callback = _callback,
+                       explicit_residual = explicit_residual
+                     )
+
+    return sol, info, relresvec, errorvec
+# ==============================================================================
 def gmres( A,
            b,
            x0,
@@ -374,6 +420,22 @@ def gmres( A,
     '''Preconditioned GMRES, pretty standard.
     memory consumption is about maxiter+1 vectors for the Arnoldi basis.
     Solves   Ml*A*Mr*y = Ml*b,  x=Mr*y. '''
+    # --------------------------------------------------------------------------
+    def _compute_explicit_xk():
+        '''Compute approximation xk to the solution.'''
+        yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
+        u  = _apply(Mright, _apply(V[:, :k+1], yy))
+        xk = x0 + u
+        return xk
+    # --------------------------------------------------------------------------
+    def _compute_explicit_residual( xk ):
+        '''Compute residual explicitly.'''
+        if xk is None:
+            xk = _compute_explicit_xk()
+        rk  = b - _apply(A, xk)
+        rk  = _apply(Mleft, rk)
+        return rk, xk
+    # --------------------------------------------------------------------------
     from scipy.sparse.sputils import upcast
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
     if Mleft:
@@ -385,28 +447,30 @@ def gmres( A,
     if not maxiter:
         maxiter = N
 
-    #% get memory for working variables
+    info = 0
+
+    # get memory for working variables
     relresvec = np.empty(maxiter+1, dtype=float) # relresvec(i) = norm(r_{i-1})/norm(b)
-    V      = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
-    H      = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
+    V = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
+    H = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
 
     # initialize working variables
     MleftB = _apply(Mleft, b)
-    norm_MleftB, _ = _norm(MleftB, inner_product=inner_product)
+    norm_MleftB = _norm(MleftB, inner_product=inner_product)
     # This may only save us the application of Ml to the same vector again if
     # x0 is the zero vector.
-    norm_x0, _ = _norm(x0, inner_product=inner_product)
+    norm_x0 = _norm(x0, inner_product=inner_product)
     if norm_x0 > np.finfo(float).eps:
         r    = b - _apply(A, x0)
         r    = _apply(Mleft, r)
-        norm_r, _ = _norm( r, inner_product=inner_product)
+        norm_r = _norm( r, inner_product=inner_product)
     else:
         x0 = np.zeros( N )
         r    = MleftB
         norm_r = norm_MleftB
 
     V[:, 0] = r / norm_r
-    relresvec[0]  = norm_r / norm_MleftB
+    norm_rel_residual  = norm_r / norm_MleftB
     # Right hand side of projected system:
     y = np.zeros( maxiter+1, dtype=xtype )
     y[0] = norm_r
@@ -415,8 +479,12 @@ def gmres( A,
     xk = x0
     k = 0
 
-    info = 0
-    while relresvec[k] > tol and k < maxiter:
+    if callback is not None:
+        callback(norm_rel_residual, xk)
+
+    while norm_rel_residual > tol and k < maxiter:
+        xk = None
+        rk = None
         # Apply operator Ml*A*Mr
         V[:, k+1] = _apply(Mleft, _apply(A, _apply(Mright, V[:, k])))
 
@@ -424,7 +492,7 @@ def gmres( A,
         for i in xrange(k+1):
             H[i, k] = inner_product(V[:, i], V[:, k+1])
             V[:, k+1] = V[:, k+1] - H[i, k] * V[:, i]
-        H[k+1, k], _ = _norm(V[:, k+1], inner_product=inner_product)
+        H[k+1, k] = _norm(V[:, k+1], inner_product=inner_product)
         V[:, k+1] = V[:, k+1] / H[k+1, k]
 
         # Apply previous Givens rotations.
@@ -438,40 +506,35 @@ def gmres( A,
 
         # Update residual norm.
         if explicit_residual:
-            # Compute approximation xk to the solution.
-            yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
-            u  = _apply(Mright, _apply(V[:, :k+1], yy))
-            xk = x0 + u
-            # Compute residual explicitly.
-            r  = b - _apply(A, xk)
-            r  = _apply(Mleft, r)
-            norm_r, _ = _norm(r, inner_product=inner_product)
-            relresvec[k+1] = norm_r / norm_MleftB
+            if rk is None:
+                rk, xk = _compute_explicit_residual( xk )
+            norm_r = _norm(rk, inner_product=inner_product)
+            norm_rel_residual = norm_r / norm_MleftB
         else:
-            relresvec[k+1] = abs(y[k+1]) / norm_MleftB
+            norm_rel_residual = abs(y[k+1]) / norm_MleftB
 
         # convergence of updated residual or maxiter reached?
-        if relresvec[k+1] < tol or k+1 == maxiter:
-            # Updated residual norm.
-            norm_ur = relresvec[k+1]
-            # Compute approximation xk to the solution.
-            yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
-            u  = _apply(Mright, _apply(V[:, :k+1], yy))
-            xk = x0 + u
-            # Compute residual explicitly.
-            r  = b - _apply(A, xk)
-            r  = _apply(Mleft, r)
-            norm_r, _ = _norm(r, inner_product=inner_product)
-            relresvec[k+1] = norm_r / norm_MleftB
+        if norm_rel_residual < tol or k+1 == maxiter:
+            norm_ur = norm_rel_residual
+            if rk is None:
+                rk, xk = _compute_explicit_residual( xk )
+            norm_r = _norm(rk, inner_product=inner_product)
+            norm_rel_residual = norm_r / norm_MleftB
 
             # No convergence of expl. residual?
-            if relresvec[k+1] >= tol:
+            if norm_rel_residual >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' % (relresvec[k+1], tol, k, norm_ur)
+                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' % (norm_rel_residual, tol, k, norm_ur)
                     info = 1
                 else:
-                    print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' % (relresvec[k+1], tol, norm_ur, k)
+                    print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' % (norm_rel_residual, tol, norm_ur, k)
+
+        if callback is not None:
+            if xk is None:
+                xk = _compute_explicit_xk()
+            callback(norm_rel_residual, xk)
+
         k += 1
 
     return xk, info
