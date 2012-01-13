@@ -65,7 +65,8 @@ def _apply( A, x ):
     elif isinstance( A, np.ndarray ):
         return np.dot( A, x )
     elif isinstance( A, scipy.sparse.dia_matrix ) \
-      or isinstance( A, scipy.sparse.csr_matrix ):
+      or isinstance( A, scipy.sparse.csr_matrix ) \
+      or isinstance( A, scipy.sparse.csc_matrix ):
         return A * x
     elif isinstance( A, scipy.sparse.linalg.LinearOperator ):
         return A * x
@@ -121,7 +122,12 @@ def cg( A,
       ):
     '''Conjugate gradient method with different inner product.
     '''
-    x = x0.copy()
+    from scipy.sparse.sputils import upcast
+    xtype = upcast( A.dtype, rhs.dtype, x0.dtype )
+    if M:
+        xtype = upcast( xtype, M.dtype )
+
+    x = xtype(x0.copy())
     r = rhs - _apply(A, x)
 
     rho_old, z = _normM_squared( r, M, inner_product = inner_product )
@@ -226,7 +232,8 @@ def minres( A,
             ):
     # --------------------------------------------------------------------------
     info = 0
-    maxiter = len(b)
+    if maxiter is None:
+        maxiter = len(b)
 
     N = len(b)
 
@@ -278,7 +285,7 @@ def minres( A,
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
         td = inner_product(V[1], z)
-        assert abs(td.imag) < 1.0e-15
+        assert abs(td.imag) < 1.0e-12
         td = td.real
         z  = z - td * P[1]
 
