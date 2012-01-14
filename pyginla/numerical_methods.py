@@ -5,6 +5,7 @@ Collection of numerical algorithms.
 '''
 # ==============================================================================
 from scipy.sparse.linalg import LinearOperator, arpack
+from scipy.sparse.sputils import upcast
 import numpy as np
 import scipy
 from math import sqrt
@@ -122,7 +123,6 @@ def cg( A,
       ):
     '''Conjugate gradient method with different inner product.
     '''
-    from scipy.sparse.sputils import upcast
     xtype = upcast( A.dtype, rhs.dtype, x0.dtype )
     if M:
         xtype = upcast( xtype, M.dtype )
@@ -130,8 +130,8 @@ def cg( A,
     x = xtype(x0.copy())
     r = rhs - _apply(A, x)
 
-    rho_old, z = _normM_squared( r, M, inner_product = inner_product )
-    p = z.copy()
+    rho_old, Mr = _normM_squared( r, M, inner_product = inner_product )
+    p = Mr.copy()
 
     if maxiter is None:
         maxiter = len(rhs)
@@ -155,13 +155,13 @@ def cg( A,
         else:
             r -= alpha * Ap
 
-        rho_new, z = _normM_squared( r, M, inner_product = inner_product )
+        rho_new, Mr = _normM_squared( r, M, inner_product = inner_product )
 
         relative_rho = sqrt(rho_new / rho0)
         if relative_rho < tol:
             # Compute exact residual
             r = rhs - _apply(A, x)
-            rho_new, z = _normM_squared( r, M, inner_product = inner_product )
+            rho_new, Mr = _normM_squared( r, M, inner_product = inner_product )
             relative_rho = sqrt(rho_new / rho0)
             if relative_rho < tol:
                 info = 0
@@ -173,7 +173,7 @@ def cg( A,
             callback( x, relative_rho )
 
         # update the search direction
-        p = z + rho_new/rho_old * p
+        p = Mr + rho_new/rho_old * p
 
         rho_old = rho_new
 
@@ -339,8 +339,8 @@ def minres( A,
         if explicit_residual:
             xkcor = _apply(x_cor, xk)
             r = b - _apply(A, xkcor)
-            norm_res_exact, _ = _normM(r, M, inner_product=inner_product)
-            norm_rel_residual = norm_res_exact / norm_Mb
+            norm_Fx_exact, _ = _normM(r, M, inner_product=inner_product)
+            norm_rel_residual = norm_Fx_exact / norm_Mb
         else:
             norm_rel_residual = abs(y[0]) / norm_Mb
 
@@ -349,8 +349,8 @@ def minres( A,
             # Compute the exact residual norm.
             xkcor = _apply(x_cor, xk)
             r = b - _apply(A, xkcor)
-            norm_res_exact, _ = _normM(r, M, inner_product=inner_product)
-            norm_rel_res_exact = norm_res_exact / norm_Mb
+            norm_Fx_exact, _ = _normM(r, M, inner_product=inner_product)
+            norm_rel_res_exact = norm_Fx_exact / norm_Mb
             if norm_rel_res_exact > tol:
                 print ( 'Info (iter %d): Updated residual is below tolerance, '
                       + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
@@ -443,7 +443,6 @@ def gmres( A,
         rk  = _apply(Mleft, rk)
         return rk, xk
     # --------------------------------------------------------------------------
-    from scipy.sparse.sputils import upcast
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
     if Mleft:
         xtype = upcast( xtype, Mleft )
@@ -579,15 +578,23 @@ def _givens(a, b):
 def newton( x0,
             model_evaluator,
             nonlinear_tol = 1.0e-10,
-            max_iters = 20
+            max_iters = 20,
+            linear_solver = cg_wrap,
+            forcing_term = 'constant',
+            eta0 = 1.0e-1,
+            eta_min = 1.0e-6,
+            eta_max = 1.0e-2,
+            alpha = 1.5, # only used by forcing_term='type 2'
+            gamma = 0.9  # only used by forcing_term='type 2'
           ):
-    '''Poor man's Newton method.
+    '''Newton's method with different forcing terms.
     '''
     # --------------------------------------------------------------------------
     def _newton_jacobian( dx ):
-        '''Create the linear operator object to be used for CG.'''
+        '''Create the linear operator object to be used for the linear
+        solver.'''
         model_evaluator.set_current_psi( x )
-        return model_evaluator.compute_jacobian( dx )
+        return model_evaluator.apply_jacobian( dx )
     # --------------------------------------------------------------------------
     # some initializations
     error_code = 0
@@ -600,28 +607,59 @@ def newton( x0,
                              )
 
     x = x0
-    res = model_evaluator.compute_f( x )
-    rho = model_evaluator.norm( res )
-    print "Norm(res) =", rho
-    while abs(rho) > nonlinear_tol:
+    Fx = model_evaluator.compute_f( x )
+    norm_Fx = _norm( Fx, inner_product=model_evaluator.inner_product )
+    print "Norm(Fx) =", norm_Fx
+    eta_previous = None
+    while norm_Fx > nonlinear_tol:
         # solve the Newton system using cg
-        x_update, info = cg( jacobian,
-                             -res,
-                             x0 = x,
-                             tol = 1.0e-10
-                           )
 
+        # tolerance is given by
+        #
+        # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
+        # -- Eisenstat, Walker
+        # http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.15.3196
+        #
+        # See also
+        # "NITSOL: A Newton Iterative Solver for Nonlinear Systems"
+        # http://epubs.siam.org/sisc/resource/1/sjoce3/v19/i1/p302_s1?isAuthorized=no
+        if eta_previous is None or forcing_term == 'constant':
+            eta = eta0
+        elif forcing_term == 'type 1':
+            eta = abs(norm_Fx - norm_linres) / norm_Fx_previous
+            eta = max( eta, eta_previous**((1.0+sqrt(5))/2.0), eta_min )
+            eta = max( eta, eta_max )
+        elif forcing_term == 'type 2':
+            eta = gamma * (norm_Fx / norm_Fx_previous)**alpha
+            eta = max( eta, gamma*eta_previous**alpha, eta_min )
+            eta = min( eta, eta_max )
+        else:
+            print 'Unknown forcing term \'%s\'. Abort.'
+            return
+        tol = eta * norm_Fx
+        eta_previous = eta
+
+        # solve the linear system
+        x_update, info, relresvec, _ = linear_solver( jacobian, -Fx,
+                                                      x0 = x,
+                                                      tol = 1.0e-10
+                                                    )
         # make sure the solution is alright
         assert( info == 0 )
+
+        # Store the previous precision for type 1 forcing terms.
+        # This could be replaced by tol_previous as relresvec[-1] \approx tol.
+        norm_linres = relresvec[-1]
 
         # perform the Newton update
         x = x + x_update
 
         # do the household
         iters += 1
-        res = model_evaluator.compute_f( x )
-        rho = model_evaluator.norm( res )
-        print "Norm(res) =", abs(rho)
+        Fx = model_evaluator.compute_f( x )
+        norm_Fx_previous = norm_Fx
+        norm_Fx = _norm( Fx, inner_product=model_evaluator.inner_product )
+        print "Norm(Fx) =", norm_Fx
         if iters == max_iters:
             error_code = 1
             break
