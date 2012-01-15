@@ -609,9 +609,7 @@ def newton( x0,
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
     while Fx_norms[-1] > nonlinear_tol and k < maxiter:
-        # solve the Newton system using cg
-
-        # tolerance is given by
+        # Linear tolerance is given by
         #
         # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
         # -- Eisenstat, Walker
@@ -623,7 +621,8 @@ def newton( x0,
         if eta_previous is None or forcing_term == 'constant':
             eta = eta0
         elif forcing_term == 'type 1':
-            eta = abs(Fx_norms[-1] - norm_linres) / Fx_norms[-2]
+            # linear_relresvec[-1] \approx tol, so this could be replaced.
+            eta = abs(Fx_norms[-1] - linear_relresvec[-1]) / Fx_norms[-2]
             eta = max( eta, eta_previous**((1.0+sqrt(5))/2.0), eta_min )
             eta = max( eta, eta_max )
         elif forcing_term == 'type 2':
@@ -636,28 +635,25 @@ def newton( x0,
         tol = eta * Fx_norms[-1]
         eta_previous = eta
 
-        # solve the linear system
+        # Solve the linear system.
         model_evaluator.set_current_x( x )
-        x_update, info, relresvec, _ = linear_solver( jacobian, -Fx,
-                                                      x0 = x,
-                                                      tol = 1.0e-10
-                                                    )
+        x_update, info, linear_relresvec, _ = linear_solver( jacobian, -Fx,
+                                                             x0 = x,
+                                                             tol = tol
+                                                           )
         # make sure the solution is alright
         assert( info == 0 )
 
-        # Store the previous precision for type 1 forcing terms.
-        # This could be replaced by tol_previous as relresvec[-1] \approx tol.
-        norm_linres = relresvec[-1]
-
         # perform the Newton update
-        x = x + x_update
+        x += x_update
 
         # do the household
         k += 1
         Fx = model_evaluator.compute_f( x )
         Fx_norms.append( _norm( Fx, inner_product=model_evaluator.inner_product ) )
-        if k == maxiter:
-            error_code = 1
+
+    if k == maxiter:
+        error_code = 1
 
     return x, error_code, Fx_norms
 # ==============================================================================
