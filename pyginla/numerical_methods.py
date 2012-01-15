@@ -578,7 +578,7 @@ def _givens(a, b):
 def newton( x0,
             model_evaluator,
             nonlinear_tol = 1.0e-10,
-            max_iters = 20,
+            maxiter = 20,
             linear_solver = cg_wrap,
             forcing_term = 'constant',
             eta0 = 1.0e-1,
@@ -593,12 +593,12 @@ def newton( x0,
     def _newton_jacobian( dx ):
         '''Create the linear operator object to be used for the linear
         solver.'''
-        model_evaluator.set_current_psi( x )
+        model_evaluator.set_current_x( x )
         return model_evaluator.apply_jacobian( dx )
     # --------------------------------------------------------------------------
     # some initializations
     error_code = 0
-    iters = 0
+    k = 0
 
     # create the linear operator object
     jacobian = LinearOperator( (len(x0), len(x0)),
@@ -608,10 +608,9 @@ def newton( x0,
 
     x = x0
     Fx = model_evaluator.compute_f( x )
-    norm_Fx = _norm( Fx, inner_product=model_evaluator.inner_product )
-    print "Norm(Fx) =", norm_Fx
+    Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ) ]
     eta_previous = None
-    while norm_Fx > nonlinear_tol:
+    while Fx_norms[-1] > nonlinear_tol and k < maxiter:
         # solve the Newton system using cg
 
         # tolerance is given by
@@ -626,17 +625,17 @@ def newton( x0,
         if eta_previous is None or forcing_term == 'constant':
             eta = eta0
         elif forcing_term == 'type 1':
-            eta = abs(norm_Fx - norm_linres) / norm_Fx_previous
+            eta = abs(Fx_norms[-1] - norm_linres) / Fx_norms[-2]
             eta = max( eta, eta_previous**((1.0+sqrt(5))/2.0), eta_min )
             eta = max( eta, eta_max )
         elif forcing_term == 'type 2':
-            eta = gamma * (norm_Fx / norm_Fx_previous)**alpha
+            eta = gamma * (Fx_norms[-1] / norm_Fx_previous)**alpha
             eta = max( eta, gamma*eta_previous**alpha, eta_min )
             eta = min( eta, eta_max )
         else:
             print 'Unknown forcing term \'%s\'. Abort.'
             return
-        tol = eta * norm_Fx
+        tol = eta * Fx_norms[-1]
         eta_previous = eta
 
         # solve the linear system
@@ -655,16 +654,13 @@ def newton( x0,
         x = x + x_update
 
         # do the household
-        iters += 1
+        k += 1
         Fx = model_evaluator.compute_f( x )
-        norm_Fx_previous = norm_Fx
-        norm_Fx = _norm( Fx, inner_product=model_evaluator.inner_product )
-        print "Norm(Fx) =", norm_Fx
-        if iters == max_iters:
+        Fx_norms.append( _norm( Fx, inner_product=model_evaluator.inner_product ) )
+        if k == maxiter:
             error_code = 1
-            break
 
-    return x, error_code, iters
+    return x, error_code, Fx_norms
 # ==============================================================================
 def poor_mans_continuation( x0,
                             model_evaluator,

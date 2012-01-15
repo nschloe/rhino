@@ -176,7 +176,30 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertEqual(info, 0)
         # Check the residual.
         res = rhs - A * x
-        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+        self.assertAlmostEqual( np.linalg.norm(res) / np.linalg.norm(rhs),
+                                0.0,
+                                delta=tol )
+    # --------------------------------------------------------------------------
+    def test_newton(self):
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        class poly_modelevaluator:
+            '''Simple model evalator for f(x) = x^2 - 2.'''
+            def __init__(self):
+                self._x0 = None
+            def compute_f(self, x):
+                return x**2 - 2.0
+            def set_current_x(self, x):
+                self._x0 = x
+            def apply_jacobian(self, x):
+                return 2.0 * self._x0 * x
+            def inner_product(self, x, y):
+                return np.vdot(x, y)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        poly_modeleval = poly_modelevaluator()
+        x0 = np.array( [1.0] )
+        tol = 1.0e-10
+        x, error_code, resvec = numerical_methods.newton( x0, poly_modeleval )
+        self.assertAlmostEqual( x[0], np.sqrt(2.0), delta=tol )
     # --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
