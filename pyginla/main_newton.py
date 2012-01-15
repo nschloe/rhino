@@ -21,7 +21,7 @@ def _main():
     print "done."
 
     # build the model evaluator
-    mu = 1.0e-1
+    mu = 8.0e-2
     ginla_modelval = ginla_modelevaluator.GinlaModelEvaluator( mesh, A, mu )
 
     # initial guess
@@ -32,11 +32,11 @@ def _main():
 
     print "Performing Newton iteration...",
     # perform newton iteration
-    psi_sol, info, iters = nm.newton( psi0,
-                                      ginla_modelval,
-                                      nonlinear_tol = 1.0e-10,
-                                      forcing_term = 'constant'
-                                    )
+    psi_sol, info, resvec = nm.newton( psi0,
+                                       ginla_modelval,
+                                       nonlinear_tol = 1.0e-10,
+                                       forcing_term = 'type 2'
+                                     )
     print " done."
     assert( info == 0 )
 

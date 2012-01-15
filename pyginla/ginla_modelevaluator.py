@@ -33,10 +33,11 @@ class GinlaModelEvaluator:
     def __init__( self, mesh, A, mu ):
         '''Initialization. Set mesh.
         '''
+        self.dtype = complex
         self.mesh = mesh
         self._raw_magnetic_vector_potential = A
         self.mu = mu
-        self._temperature = 0.0
+        self._T = 0.0
         self._keo = None
         self.control_volumes = None
         self._edgecoeff_cache = None
@@ -51,14 +52,14 @@ class GinlaModelEvaluator:
             self._assemble_keo()
 
         res = - self._keo * psi \
-              + psi * ( 1.0-self._temperature - abs( psi )**2 )
+              + psi * ( 1.0-self._T - abs( psi )**2 )
 
         return res
     # ==========================================================================
-    def set_current_psi( self, current_psi ):
+    def set_current_x( self, psi ):
         '''Sets the current psi.
         '''
-        self._psi = current_psi
+        self._psi = psi
         return
     # ==========================================================================
     def apply_jacobian( self, phi ):
@@ -69,17 +70,18 @@ class GinlaModelEvaluator:
 
         with
 
-            A = K - I * ( 1 - 2*|psi|^2 ),
-            B = diag( psi^2 ).
+            A = K - I * ( 1-T - 2*|psi|^2 ),
+            B = - diag( psi^2 ).
         '''
         if self._keo is None:
             self._assemble_keo()
 
         assert( self._psi is not None )
 
+        absPsiSquared = self._psi.real**2 + self._psi.imag**2
         return - self._keo * phi \
-            + ( 1.0-self._temperature - 2.0*abs(self._psi)**2 ) * phi \
-            - self._psi**2 * phi.conjugate()
+            + ( 1.0-self._T - 2.0*absPsiSquared ) * phi \
+            - self._psi**2 * phi.conj()
     # ==========================================================================
     def inner_product( self, phi0, phi1 ):
         '''The natural inner product of the problem.

@@ -143,8 +143,8 @@ def cg( A,
 
     info = maxiter
 
-    # store the initial residual
-    rho0 = rho_old
+    # Store rho0 = ||rhs||_M.
+    rho0, _ = _normM_squared( rhs, M, inner_product = inner_product )
 
     if callback is not None:
         callback( x, sqrt(rho_old / rho0) )
@@ -461,7 +461,6 @@ def gmres( A,
     info = 0
 
     # get memory for working variables
-    relresvec = np.empty(maxiter+1, dtype=float) # relresvec(i) = norm(r_{i-1})/norm(b)
     V = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
     H = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
 
@@ -604,6 +603,12 @@ def newton( x0,
                                dtype = model_evaluator.dtype
                              )
 
+    ## Create Jacobian as linear operator object.
+    #preconditioner = LinearOperator( (len(x0), len(x0)),
+                               #None,
+                               #dtype = model_evaluator.dtype
+                             #)
+
     x = x0
     Fx = model_evaluator.compute_f( x )
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
@@ -623,23 +628,24 @@ def newton( x0,
         elif forcing_term == 'type 1':
             # linear_relresvec[-1] \approx tol, so this could be replaced.
             eta = abs(Fx_norms[-1] - linear_relresvec[-1]) / Fx_norms[-2]
-            eta = max( eta, eta_previous**((1.0+sqrt(5))/2.0), eta_min )
-            eta = max( eta, eta_max )
+            eta = max( eta, eta_previous**((1.0+np.sqrt(5.0))/2.0), eta_min )
+            eta = min( eta, eta_max )
         elif forcing_term == 'type 2':
-            eta = gamma * (Fx_norms[-1] / norm_Fx_previous)**alpha
+            eta = gamma * (Fx_norms[-1] / Fx_norms[-2])**alpha
             eta = max( eta, gamma * eta_previous**alpha, eta_min )
             eta = min( eta, eta_max )
         else:
             print 'Unknown forcing term \'%s\'. Abort.'
             return
-        tol = eta * Fx_norms[-1]
         eta_previous = eta
 
         # Solve the linear system.
         model_evaluator.set_current_x( x )
-        x_update, info, linear_relresvec, _ = linear_solver( jacobian, -Fx,
-                                                             x0 = x,
-                                                             tol = tol
+        x_update, info, linear_relresvec, _ = linear_solver( jacobian,
+                                                             -Fx,
+                                                             np.zeros( len(x0) ),
+                                                             tol = eta,
+                                                             inner_product = model_evaluator.inner_product
                                                            )
         # make sure the solution is alright
         assert( info == 0 )
