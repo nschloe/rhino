@@ -128,6 +128,11 @@ def cg( A,
         xtype = upcast( xtype, M.dtype )
 
     x = xtype(x0.copy())
+    # If len(x)==1, then xtype strips off the np.array frame around the value.
+    # This is needed for _apply, though.
+    if len(x0) == 1:
+        x = np.array( [x] )
+
     r = rhs - _apply(A, x)
 
     rho_old, Mr = _normM_squared( r, M, inner_product = inner_product )
@@ -589,26 +594,19 @@ def newton( x0,
           ):
     '''Newton's method with different forcing terms.
     '''
-    # --------------------------------------------------------------------------
-    def _newton_jacobian( dx ):
-        '''Create the linear operator object to be used for the linear
-        solver.'''
-        model_evaluator.set_current_x( x )
-        return model_evaluator.apply_jacobian( dx )
-    # --------------------------------------------------------------------------
     # some initializations
     error_code = 0
     k = 0
 
-    # create the linear operator object
+    # Create Jacobian as linear operator object.
     jacobian = LinearOperator( (len(x0), len(x0)),
-                               _newton_jacobian,
-                               dtype = complex
+                               model_evaluator.apply_jacobian,
+                               dtype = model_evaluator.dtype
                              )
 
     x = x0
     Fx = model_evaluator.compute_f( x )
-    Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ) ]
+    Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
     while Fx_norms[-1] > nonlinear_tol and k < maxiter:
         # solve the Newton system using cg
@@ -630,7 +628,7 @@ def newton( x0,
             eta = max( eta, eta_max )
         elif forcing_term == 'type 2':
             eta = gamma * (Fx_norms[-1] / norm_Fx_previous)**alpha
-            eta = max( eta, gamma*eta_previous**alpha, eta_min )
+            eta = max( eta, gamma * eta_previous**alpha, eta_min )
             eta = min( eta, eta_max )
         else:
             print 'Unknown forcing term \'%s\'. Abort.'
@@ -639,6 +637,7 @@ def newton( x0,
         eta_previous = eta
 
         # solve the linear system
+        model_evaluator.set_current_x( x )
         x_update, info, relresvec, _ = linear_solver( jacobian, -Fx,
                                                       x0 = x,
                                                       tol = 1.0e-10

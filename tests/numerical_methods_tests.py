@@ -182,10 +182,11 @@ class TestLinearSolvers(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_newton(self):
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        class poly_modelevaluator:
+        class QuadraticModelEvaluator:
             '''Simple model evalator for f(x) = x^2 - 2.'''
             def __init__(self):
                 self._x0 = None
+                self.dtype = float
             def compute_f(self, x):
                 return x**2 - 2.0
             def set_current_x(self, x):
@@ -195,11 +196,13 @@ class TestLinearSolvers(unittest.TestCase):
             def inner_product(self, x, y):
                 return np.vdot(x, y)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        poly_modeleval = poly_modelevaluator()
+        qmodeleval = QuadraticModelEvaluator()
         x0 = np.array( [1.0] )
         tol = 1.0e-10
-        x, error_code, resvec = numerical_methods.newton( x0, poly_modeleval )
-        self.assertAlmostEqual( x[0], np.sqrt(2.0), delta=tol )
+        x, error_code, resvec = numerical_methods.newton( x0, qmodeleval,
+                                                          nonlinear_tol=tol )
+        self.assertEqual(error_code, 0)
+        self.assertAlmostEqual(x[0], np.sqrt(2.0), delta=tol)
     # --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
