@@ -73,7 +73,7 @@ class TestLinearSolvers(unittest.TestCase):
         x0 = np.zeros( num_unknowns )
         # Solve using MINRES.
         tol = 1.0e-13
-        x, info = numerical_methods.minres( A, rhs, x0, tol=tol )
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol )
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.
@@ -95,12 +95,14 @@ class TestLinearSolvers(unittest.TestCase):
         x0 = np.zeros( num_unknowns )
         # Solve using MINRES.
         tol = 1.0e-13
-        x, info = numerical_methods.minres( A, rhs, x0, tol=tol )
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol)
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.
         res = rhs - A*x
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+        # Is last residual in relresvec equal to explicitly computed residual?
+        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), relresvec[-1], delta=tol )
     # --------------------------------------------------------------------------
     def test_minres_dense_complex(self):
         # Create regular dense problem.
@@ -109,8 +111,8 @@ class TestLinearSolvers(unittest.TestCase):
         rhs = np.ones( num_unknowns )
         x0 = np.zeros( num_unknowns )
         # Solve using MINRES.
-        tol = 1.0e-15
-        x, info = numerical_methods.minres( A, rhs, x0, tol=tol )
+        tol = 1.0e-14
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol )
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.
@@ -132,7 +134,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-11
-        x, info = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns )
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns )
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.

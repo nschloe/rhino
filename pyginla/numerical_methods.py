@@ -47,7 +47,8 @@ def _normM_squared( x, M, inner_product = np.vdot ):
     Mx = _apply( M, x )
     rho = inner_product( x, Mx )
 
-    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
+#    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
+    if abs(rho.imag) > abs(rho) *1e-10:
         raise ValueError( 'M not positive definite?' )
 
     return rho.real, Mx
@@ -228,64 +229,74 @@ def minres( A,
             tol = 1e-5,
             maxiter = None,
             M = None,
+            Ml = None,
+            Mr = None,
             inner_product = np.vdot,
-            x_cor = None,
-            r0_proj = None,
-            proj = None,
-            callback = None,
-            explicit_residual = False
+            explicit_residual = False,
+            full_reortho = False
             ):
     # --------------------------------------------------------------------------
-    info = 0
-    if maxiter is None:
-        maxiter = len(b)
+    # This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
+    # where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the 
+    # inner_product. M has to be self-adjoint and positive-definite w.r.t.
+    # inner_product. 
+    # 
+    # Details:
+    # The Lanczos procedure is used with the operator M*Ml*A*Mr and the 
+    # inner product defined by inner_product(M^{-1}x,y). The initial vector 
+    # for Lanczos is r0 = M*Ml*(b - A*x0) -- note that Mr is not used for
+    # the initial vector!
+    #
+    # Stopping criterion is 
+    # ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
 
+    info = 0
     N = len(b)
 
-    r0 = b - _apply(A, x0)
+    if maxiter is None:
+        maxiter = N
 
-    xk = x0.copy()
+    # Compute M-norm of M*Ml*b.
+    Mlb = _apply(Ml, b)
+    norm_MMlb, _ = _normM(Mlb, M, inner_product = inner_product)
+
     # --------------------------------------------------------------------------
     # Init Lanczos and MINRES
-    r0 = _apply(r0_proj, r0)
+    r0 = b - _apply(A, x0)
+    Mlr0 = _apply(Ml, r0)
+    norm_MMlr0, MMlr0 = _normM(Mlr0, M, inner_product = inner_product)
 
-    norm_Mr0, Mr0 = _normM(r0, M, inner_product = inner_product)
+    # initial relative residual norm 
+    relresvec = [norm_MMlr0 / norm_MMlb]
 
-    # Compute M-norm of b.
-    # Note: stopping criterion is ||M\(b-A*xk)||_M / ||M\b||_M < tol
-    # If a projection is _applyied we obtain with b-A*xcor(xk)=Proj(b-A*xk) also
-    # ||M\Proj(b-A*xk)||_M / ||M\b||_M = ||M\(b-A*xcor(xk))||_M / ||M\b||_M < tol
-    norm_Mb, _ = _normM(b, M, inner_product = inner_product)
-
-    norm_rel_residual = norm_Mr0 / norm_Mb
     # --------------------------------------------------------------------------
-
     # Allocate and initialize the 'large' memory blocks.
     # Last and current Lanczos vector:
-    V = [np.empty(N), Mr0 / norm_Mr0]
+    V = [np.zeros(N), MMlr0 / norm_MMlr0]
     # M*v[i] = P[1], M*v[i-1] = P[0]
-    P = [np.zeros(N), r0 / norm_Mr0]
-    # Necessary for efficient update of xk:
+    P = [np.zeros(N), Mlr0 / norm_MMlr0]
+    # Necessary for efficient update of yk:
     W = [np.zeros(N), np.zeros(N)]
     # some small helpers
     ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
-    y  = [norm_Mr0, 0] # first entry is (updated) residual
+    y  = [norm_MMlr0, 0] # first entry is (updated) residual
     G2 = np.eye(2)     # old givens rotation
     G1 = np.eye(2)     # even older givens rotation ;)
     k = 0
-
-    if callback is not None:
-        callback( norm_rel_residual, xk )
+    
+    # resulting approximation is xk = x0 + Mr*yk
+    yk = np.zeros(N)
 
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
     # --------------------------------------------------------------------------
-    while norm_rel_residual > tol and k <= maxiter:
+    while relresvec[-1] > tol and k <= maxiter:
         # ---------------------------------------------------------------------
         # Lanczos
         tsold = ts
-        z  = _apply(A, V[1])
-        z  = _apply(proj, z)
+        z  = _apply(Mr, V[1])
+        z  = _apply(A, z)
+        z  = _apply(Ml, z)
         # tsold = inner_product(V[0], z)
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
@@ -336,48 +347,47 @@ def minres( A,
         # update solution
         z  = (V[0] - R[0]*W[0] - R[1]*W[1]) / R[2]
         W  = [W[1], z]
-        xk = xk + y[0] * z
+        yk = yk + y[0] * z
         y  = [y[1], 0]
 
         # ----------------------------------------------------------------------
         # update residual
         if explicit_residual:
-            xkcor = _apply(x_cor, xk)
-            r = b - _apply(A, xkcor)
-            norm_Fx_exact, _ = _normM(r, M, inner_product=inner_product)
-            norm_rel_residual = norm_Fx_exact / norm_Mb
+            xk = x0 + _apply(Mr, yk)
+            r_exp = b - _apply(A, xk)
+            r_exp = _apply(Ml, r_exp)
+            norm_r_exp, _ = _normM(r_exp, M, inner_product=inner_product)
+            relresvec.append(norm_r_exp / norm_MMlb)
         else:
-            norm_rel_residual = abs(y[0]) / norm_Mb
+            relresvec.append(abs(y[0]) / norm_MMlb)
 
         # Compute residual explicitly if updated residual is below tolerance.
-        if norm_rel_residual <= tol:
-            # Compute the exact residual norm.
-            xkcor = _apply(x_cor, xk)
-            r = b - _apply(A, xkcor)
-            norm_Fx_exact, _ = _normM(r, M, inner_product=inner_product)
-            norm_rel_res_exact = norm_Fx_exact / norm_Mb
-            if norm_rel_res_exact > tol:
-                print ( 'Info (iter %d): Updated residual is below tolerance, '
-                      + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
-                      + 'resup=%g)\n' \
-                      ) % (k, norm_rel_res_exact, tol, norm_rel_residual)
-            norm_rel_residual = norm_rel_res_exact
-
-        if callback is not None:
-            callback( norm_rel_residual, xk )
+        if relresvec[-1] <= tol or k+1 == maxiter:
+            norm_r_upd = relresvec[-1]
+            # Compute the exact residual norm (if not yet done above)
+            if not explicit_residual:
+                xk = x0 + _apply(Mr, yk)
+                r_exp = b - _apply(A, xk)
+                r_exp = _apply(Ml, r_exp)
+                norm_r_exp, _ = _normM(r_exp, M, inner_product=inner_product)
+                relresvec[-1] = norm_r_exp / norm_MMlb
+            # No convergence of explicit residual?
+            if relresvec[-1] > tol:
+                # Was this the last iteration?
+                if k+1 == maxiter:
+                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' % (relresvec[-1], tol, k, norm_r_upd)
+                    info = 1
+                else:
+                    print ( 'Info (iter %d): Updated residual is below tolerance, '
+                          + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
+                          + 'resup=%g)\n' \
+                          ) % (k, relresvec[-1], tol, norm_r_upd)
 
         k += 1
     # end MINRES iteration
     # --------------------------------------------------------------------------
 
-    # Ultimate convergence test.
-    if norm_rel_residual > tol:
-        print 'No convergence after iter %d (res=%e > tol=%e)' % \
-              (k-1, norm_rel_residual, tol)
-        xkcor = _apply(x_cor, xk)
-        info = 1
-
-    return xkcor, info
+    return xk, info, relresvec
 # ==============================================================================
 def gmres_wrap( linear_operator,
                 b,
