@@ -593,6 +593,8 @@ def newton( x0,
           ):
     '''Newton's method with different forcing terms.
     '''
+    from scipy.constants import golden
+
     # some initializations
     error_code = 0
     k = 0
@@ -628,7 +630,7 @@ def newton( x0,
         elif forcing_term == 'type 1':
             # linear_relresvec[-1] \approx tol, so this could be replaced.
             eta = abs(Fx_norms[-1] - linear_relresvec[-1]) / Fx_norms[-2]
-            eta = max( eta, eta_previous**((1.0+np.sqrt(5.0))/2.0), eta_min )
+            eta = max( eta, eta_previous**golden, eta_min )
             eta = min( eta, eta_max )
         elif forcing_term == 'type 2':
             eta = gamma * (Fx_norms[-1] / Fx_norms[-2])**alpha
