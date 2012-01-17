@@ -252,6 +252,9 @@ def minres( A,
     info = 0
     N = len(b)
 
+    # TODO: how to obtain data type?
+    dtype = complex
+
     if maxiter is None:
         maxiter = N
 
@@ -271,9 +274,9 @@ def minres( A,
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
     if return_lanczos or full_reortho:
-        Vfull = np.zeros([N,maxiter+1])
+        Vfull = np.zeros([N,maxiter+1], dtype=dtype)
         Vfull[:,0] = MMlr0 / norm_MMlr0
-        Pfull = np.zeros([N,maxiter+1])
+        Pfull = np.zeros([N,maxiter+1], dtype=dtype)
         Pfull[:,0] = Mlr0 / norm_MMlr0
         Tfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
     # Last and current Lanczos vector:
@@ -408,7 +411,13 @@ def minres( A,
     # end MINRES iteration
     # --------------------------------------------------------------------------
 
-    return xk, info, relresvec
+    if return_lanczos:
+        Vfull = Vfull[:,0:k]
+        Pfull = Pfull[:,0:k]
+        Tfull = Tfull[0:k,0:k-1]
+        return xk, info, relresvec, Vfull, Pfull, Tfull
+    else:
+        return xk, info, relresvec
 # ==============================================================================
 def gmres_wrap( linear_operator,
                 b,
