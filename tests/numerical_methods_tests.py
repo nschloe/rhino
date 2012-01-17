@@ -129,12 +129,12 @@ class TestLinearSolvers(unittest.TestCase):
         diag.extend(range(-1,-num_unknowns-1,-1))
         data = np.array(diag)
         A = scipy.sparse.spdiags(data, [0], 2*num_unknowns, 2*num_unknowns) 
-        rhs = np.random.rand(2*num_unknowns)
+        rhs = np.ones(2*num_unknowns)
         x0 = np.zeros(2*num_unknowns )
 
         # Solve using MINRES.
         tol = 1.0e-11
-        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns )
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, full_reortho=True )
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.

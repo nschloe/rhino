@@ -66,9 +66,7 @@ def _apply( A, x ):
         return x
     elif isinstance( A, np.ndarray ):
         return np.dot( A, x )
-    elif isinstance( A, scipy.sparse.dia_matrix ) \
-      or isinstance( A, scipy.sparse.csr_matrix ) \
-      or isinstance( A, scipy.sparse.csc_matrix ):
+    elif scipy.sparse.isspmatrix(A):
         return A * x
     elif isinstance( A, scipy.sparse.linalg.LinearOperator ):
         return A * x
@@ -233,6 +231,7 @@ def minres( A,
             Mr = None,
             inner_product = np.vdot,
             explicit_residual = False,
+            return_lanczos = False,
             full_reortho = False
             ):
     # --------------------------------------------------------------------------
@@ -271,6 +270,12 @@ def minres( A,
 
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
+    if return_lanczos or full_reortho:
+        Vfull = np.zeros([N,maxiter+1])
+        Vfull[:,0] = MMlr0 / norm_MMlr0
+        Pfull = np.zeros([N,maxiter+1])
+        Pfull[:,0] = Mlr0 / norm_MMlr0
+        Tfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
     # Last and current Lanczos vector:
     V = [np.zeros(N), MMlr0 / norm_MMlr0]
     # M*v[i] = P[1], M*v[i-1] = P[0]
@@ -290,13 +295,20 @@ def minres( A,
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
     # --------------------------------------------------------------------------
-    while relresvec[-1] > tol and k <= maxiter:
+    while relresvec[-1] > tol and k < maxiter:
         # ---------------------------------------------------------------------
         # Lanczos
         tsold = ts
         z  = _apply(Mr, V[1])
         z  = _apply(A, z)
         z  = _apply(Ml, z)
+
+        # full reortho?
+        if full_reortho:
+            for i in range(0,k-1):
+                ip = inner_product(Vfull[:,i], z)
+                z = z - ip * Pfull[:,i]
+
         # tsold = inner_product(V[0], z)
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
@@ -327,6 +339,15 @@ def minres( A,
 
         P  = [P[1], z / ts]
         V  = [V[1], v / ts]
+        
+        # store new vectors in full basis
+        if return_lanczos or full_reortho:
+            Vfull[:,k+1] = v / ts
+            Pfull[:,k+1] = z / ts
+            Tfull[k,k] = td        # diagonal
+            Tfull[k+1,k] = ts      # subdiagonal
+            if k+1 < maxiter:
+                Tfull[k,k+1] = ts  # superdiagonal
 
         # ----------------------------------------------------------------------
         # (implicit) update of QR-factorization of Lanczos matrix
