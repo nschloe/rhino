@@ -315,6 +315,7 @@ def minres( A,
         if full_reortho:
             for i in range(0,k-1):
                 ip = inner_product(Vfull[:,i], z)
+                assert(abs(ip) < 1e-9)
                 z = z - ip * Pfull[:,i]
 
         # tsold = inner_product(V[0], z)
