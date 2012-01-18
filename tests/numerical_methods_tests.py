@@ -189,11 +189,11 @@ class TestLinearSolvers(unittest.TestCase):
         # get projection
         from scipy.sparse.linalg import eigs
         D, W = eigs(A)
-        Mr, x0new = numerical_methods.minres_get_projection( A, rhs, x0, W )
+        P, x0new = numerical_methods.get_projection( A, rhs, x0, W )
 
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec = numerical_methods.minres( A, rhs, x0new, Mr=Mr, tol=tol, maxiter=num_unknowns, full_reortho=True )
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)

@@ -424,17 +424,21 @@ def minres( A,
     else:
         return xk, info, relresvec
 # ==============================================================================
-# A has to be self-adjoint w.r.t. inner_product
-def minres_get_projection( A, b, x0, W, inner_product = _ipstd ):
+# Compute the projection P and adapted initial guess x0new for use with
+# MINRES/CG. P has to be used as the right preconditioner. 
+#
+# A has to be self-adjoint w.r.t. inner_product. Then also A*P is self-adjoint
+# w.r.t. inner_product.
+def get_projection( A, b, x0, W, inner_product = _ipstd ):
     N = len(b)
     AW = _apply(A, W)
     E = inner_product(W, AW)
-    def P(x):
+    def Pfun(x):
         return x - np.dot(W, np.linalg.solve(E, inner_product(AW, x) ) )
     dtype = upcast(A.dtype, b.dtype, x0.dtype, W.dtype)
-    Mr = scipy.sparse.linalg.LinearOperator( [N,N], P, matmat=P, dtype=dtype)
-    x0new = Mr*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
-    return Mr, x0new
+    P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun, dtype=dtype)
+    x0new = P*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
+    return P, x0new
 # ==============================================================================
 def gmres_wrap( linear_operator,
                 b,
