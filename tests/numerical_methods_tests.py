@@ -171,12 +171,35 @@ class TestLinearSolvers(unittest.TestCase):
         # Check the residual.
         res = rhs - A * x
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
-        # Check if Lanczos relation holds TODO
+        # Check if Lanczos relation holds
         res = A*Vfull[:,0:-1] - Vfull*Tfull
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-9 )
         # Check if Lanczos basis is orthonormal w.r.t. inner product
         res = np.eye(Vfull.shape[1]) - np.dot( Pfull.T.conj(), Vfull )
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-9 )
+    # --------------------------------------------------------------------------
+    def test_minres_deflation(self):
+        # Create sparse symmetric problem.
+        num_unknowns = 100
+        A = self._create_sparse_herm_indef_matrix(num_unknowns)
+        rhs = np.ones(num_unknowns)
+        x0 = np.zeros(num_unknowns )
+        self._create_sparse_herm_indef_matrix(4)
+
+        # get projection
+        from scipy.sparse.linalg import eigs
+        D, W = eigs(A)
+        Mr, x0new = numerical_methods.minres_get_projection( A, rhs, x0, W )
+
+        # Solve using MINRES.
+        tol = 1.0e-10
+        x, info, relresvec = numerical_methods.minres( A, rhs, x0new, Mr=Mr, tol=tol, maxiter=num_unknowns, full_reortho=True )
+
+        # Make sure the method converged.
+        self.assertEqual(info, 0)
+        # Check the residual.
+        res = rhs - A * x
+        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
 #    def test_lobpcg(self):
 #        num_unknowns = 5

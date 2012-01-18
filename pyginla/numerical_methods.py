@@ -26,7 +26,12 @@ def l2_condition_number( linear_operator ):
 
     return large_eigenval[0] / small_eigenval[0]
 # ==============================================================================
-def _norm_squared( x, inner_product = np.vdot ):
+# np.vdot only works for vectors and np.dot does not use the conjugate
+# transpose. In Octave/MATLAB notation _ipstd(X,Y) == X'*Y
+def _ipstd( X, Y ):
+    return np.dot(X.T.conj(), Y)
+# ==============================================================================
+def _norm_squared( x, inner_product = _ipstd ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     rho = inner_product( x, x )
 
@@ -35,14 +40,14 @@ def _norm_squared( x, inner_product = np.vdot ):
 
     return rho.real
 # ==============================================================================
-def _norm( x, inner_product = np.vdot ):
+def _norm( x, inner_product = _ipstd ):
     '''Compute the norm w.r.t. to a given scalar product.'''
     norm2 = _norm_squared( x, inner_product = inner_product )
     if norm2 < 0.0:
         raise ValueError( '<x,x> = %g. Improper inner product?' % norm2 )
     return sqrt(norm2)
 # ==============================================================================
-def _normM_squared( x, M, inner_product = np.vdot ):
+def _normM_squared( x, M, inner_product = _ipstd ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     Mx = _apply( M, x )
     rho = inner_product( x, Mx )
@@ -53,7 +58,7 @@ def _normM_squared( x, M, inner_product = np.vdot ):
 
     return rho.real, Mx
 # ==============================================================================
-def _normM( x, M, inner_product = np.vdot ):
+def _normM( x, M, inner_product = _ipstd ):
     '''Compute the norm w.r.t. to a given scalar product.'''
     norm2, Mx = _normM_squared( x, M, inner_product = inner_product )
     if norm2 < 0.0:
@@ -81,7 +86,7 @@ def cg_wrap( linear_operator,
              M = None,
              explicit_residual = False,
              exact_solution = None,
-             inner_product = np.vdot
+             inner_product = _ipstd
            ):
     '''Wrapper around the CG method to get a vector with the relative residuals
     as return argument.
@@ -118,7 +123,7 @@ def cg( A,
         M = None,
         callback = None,
         explicit_residual = False,
-        inner_product = np.vdot
+        inner_product = _ipstd
       ):
     '''Conjugate gradient method with different inner product.
     '''
@@ -189,7 +194,7 @@ def minres_wrap( linear_operator,
                  tol = 1.0e-5,
                  maxiter = None,
                  M = None,
-                 inner_product = np.vdot,
+                 inner_product = _ipstd,
                  explicit_residual = False,
                  exact_solution = None
                ):
@@ -229,7 +234,7 @@ def minres( A,
             M = None,
             Ml = None,
             Mr = None,
-            inner_product = np.vdot,
+            inner_product = _ipstd,
             explicit_residual = False,
             return_lanczos = False,
             full_reortho = False
@@ -316,7 +321,7 @@ def minres( A,
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
         td = inner_product(V[1], z)
-        assert abs(td.imag) < 1.0e-12
+        #assert abs(td.imag) < 1.0e-12
         td = td.real
         z  = z - td * P[1]
 
@@ -419,6 +424,18 @@ def minres( A,
     else:
         return xk, info, relresvec
 # ==============================================================================
+# A has to be self-adjoint w.r.t. inner_product
+def minres_get_projection( A, b, x0, W, inner_product = _ipstd ):
+    N = len(b)
+    AW = _apply(A, W)
+    E = inner_product(W, AW)
+    def P(x):
+        return x - np.dot(W, np.linalg.solve(E, inner_product(AW, x) ) )
+    dtype = upcast(A.dtype, b.dtype, x0.dtype, W.dtype)
+    Mr = scipy.sparse.linalg.LinearOperator( [N,N], P, matmat=P, dtype=dtype)
+    x0new = Mr*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
+    return Mr, x0new
+# ==============================================================================
 def gmres_wrap( linear_operator,
                 b,
                 x0,
@@ -426,7 +443,7 @@ def gmres_wrap( linear_operator,
                 maxiter = None,
                 Mleft = None,
                 Mright = None,
-                inner_product = np.vdot,
+                inner_product = _ipstd,
                 explicit_residual = False,
                 exact_solution = None
               ):
@@ -465,7 +482,7 @@ def gmres( A,
            maxiter = None,
            Mleft = None,
            Mright = None,
-           inner_product = np.vdot,
+           inner_product = _ipstd,
            callback = None,
            explicit_residual = False
          ):
