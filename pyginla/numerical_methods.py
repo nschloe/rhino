@@ -258,8 +258,13 @@ def minres( A,
     info = 0
     N = len(b)
 
-    # TODO: how to obtain data type?
-    dtype = complex
+    xtype = upcast( A.dtype, b.dtype, x0.dtype )
+    if M:
+        xtype = upcast( xtype, M )
+    if Ml:
+        xtype = upcast( xtype, Ml )
+    if Mr:
+        xtype = upcast( xtype, Mr )
 
     if maxiter is None:
         maxiter = N
@@ -284,9 +289,9 @@ def minres( A,
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
     if return_lanczos or full_reortho:
-        Vfull = np.zeros([N,maxiter+1], dtype=dtype)
+        Vfull = np.zeros([N,maxiter+1], dtype=xtype)
         Vfull[:,0] = MMlr0 / norm_MMlr0
-        Pfull = np.zeros([N,maxiter+1], dtype=dtype)
+        Pfull = np.zeros([N,maxiter+1], dtype=xtype)
         Pfull[:,0] = Mlr0 / norm_MMlr0
         Tfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
     # Last and current Lanczos vector:
