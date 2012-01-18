@@ -26,12 +26,18 @@ def _main():
     '''
     args = _parse_input_arguments()
 
+    for filename in args.filenames:
+        _solve_system( filename, args.timestep, args.use_preconditioner )
+
+    return
+# ==============================================================================
+def _solve_system( filename, timestep, use_preconditioner ):
     # read the mesh
-    print "Reading the mesh...",
-    mesh, psi, A, field_data = mesh_io.read_mesh( args.filename,
-                                                  timestep=args.timestep
+    #print "Reading the mesh...",
+    mesh, psi, A, field_data = mesh_io.read_mesh( filename,
+                                                  timestep=timestep
                                                 )
-    print "done."
+    #print "done."
 
     # build the model evaluator
     mu = 1.0e-1
@@ -44,16 +50,16 @@ def _main():
 
     # create the linear operator
     ginla_jacobian = LinearOperator( (num_unknowns, num_unknowns),
-                                     matvec = ginla_modelval.apply_jacobian,
-                                     dtype = ginla_modelval.dtype
-                                   )
+                                    matvec = ginla_modelval.apply_jacobian,
+                                    dtype = ginla_modelval.dtype
+                                  )
 
     # create precondictioner obj
-    if args.use_preconditioner:
+    if use_preconditioner:
         keo_prec = LinearOperator( (num_unknowns, num_unknowns),
                                     matvec = precs.keo_amg,
                                     dtype = complex
-                                 )
+                                )
     else:
         keo_prec = None
 
@@ -91,12 +97,12 @@ def _main():
     #print "Get reference solution (dim = %d)..." % (2*num_unknowns),
     #start_time = time.clock()
     #ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
-                                           #x0 = phi0,
-                                           #tol = 1.0e-14,
-                                           #M = keo_prec,
-                                           #inner_product = ginla_modelval.inner_product,
-                                           #explicit_residual = True
-                                         #)
+                                          #x0 = phi0,
+                                          #tol = 1.0e-14,
+                                          #M = keo_prec,
+                                          #inner_product = ginla_modelval.inner_product,
+                                          #explicit_residual = True
+                                        #)
     #end_time = time.clock()
     #if info == 0:
         #print "success!",
@@ -104,53 +110,35 @@ def _main():
         #print "no convergence.",
     #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
 
-    print "Solving the system (dim = %d)..." % (2*num_unknowns),
+    #print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     start_time = time.clock()
-    sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
-                                           phi0,
-                                           tol = 1.0e-12,
-                                           M = keo_prec,
-                                           inner_product = ginla_modelval.inner_product,
-                                           explicit_residual = True,
-                                           #exact_solution = ref_sol
-                                         )
+    sol, info, relresvec = nm.minres( ginla_jacobian, rhs,
+                                      phi0,
+                                      tol = 1.0e-12,
+                                      M = keo_prec,
+                                      inner_product = ginla_modelval.inner_product,
+                                      explicit_residual = True,
+                                      #exact_solution = ref_sol
+                                    )
 
     #sol, info, relresvec, errorvec = nm.gmres_wrap( ginla_jacobian, rhs,
-                                           #x0 = phi0,
-                                           #tol = 1.0e-12,
-                                           #Mleft = keo_prec,
-                                           #inner_product = ginla_modelval.inner_product,
-                                           #explicit_residual = True,
-                                           ##exact_solution = ref_sol
-                                         #)
+                                          #x0 = phi0,
+                                          #tol = 1.0e-12,
+                                          #Mleft = keo_prec,
+                                          #inner_product = ginla_modelval.inner_product,
+                                          #explicit_residual = True,
+                                          ##exact_solution = ref_sol
+                                        #)
     end_time = time.clock()
-    if info == 0:
-        print "success!",
-    else:
-        print "no convergence.",
-    print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
-    pp.semilogy( relresvec )
+    #if info == 0:
+        #print "success!",
+    #else:
+        #print "no convergence.",
+    #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
+    #pp.semilogy( relresvec )
     #pp.semilogy( errorvec )
-    pp.show()
-    # --------------------------------------------------------------------------
-    #_run_one_mu( ginla_modelval,
-                 #precs,
-                 #ginla_jacobian,
-                 #rhs,
-                 #psi0,
-                 #test_preconditioners
-               #)
-    #_run_along_top( ginla_modelval,
-                    #precs,
-                    #ginla_jacobian,
-                    #rhs,
-                    #psi0,
-                    #test_preconditioners
-                  #)
-    #_run_different_meshes( ginla_modelval,
-                           #precs
-                         #)
-    # --------------------------------------------------------------------------
+    #pp.show()
+    print "(%d,%d)" % (2*num_unknowns, len(relresvec)-1)
     return
 # ==============================================================================
 def _create_preconditioner_list( precs, num_unknowns ):
@@ -616,9 +604,10 @@ def _parse_input_arguments():
     parser = argparse.ArgumentParser( description = 'Solve the linearized Ginzburg--Landau problem.'
                                     )
 
-    parser.add_argument( 'filename',
+    parser.add_argument( 'filenames',
                          metavar = 'FILE',
                          type    = str,
+                         nargs   = '+',
                          help    = 'ExodusII file containing the geometry and initial state'
                        )
 
