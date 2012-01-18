@@ -237,7 +237,8 @@ def minres( A,
             inner_product = _ipstd,
             explicit_residual = False,
             return_lanczos = False,
-            full_reortho = False
+            full_reortho = False,
+            exact_solution = None
             ):
     # --------------------------------------------------------------------------
     # This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
@@ -275,6 +276,10 @@ def minres( A,
 
     # initial relative residual norm 
     relresvec = [norm_MMlr0 / norm_MMlb]
+    
+    # compute error?
+    if exact_solution is not None:
+        errvec = [np.linalg.norm(exact_solution - x0)]
 
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
@@ -382,6 +387,9 @@ def minres( A,
 
         # ----------------------------------------------------------------------
         # update residual
+        if exact_solution is not None:
+            xk = x0 + _apply(Mr, yk)
+            errvec.append( np.linalg.norm(exact_solution - xk) )
         if explicit_residual:
             xk = x0 + _apply(Mr, yk)
             r_exp = b - _apply(A, xk)
@@ -421,9 +429,15 @@ def minres( A,
         Vfull = Vfull[:,0:k]
         Pfull = Pfull[:,0:k]
         Tfull = Tfull[0:k,0:k-1]
-        return xk, info, relresvec, Vfull, Pfull, Tfull
+        if exact_solution is not None:
+            return xk, info, relresvec, errvec, Vfull, Pfull, Tfull
+        else:
+            return xk, info, relresvec, Vfull, Pfull, Tfull
     else:
-        return xk, info, relresvec
+        if exact_solution is not None:
+            return xk, info, relresvec, errvec
+        else:
+            return xk, info, relresvec
 # ==============================================================================
 # Compute the projection P and adapted initial guess x0new for use with
 # MINRES/CG. P has to be used as the right preconditioner. 

@@ -144,15 +144,19 @@ class TestLinearSolvers(unittest.TestCase):
         rhs = np.ones(num_unknowns)
         x0 = np.zeros(num_unknowns )
 
+        # Solve using spsolve.
+        xexact = scipy.sparse.linalg.spsolve(A, rhs)
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True )
+        x, info, relresvec, errvec = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, exact_solution=xexact)
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.
         res = rhs - A * x
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+        # Check error.
+        self.assertAlmostEqual( np.linalg.norm(xexact - x) - errvec[-1], 0.0, delta=1e-10 )
     # --------------------------------------------------------------------------
     def test_minres_lanczos(self):
         # Create sparse symmetric problem.
