@@ -321,7 +321,7 @@ def minres( A,
         z  = z - tsold * P[0]
         # Should be real! (diagonal element):
         td = inner_product(V[1], z)
-        #assert abs(td.imag) < 1.0e-12
+        assert abs(td.imag) < 1.0e-12
         td = td.real
         z  = z - td * P[1]
 
