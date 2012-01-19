@@ -443,6 +443,7 @@ def minres( A,
             return xk, info, relresvec, errvec
         else:
             return xk, info, relresvec
+
 # ==============================================================================
 # Compute the projection P and adapted initial guess x0new for use with
 # MINRES/CG. P has to be used as the right preconditioner. 
@@ -459,76 +460,73 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
     P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun, dtype=dtype)
     x0new = P*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
     return P, x0new
+
 # ==============================================================================
+# Compute Ritz values/vectors and corresponding residuals from the subspace
+# spanned by W and Vfull[:,0:-1]. W and Vfull MUST be orthonormal w.r.t. the
+# M-inner-product. Vfull and Tfull must be created with CG/MINRES applied to a
+# linear system with the operator A and the right preconditioner Mr set to the
+# projection obtained with get_projection(A, ..., W, ...).
+#
+# Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
+# M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis 
+# [W, Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of
+# the Ritz pair residual is computed. The computation of the residual norms do
+# not need the application of the operator A, but the preconditioner has to be
+# applied to the basis W. The computation of the residual norm may be unstable
+# (it seems as if residual norms below 1e-8 cannot be achieved... note that the
+# actual residual may be lower!).
 def get_ritz( A, W, Vfull, Tfull, M=None, inner_product = _ipstd ):
-    AW = _apply(A, W)
-    E = inner_product(W, AW)
-    MAW = _apply(M, AW)
-    D = inner_product(AW, MAW)
-    B1 = inner_product(AW, Vfull)
+    nW = W.shape[1]
+    AW = _apply(A, W)               # can (and should) be obtained from construction of projection
+    E = inner_product(W, AW)        # ~
+    Einv = np.linalg.inv(E)         # ~
+    B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
     B = B1[:,0:-1]
 
+    # Stack matrices appropriately: [E, B; B', Tfull(1:end-1,:)].
     ritzmat = np.bmat( [[E,B], [B.T.conj(), Tfull[0:-1,:].todense()]] )
 
-    # compute ritz values / vectors
+    # Compute Ritz values / vectors.
     from scipy.linalg import eigh
     lam, U = eigh(ritzmat)
 
-    # compute residuals
-    CC = np.bmat( [[D, B1], [B1.T.conj(), np.eye(Vfull.shape[1])]] )
-    F = np.bmat( [[np.eye(E.shape[0]), np.linalg.solve(E,B)], [np.zeros((Tfull.shape[0],E.shape[0])), Tfull.todense()]] )
-    FU = np.dot(F,U)
-    CCFU = np.dot(CC,FU)
-    print np.linalg.norm(MAW)
-    for i in range(0,ritzmat.shape[0]):
-        norm_MAv2 = inner_product(FU[:,i],CCFU[:,i])
-        assert( abs(norm_MAv2.imag) < 1e-12)
-        assert( norm_MAv2.real >= -1e-12)
-        norm_MAv2 = abs(norm_MAv2)
-        print norm_MAv2 - lam[i]**2
-    CC = np.bmat( [ [D,E,B1], [E.T.conj() , np.eye(E.shape[0]) , np.zeros( (E.shape[0],Vfull.shape[1]) ) ], [B1.T.conj(), np.zeros( (Vfull.shape[1],E.shape[0])), np.eye(Vfull.shape[1])] ] )
-    F = np.bmat( [ [np.eye(E.shape[0]), np.linalg.solve(E,B)], [E, B], [B.T.conj(),np.zeros( (B.shape[1],B.shape[1]) )], [np.zeros( (1,E.shape[0]+B.shape[1]-1)), np.array([[Tfull[-1,-1]]]) ] ])
-    FU = np.dot(F,U)
-    CCFU = np.dot(CC,FU)
-    print '----'
-    basis = np.bmat( [[W, Vfull[:,0:-1]]])
-    V = np.dot(basis,U)
-    AV = _apply(A, V)
-    AWE = np.dot(AW, np.linalg.inv(E))
+    # Compute residual norms.
+    ritz_res = np.zeros(lam.shape[0])
+    AWE = np.dot(AW, Einv)
+    # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
     MAWE = _apply(M, AWE)
     D = inner_product(AWE, MAWE)
-    D1 = np.eye(E.shape[0])
-    print D1.shape
-#    D2 = np.dot(B, np.linalg.inv(E))
+    D1 = np.eye(nW)
     D2 = np.linalg.solve(E, B1)
-    print E.shape
-    print B.shape
-    print D2.shape
-
-    CC = np.bmat( [ [D,D1,D2] , [D1.T.conj() , np.eye(E.shape[0]) , np.zeros( (E.shape[0],Vfull.shape[1]) ) ], [D2.T.conj(), np.zeros( (Vfull.shape[1],E.shape[0])), np.eye(Vfull.shape[1])] ] )
+    CC = np.bmat( [ [D,D1,D2] , [D1.T.conj() , np.eye(nW) , np.zeros( (nW,Vfull.shape[1]) ) ], [D2.T.conj(), np.zeros( (Vfull.shape[1],nW)), np.eye(Vfull.shape[1])] ] )
     CC = np.asarray(CC)
-    Clam, Ceig = eigh(CC)
-    print CC
-    print inner_product(W,W)
-    print Clam
-    print ';;;'
     for i in range(0,ritzmat.shape[0]):
-        norm_res2 = inner_product(FU[:,i], CCFU[:,i])
         w = U[0:W.shape[1],i]
         v = U[W.shape[1]:,i]
         mu = lam[i]
-        res = mu*(np.dot(MAW,np.linalg.solve(E,w)) - np.dot(W,w)) - np.dot(Vfull[:,0:-1], np.dot(B.T.conj(), w)) + Vfull[:,-1]*Tfull[-1,-1]*v[-1]
 
         z = np.r_[mu*w, -mu*w, -np.dot(B.T.conj(), w), Tfull[-1,-1]*v[-1]]
         CCz = np.dot(CC, z)
-        norm_res = inner_product(z, CCz)
-        print norm_res
+        res_ip = inner_product(z, CCz)
+        assert(res_ip.imag < 1e-13)
+        assert(res_ip.real > -1e-10)
+        ritz_res[i] = sqrt(abs(res_ip))
 
-        v = np.dot(basis,U[:,i])
-        res2 = AV[:,i] - lam[i]*V[:,i]
-        res2 = res2.flatten()
-        print np.linalg.norm(res2)**2
-        
+        # Explicit computation of residual (this part only works for M=I)
+        #X = np.bmat( [[W, Vfull[:,0:-1]]])
+        #V = np.dot(X, U)
+        #AV = _apply(A, V)
+        #res_explicit = AV[:,i] - lam[i]*V[:,i]
+        #print np.linalg.norm(res_explicit)
+
+    # Sort Ritz values/vectors and residuals s.t. residual is ascending.
+    sorti = np.argsort(ritz_res)
+    ritz_vals = lam[sorti]
+    ritz_vecs = np.dot(W, U[0:nW,sorti]) + np.dot(Vfull[:,0:-1], U[nW:,sorti])
+    ritz_res  = ritz_res[sorti]
+
+    return ritz_vals, ritz_vecs, ritz_res
 
 # ==============================================================================
 def gmres_wrap( linear_operator,

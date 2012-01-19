@@ -193,16 +193,20 @@ class TestLinearSolvers(unittest.TestCase):
         # get projection
         from scipy.sparse.linalg import eigs
         D, W = eigs(A)
-        W = W + 1.e-4*np.random.rand(W.shape[0], W.shape[1])
-        from scipy.linalg import qr
-        W, R = qr(W, mode='economic')
+        
+        # Uncomment next lines to perturb W
+        #W = W + 1.e-10*np.random.rand(W.shape[0], W.shape[1])
+        #from scipy.linalg import qr
+        #W, R = qr(W, mode='economic')
+
         P, x0new = numerical_methods.get_projection( A, rhs, x0, W )
 
         # Solve using MINRES.
         tol = 1.0e-10
         x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True, return_lanczos=True )
 
-        numerical_methods.get_ritz( A, W, Vfull, Tfull )
+        # TODO: move to new unit test
+        ritz_vals, ritz_vecs, ritz_res = numerical_methods.get_ritz( A, W, Vfull, Tfull )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
