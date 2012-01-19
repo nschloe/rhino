@@ -455,6 +455,77 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
     x0new = P*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
     return P, x0new
 # ==============================================================================
+def get_ritz( A, W, Vfull, Tfull, M=None, inner_product = _ipstd ):
+    AW = _apply(A, W)
+    E = inner_product(W, AW)
+    MAW = _apply(M, AW)
+    D = inner_product(AW, MAW)
+    B1 = inner_product(AW, Vfull)
+    B = B1[:,0:-1]
+
+    ritzmat = np.bmat( [[E,B], [B.T.conj(), Tfull[0:-1,:].todense()]] )
+
+    # compute ritz values / vectors
+    from scipy.linalg import eigh
+    lam, U = eigh(ritzmat)
+
+    # compute residuals
+    CC = np.bmat( [[D, B1], [B1.T.conj(), np.eye(Vfull.shape[1])]] )
+    F = np.bmat( [[np.eye(E.shape[0]), np.linalg.solve(E,B)], [np.zeros((Tfull.shape[0],E.shape[0])), Tfull.todense()]] )
+    FU = np.dot(F,U)
+    CCFU = np.dot(CC,FU)
+    print np.linalg.norm(MAW)
+    for i in range(0,ritzmat.shape[0]):
+        norm_MAv2 = inner_product(FU[:,i],CCFU[:,i])
+        assert( abs(norm_MAv2.imag) < 1e-12)
+        assert( norm_MAv2.real >= -1e-12)
+        norm_MAv2 = abs(norm_MAv2)
+        print norm_MAv2 - lam[i]**2
+    CC = np.bmat( [ [D,E,B1], [E.T.conj() , np.eye(E.shape[0]) , np.zeros( (E.shape[0],Vfull.shape[1]) ) ], [B1.T.conj(), np.zeros( (Vfull.shape[1],E.shape[0])), np.eye(Vfull.shape[1])] ] )
+    F = np.bmat( [ [np.eye(E.shape[0]), np.linalg.solve(E,B)], [E, B], [B.T.conj(),np.zeros( (B.shape[1],B.shape[1]) )], [np.zeros( (1,E.shape[0]+B.shape[1]-1)), np.array([[Tfull[-1,-1]]]) ] ])
+    FU = np.dot(F,U)
+    CCFU = np.dot(CC,FU)
+    print '----'
+    basis = np.bmat( [[W, Vfull[:,0:-1]]])
+    V = np.dot(basis,U)
+    AV = _apply(A, V)
+    AWE = np.dot(AW, np.linalg.inv(E))
+    MAWE = _apply(M, AWE)
+    D = inner_product(AWE, MAWE)
+    D1 = np.eye(E.shape[0])
+    print D1.shape
+#    D2 = np.dot(B, np.linalg.inv(E))
+    D2 = np.linalg.solve(E, B1)
+    print E.shape
+    print B.shape
+    print D2.shape
+
+    CC = np.bmat( [ [D,D1,D2] , [D1.T.conj() , np.eye(E.shape[0]) , np.zeros( (E.shape[0],Vfull.shape[1]) ) ], [D2.T.conj(), np.zeros( (Vfull.shape[1],E.shape[0])), np.eye(Vfull.shape[1])] ] )
+    CC = np.asarray(CC)
+    Clam, Ceig = eigh(CC)
+    print CC
+    print inner_product(W,W)
+    print Clam
+    print ';;;'
+    for i in range(0,ritzmat.shape[0]):
+        norm_res2 = inner_product(FU[:,i], CCFU[:,i])
+        w = U[0:W.shape[1],i]
+        v = U[W.shape[1]:,i]
+        mu = lam[i]
+        res = mu*(np.dot(MAW,np.linalg.solve(E,w)) - np.dot(W,w)) - np.dot(Vfull[:,0:-1], np.dot(B.T.conj(), w)) + Vfull[:,-1]*Tfull[-1,-1]*v[-1]
+
+        z = np.r_[mu*w, -mu*w, -np.dot(B.T.conj(), w), Tfull[-1,-1]*v[-1]]
+        CCz = np.dot(CC, z)
+        norm_res = inner_product(z, CCz)
+        print norm_res
+
+        v = np.dot(basis,U[:,i])
+        res2 = AV[:,i] - lam[i]*V[:,i]
+        res2 = res2.flatten()
+        print np.linalg.norm(res2)**2
+        
+
+# ==============================================================================
 def gmres_wrap( linear_operator,
                 b,
                 x0,
