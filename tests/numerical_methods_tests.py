@@ -199,14 +199,14 @@ class TestLinearSolvers(unittest.TestCase):
         #from scipy.linalg import qr
         #W, R = qr(W, mode='economic')
 
-        P, x0new = numerical_methods.get_projection( A, rhs, x0, W )
+        P, x0new, AW = numerical_methods.get_projection( A, rhs, x0, W )
 
         # Solve using MINRES.
         tol = 1.0e-10
         x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True, return_lanczos=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, ritz_res = numerical_methods.get_ritz( A, W, Vfull, Tfull )
+        ritz_vals, ritz_vecs, ritz_res = numerical_methods.get_ritz( A, W, AW, Vfull, Tfull )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)

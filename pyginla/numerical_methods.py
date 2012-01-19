@@ -459,7 +459,7 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
     dtype = upcast(A.dtype, b.dtype, x0.dtype, W.dtype)
     P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun, dtype=dtype)
     x0new = P*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
-    return P, x0new
+    return P, x0new, AW
 
 # ==============================================================================
 # Compute Ritz values/vectors and corresponding residuals from the subspace
@@ -476,9 +476,10 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
 # applied to the basis W. The computation of the residual norm may be unstable
 # (it seems as if residual norms below 1e-8 cannot be achieved... note that the
 # actual residual may be lower!).
-def get_ritz( A, W, Vfull, Tfull, M=None, inner_product = _ipstd ):
+def get_ritz( A, W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
     nW = W.shape[1]
-    AW = _apply(A, W)               # can (and should) be obtained from construction of projection
+    if AW is None:
+        AW = _apply(A, W)               
     E = inner_product(W, AW)        # ~
     Einv = np.linalg.inv(E)         # ~
     B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
