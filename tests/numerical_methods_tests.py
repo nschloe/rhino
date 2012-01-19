@@ -206,7 +206,7 @@ class TestLinearSolvers(unittest.TestCase):
         x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True, return_lanczos=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, ritz_res = numerical_methods.get_ritz( A, W, AW, Vfull, Tfull )
+        ritz_vals, ritz_vecs, ritz_res = numerical_methods.get_ritz( W, AW, Vfull, Tfull )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)

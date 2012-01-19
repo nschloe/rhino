@@ -476,10 +476,8 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
 # applied to the basis W. The computation of the residual norm may be unstable
 # (it seems as if residual norms below 1e-8 cannot be achieved... note that the
 # actual residual may be lower!).
-def get_ritz( A, W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
+def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
     nW = W.shape[1]
-    if AW is None:
-        AW = _apply(A, W)               
     E = inner_product(W, AW)        # ~
     Einv = np.linalg.inv(E)         # ~
     B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
