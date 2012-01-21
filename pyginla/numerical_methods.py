@@ -462,21 +462,46 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
     return P, x0new, AW
 
 # ==============================================================================
-# Compute Ritz values/vectors and corresponding residuals from the subspace
-# spanned by W and Vfull[:,0:-1]. W and Vfull MUST be orthonormal w.r.t. the
-# M-inner-product. Vfull and Tfull must be created with CG/MINRES applied to a
-# linear system with the operator A and the right preconditioner Mr set to the
-# projection obtained with get_projection(A, ..., W, ...).
-#
-# Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
-# M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis 
-# [W, Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of
-# the Ritz pair residual is computed. The computation of the residual norms do
-# not need the application of the operator A, but the preconditioner has to be
-# applied to the basis W. The computation of the residual norm may be unstable
-# (it seems as if residual norms below 1e-8 cannot be achieved... note that the
-# actual residual may be lower!).
 def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
+    """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
+    
+    Arguments
+        W:  a Nxk array. W's columns must be orthonormal w.r.t. the
+            M-inner-product (inner_product(M^{-1} W, W) = I_k).
+        AW: contains the result of A applied to W (passed in order to reduce #
+            of matrix-vector multiplications with A). 
+        Vfull: a Nxn array. Vfull's columns must be orthonormal w.r.t. the
+            M-inner-product. Vfull and Tfull must be created with a (possibly
+            deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
+            and Tfull can be obtained from MINRES applied to a linear system
+            with the operator A, the inner product inner_product, the HPD
+            preconditioner M and the right preconditioner Mr set to the
+            projection obtained with get_projection(A, ..., W, ...).
+        Tfull: see Vfull.
+        M:  The preconditioner used in the Lanczos procedure.
+
+        The arguments thus have to fulfill the following equations:
+            AW = A*W.
+            M*A*Mr*Vfull[:,0:-1] = Vfull*Tfull,
+                 where Mr=get_projection(A,...,W,inner_product).
+            inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.
+
+    Returns:
+        ritz_vals: an array with n+k Ritz values.
+        ritz_vecs: a Nx(n+k) array where the ritz_vecs[:,i] is the 
+            Ritz-vector for the Ritz value ritz_vals[i].
+        norm_ritz_res: an array with n+k residual norms. norm_ritz_res[i] is 
+            the M^{-1}-norm of M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i]
+    
+    Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
+    M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis 
+    [W, Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of
+    the Ritz pair residual is computed. The computation of the residual norms do
+    not need the application of the operator A, but the preconditioner has to be
+    applied to the basis W. The computation of the residual norm may be unstable
+    (it seems as if residual norms below 1e-8 cannot be achieved... note that the
+    actual residual may be lower!).
+    """
     nW = W.shape[1]
     E = inner_product(W, AW)        # ~
     Einv = np.linalg.inv(E)         # ~
@@ -491,7 +516,7 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
     lam, U = eigh(ritzmat)
 
     # Compute residual norms.
-    ritz_res = np.zeros(lam.shape[0])
+    norm_ritz_res = np.zeros(lam.shape[0])
     AWE = np.dot(AW, Einv)
     # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
     MAWE = _apply(M, AWE)
@@ -510,7 +535,7 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
         res_ip = inner_product(z, CCz)
         assert(res_ip.imag < 1e-13)
         assert(res_ip.real > -1e-10)
-        ritz_res[i] = sqrt(abs(res_ip))
+        norm_ritz_res[i] = sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
         #X = np.bmat( [[W, Vfull[:,0:-1]]])
@@ -520,12 +545,12 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
         #print np.linalg.norm(res_explicit)
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
-    sorti = np.argsort(ritz_res)
+    sorti = np.argsort(norm_ritz_res)
     ritz_vals = lam[sorti]
     ritz_vecs = np.dot(W, U[0:nW,sorti]) + np.dot(Vfull[:,0:-1], U[nW:,sorti])
-    ritz_res  = ritz_res[sorti]
+    norm_ritz_res  = norm_ritz_res[sorti]
 
-    return ritz_vals, ritz_vecs, ritz_res
+    return ritz_vals, ritz_vecs, norm_ritz_res
 
 # ==============================================================================
 def gmres_wrap( linear_operator,
