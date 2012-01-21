@@ -470,15 +470,34 @@ def get_projection( W, AW, b, x0, inner_product = _ipstd ):
         AW: AW=A*W. This is returned in order to reduce the total number of
             matrix-vector multiplications with A.
     """
-    N = len(b)
-    E = inner_product(W, AW)
+    # --------------------------------------------------------------------------
     def Pfun(x):
-        return x - np.dot(W, np.linalg.solve(E, inner_product(AW, x) ) )
-    dtype = upcast(W.dtype, AW.dtype, b.dtype, x0.dtype)
-    P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun, dtype=dtype)
-    x0new = P*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
-    return P, x0new
+        '''Computes x - W * E\<AW,x>.'''
+        AWx = inner_product(AW, x)
+        if type(AWx) == np.float64:
+            EAWx = AWx / E
+        else:
+            EAWx = np.linalg.solve(E, AWx)
+        # x - W*EAWx
+        return x - np.dot(W, EAWx)
+    # --------------------------------------------------------------------------
+    E = inner_product(W, AW)
 
+    Wb = inner_product(W, b)
+    if type(Wb) == np.float64:
+        EWb = Wb / E
+    else:
+        EWb = np.linalg.solve(E, Wb)
+
+    # Define projection operator.
+    N = len(b)
+    dtype = upcast(W.dtype, AW.dtype, b.dtype, x0.dtype)
+    P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun,
+                                            dtype=dtype)
+    # Get updated x0.
+    x0new = P*x0 +  np.dot(W, EWb)
+
+    return P, x0new
 # ==============================================================================
 def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
@@ -810,6 +829,7 @@ def newton( x0,
     Fx = model_evaluator.compute_f( x )
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
+    linear_relresvecs = []
     while Fx_norms[-1] > nonlinear_tol and k < maxiter:
         # Linear tolerance is given by
         #
@@ -836,19 +856,34 @@ def newton( x0,
             return
         eta_previous = eta
 
-        # Solve the linear system.
+        # initial guess for linear solver
+        initial_guess = np.zeros( len(x0) )
         model_evaluator.set_current_x( x )
-        x_update, info, linear_relresvec, _ = linear_solver( jacobian,
-                                                             -Fx,
-                                                             np.zeros( len(x0) ),
-                                                             tol = eta,
-                                                             inner_product = model_evaluator.inner_product
-                                                           )
+
+        # deflate the null vector i*x
+        W = 1j * x
+        AW = jacobian * W
+        rhs = -Fx
+        P, x0new = get_projection( W, AW, rhs, initial_guess,
+                                   inner_product = model_evaluator.inner_product
+                                 )
+
+        # Solve the linear system.
+        out = linear_solver( jacobian,
+                             rhs,
+                             x0new,
+                             Mr = P,
+                             tol = eta,
+                             inner_product = model_evaluator.inner_product
+                           )
         # make sure the solution is alright
-        assert( info == 0 )
+        assert( out[1] == 0 )
+
+        # save the convergence history
+        linear_relresvecs.append( out[2] )
 
         # perform the Newton update
-        x += x_update
+        x += out[0]
 
         # do the household
         k += 1
@@ -858,7 +893,7 @@ def newton( x0,
     if k == maxiter:
         error_code = 1
 
-    return x, error_code, Fx_norms
+    return x, error_code, Fx_norms, linear_relresvecs
 # ==============================================================================
 def poor_mans_continuation( x0,
                             model_evaluator,
