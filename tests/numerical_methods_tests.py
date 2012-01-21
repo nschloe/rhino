@@ -188,7 +188,6 @@ class TestLinearSolvers(unittest.TestCase):
         A = self._create_sparse_herm_indef_matrix(num_unknowns)
         rhs = np.ones(num_unknowns)
         x0 = np.zeros(num_unknowns )
-        self._create_sparse_herm_indef_matrix(4)
 
         # get projection
         from scipy.sparse.linalg import eigs
@@ -213,6 +212,19 @@ class TestLinearSolvers(unittest.TestCase):
         # Check the residual.
         res = rhs - A * x
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+    # --------------------------------------------------------------------------
+    def test_get_projection(self):
+        N = 10
+        B = scipy.sparse.spdiags( np.ones(1)+np.linspace(N,0.,N), [0], N, N)
+        def ipB(x,y):
+            return _ipstd(M*x, y)
+        A = scipy.sparse.spdiags( range(1,N+1), [0], N, N)
+
+        # 'last' 2 eigenvectors
+        W = np.zeros( (N,2) )
+        W[-2,0]=1
+        W[-1,1]=1
+        
     # --------------------------------------------------------------------------
 #    def test_lobpcg(self):
 #        num_unknowns = 5
