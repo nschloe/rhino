@@ -451,6 +451,28 @@ def minres( A,
 # A has to be self-adjoint w.r.t. inner_product. Then also A*P is self-adjoint
 # w.r.t. inner_product.
 def get_projection( A, b, x0, W, inner_product = _ipstd ):
+    """Get projection and appropriate initial guess for use in deflated methods.
+
+    Arguments:
+        A:  the operator of the linear algebraic system to be deflated. A has 
+            to be self-adjoint w.r.t. inner_product. Do not include the
+            positive-definite preconditioner (argument M in MINRES) here. Let N
+            be the dimension of the vector space the operator is defined on.
+        b:  the right hand side of the linear system (array of length N).
+        x0: the initial guess (array of length N).
+        W:  the basis vectors used for deflation (Nxk array).
+        inner_product: the inner product also used for the deflated iterative
+            method.
+
+    Returns:
+        P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in
+            MINRES).
+            P(x)=x + W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)
+        x0new: an adapted initial guess s.t. the deflated iterative solver 
+            does not break down (in exact arithmetics).
+        AW: AW=A*W. This is returned in order to reduce the total number of
+            matrix-vector multiplications with A.
+    """
     N = len(b)
     AW = _apply(A, W)
     E = inner_product(W, AW)
