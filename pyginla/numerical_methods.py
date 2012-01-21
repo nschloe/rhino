@@ -8,7 +8,6 @@ from scipy.sparse.linalg import LinearOperator, arpack
 from scipy.sparse.sputils import upcast
 import numpy as np
 import scipy
-from math import sqrt
 # ==============================================================================
 def l2_condition_number( linear_operator ):
     small_eigenval = arpack.eigen( linear_operator,
@@ -40,7 +39,7 @@ def _norm( x, inner_product = _ipstd ):
     norm2 = norm2.real
     if norm2 < 0.0:
         raise ValueError( '<x,x> = %g. Improper inner product?' % norm2 )
-    return sqrt(norm2)
+    return np.sqrt(norm2)
 # ==============================================================================
 def _normM_squared( x, M, inner_product = _ipstd ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
@@ -58,7 +57,7 @@ def _normM( x, M, inner_product = _ipstd ):
     norm2, Mx = _normM_squared( x, M, inner_product = inner_product )
     if norm2 < 0.0:
         raise ValueError( '<x,Mx> = %g. M not positive definite?' % norm2 )
-    return sqrt(norm2), Mx
+    return np.sqrt(norm2), Mx
 # ==============================================================================
 def _apply( A, x ):
     '''Implement A*x for different types of linear operators.'''
@@ -146,7 +145,7 @@ def cg( A,
     rho0, _ = _normM_squared( rhs, M, inner_product = inner_product )
 
     if callback is not None:
-        callback( x, sqrt(rho_old / rho0) )
+        callback( x, np.sqrt(rho_old / rho0) )
 
     for k in xrange( maxiter ):
         Ap = _apply(A, p)
@@ -161,12 +160,12 @@ def cg( A,
 
         rho_new, Mr = _normM_squared( r, M, inner_product = inner_product )
 
-        relative_rho = sqrt(rho_new / rho0)
+        relative_rho = np.sqrt(rho_new / rho0)
         if relative_rho < tol:
             # Compute exact residual
             r = rhs - _apply(A, x)
             rho_new, Mr = _normM_squared( r, M, inner_product = inner_product )
-            relative_rho = sqrt(rho_new / rho0)
+            relative_rho = np.sqrt(rho_new / rho0)
             if relative_rho < tol:
                 info = 0
                 if callback is not None:
@@ -349,7 +348,7 @@ def minres( A,
         assert alpha.imag == 0.0
         alpha = alpha.real
         assert alpha > 0.0
-        ts = sqrt( alpha )
+        ts = np.sqrt( alpha )
 
         P  = [P[1], z / ts]
         V  = [V[1], v / ts]
@@ -568,7 +567,7 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
         res_ip = inner_product(z, CCz)
         assert(res_ip.imag < 1e-13)
         assert(res_ip.real > -1e-10)
-        norm_ritz_res[i] = sqrt(abs(res_ip))
+        norm_ritz_res[i] = np.sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
         #X = np.bmat( [[W, Vfull[:,0:-1]]])
@@ -772,14 +771,14 @@ def _givens(a, b):
     elif abs(b) > abs(a):
         absb = abs(b)
         t = a.conjugate() / absb
-        u = sqrt(1 + t.real**2 + t.imag**2)
+        u = np.sqrt(1 + t.real**2 + t.imag**2)
         c = t / u
         s = (b.conjugate()/absb) / u
         r = absb * u
     else:
         absa = abs(a)
         t = b.conjugate()/absa
-        u = sqrt(1 + t.real**2 + t.imag**2)
+        u = np.sqrt(1 + t.real**2 + t.imag**2)
         c = (a.conjugate()/absa)/u
         s = t/u
         r = absa*u
@@ -810,12 +809,6 @@ def newton( x0,
 
     # Create Jacobian as linear operator object.
     jacobian = model_evaluator.get_jacobian()
-
-    ## Create Jacobian as linear operator object.
-    #preconditioner = LinearOperator( (len(x0), len(x0)),
-                               #None,
-                               #dtype = model_evaluator.dtype
-                             #)
 
     x = x0
     Fx = model_evaluator.compute_f( x )
@@ -853,11 +846,19 @@ def newton( x0,
         model_evaluator.set_current_x( x )
         rhs = -Fx
 
+        if use_preconditioner:
+            M = model_evaluator.get_preconditioner()
+            Minv = model_evaluator.get_preconditioner_inverse()
+        else:
+            M = None
+            Minv = None
+
         # Conditionally deflate the nearly-null vector i*x.
         if deflate_ix:
             W = 1j * x
             # normalize W in the M-norm
-            #W = W / _normM( W, None, inner_product = model_evaluator.inner_product )
+            nrm_W, _ = _normM(W, M, inner_product = model_evaluator.inner_product)
+            W = W / nrm_W
             AW = jacobian * W
             P, x0new = get_projection( W, AW, rhs, initial_guess,
                                        inner_product = model_evaluator.inner_product
@@ -866,17 +867,12 @@ def newton( x0,
             x0new = initial_guess
             P = None
 
-        if use_preconditioner:
-            M = model_evaluator.get_preconditioner_inverse()
-        else:
-            M = None
-
         # Solve the linear system.
         out = linear_solver( jacobian,
                              rhs,
                              x0new,
                              Mr = P,
-                             M = M,
+                             M = Minv,
                              tol = eta,
                              inner_product = model_evaluator.inner_product
                            )

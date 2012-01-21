@@ -96,7 +96,7 @@ class GinlaModelEvaluator:
         '''
         if self._keo is None:
             self._assemble_keo()
-        return _keo
+        return self._keo
     # ==========================================================================
     def get_preconditioner_inverse( self ):
         '''Return the LinearOperator corresponding to K^{-1}.
