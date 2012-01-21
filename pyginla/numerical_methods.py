@@ -445,17 +445,18 @@ def minres( A,
             return xk, info, relresvec
 
 # ==============================================================================
-def get_projection( A, b, x0, W, inner_product = _ipstd ):
+def get_projection( W, AW, b, x0, inner_product = _ipstd ):
     """Get projection and appropriate initial guess for use in deflated methods.
 
     Arguments:
-        A:  the operator of the linear algebraic system to be deflated. A has 
-            to be self-adjoint w.r.t. inner_product. Do not include the
-            positive-definite preconditioner (argument M in MINRES) here. Let N
-            be the dimension of the vector space the operator is defined on.
+        W:  the basis vectors used for deflation (Nxk array).
+        AW: A*W, where A is the operator of the linear algebraic system to be
+            deflated. A has to be self-adjoint w.r.t. inner_product. Do not
+            include the positive-definite preconditioner (argument M in MINRES)
+            here. Let N be the dimension of the vector space the operator is
+            defined on.
         b:  the right hand side of the linear system (array of length N).
         x0: the initial guess (array of length N).
-        W:  the basis vectors used for deflation (Nxk array).
         inner_product: the inner product also used for the deflated iterative
             method.
 
@@ -470,14 +471,13 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
             matrix-vector multiplications with A.
     """
     N = len(b)
-    AW = _apply(A, W)
     E = inner_product(W, AW)
     def Pfun(x):
         return x - np.dot(W, np.linalg.solve(E, inner_product(AW, x) ) )
-    dtype = upcast(A.dtype, b.dtype, x0.dtype, W.dtype)
+    dtype = upcast(W.dtype, AW.dtype, b.dtype, x0.dtype)
     P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun, dtype=dtype)
     x0new = P*x0 +  np.dot(W, np.linalg.solve(E, inner_product(W, b) ) )
-    return P, x0new, AW
+    return P, x0new
 
 # ==============================================================================
 def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
@@ -494,14 +494,14 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
             and Tfull can be obtained from MINRES applied to a linear system
             with the operator A, the inner product inner_product, the HPD
             preconditioner M and the right preconditioner Mr set to the
-            projection obtained with get_projection(A, ..., W, ...).
+            projection obtained with get_projection(W, AW, ...).
         Tfull: see Vfull.
         M:  The preconditioner used in the Lanczos procedure.
 
         The arguments thus have to fulfill the following equations:
             AW = A*W.
             M*A*Mr*Vfull[:,0:-1] = Vfull*Tfull,
-                 where Mr=get_projection(A,...,W,inner_product).
+                 where Mr=get_projection(W, AW,...,inner_product).
             inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.
 
     Returns:
