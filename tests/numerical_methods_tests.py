@@ -236,7 +236,44 @@ class TestLinearSolvers(unittest.TestCase):
         # Check x0new
         x0new_exact = np.r_[np.ones(N-2),[1./(N-1),1./N]]
         self.assertAlmostEqual( np.linalg.norm(x0new-x0new_exact), 0.0, delta=1e-14 )
+    
+    # --------------------------------------------------------------------------
+    def test_get_ritz(self):
+        N = 10
+        A = scipy.sparse.spdiags( range(1,N+1), [0], N, N)
+        b = np.ones(N)
+        x0 = np.ones(N)
+
+        # 'last' 2 eigenvectors
+        W = np.zeros( (N,2) )
+        W[-2,0]=1.
+        W[-1,1]=1
+        AW = A*W
+
+        # Get the projection
+        P, x0new = numerical_methods.get_projection(W, AW, b, x0)
+
+        # Run MINRES (we are only interested in the Lanczos basis and tridiag matrix)
+        x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, b, x0new, Mr=None, tol=1e-14, maxiter=11, full_reortho=True, return_lanczos=True )
         
+        # Get Ritz pairs
+        ritz_vals, ritz_vecs, norm_ritz_res = numerical_methods.get_ritz( W, AW, Vfull, Tfull )
+
+        # Check Ritz pair residuals
+        ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))
+        for i in range(0,len(ritz_vals)):
+            norm_ritz_res_exact = np.linalg.norm(ritz_res_exact[:,i])
+            self.assertAlmostEqual( abs(norm_ritz_res[i] - norm_ritz_res_exact), 0.0, delta=1e-14 )
+
+        # Check if Ritz values / vectors corresponding to W are still there ;)
+        order = np.argsort(ritz_vals)
+        # 'last' eigenvalue
+        self.assertAlmostEqual( abs(ritz_vals[order[-1]] - N), 0.0, delta=1e-14 )
+        self.assertAlmostEqual( abs(ritz_vals[order[-2]] - (N-1)), 0.0, delta=1e-14 )
+        # now the eigenvectors
+        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-1]],W[:,1])), 1.0, delta=1e-14 )
+        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-2]],W[:,0])), 1.0, delta=1e-14 )
+
     # --------------------------------------------------------------------------
 #    def test_lobpcg(self):
 #        num_unknowns = 5
