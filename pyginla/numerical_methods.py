@@ -509,7 +509,10 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
         ritz_vecs: a Nx(n+k) array where the ritz_vecs[:,i] is the 
             Ritz-vector for the Ritz value ritz_vals[i].
         norm_ritz_res: an array with n+k residual norms. norm_ritz_res[i] is 
-            the M^{-1}-norm of M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i]
+            the M^{-1}-norm of the residual
+                M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].
+            ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the 
+            residual norms are ascending.
     
     Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
     M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis 
