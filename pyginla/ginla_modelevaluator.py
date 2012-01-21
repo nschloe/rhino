@@ -40,6 +40,7 @@ class GinlaModelEvaluator:
         self.mu = mu
         self._T = 0.0
         self._keo = None
+        self._keo_amg_solver = None
         self.control_volumes = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
@@ -64,7 +65,7 @@ class GinlaModelEvaluator:
         return
     # ==========================================================================
     def get_jacobian( self ):
-        '''Rerturns a LinearOperator object that defines the matrix-vector
+        '''Returns a LinearOperator object that defines the matrix-vector
         multiplication scheme for the Jacobian operator as in
 
             A phi + B phi*
@@ -74,6 +75,7 @@ class GinlaModelEvaluator:
             A = K - I * ( 1-T - 2*|psi|^2 ),
             B = - diag( psi^2 ).
         '''
+        # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
             if self._keo is None:
                 self._assemble_keo()
@@ -82,10 +84,39 @@ class GinlaModelEvaluator:
             return - self._keo * phi \
                 + ( 1.0-self._T - 2.0*absPsiSquared ) * phi \
                 - self._psi**2 * phi.conj()
-
+        # ----------------------------------------------------------------------
         num_unknowns = len(self.mesh.nodes)
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_jacobian,
+                               dtype = self.dtype
+                             )
+    # ==========================================================================
+    def get_preconditioner( self ):
+        '''Return the kinetic energy operator.
+        '''
+        if self._keo is None:
+            self._assemble_keo()
+        return _keo
+    # ==========================================================================
+    def get_preconditioner_inverse( self ):
+        '''Return the LinearOperator corresponding to K^{-1}.
+        '''
+        # ----------------------------------------------------------------------
+        def _apply_inverse_keo(phi):
+            import pyamg
+            if self._keo_amg_solver is None:
+                if self._keo is None:
+                    self._assemble_keo()
+                self._keo_amg_solver = \
+                    pyamg.smoothed_aggregation_solver( self._keo )
+            return self._keo_amg_solver.solve( phi,
+                                               tol = 1e-10,
+                                               accel = None
+                                             )
+        # ----------------------------------------------------------------------
+        num_unknowns = len(self.mesh.nodes)
+        return LinearOperator( (num_unknowns, num_unknowns),
+                               _apply_inverse_keo,
                                dtype = self.dtype
                              )
     # ==========================================================================

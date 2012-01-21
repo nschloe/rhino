@@ -797,6 +797,7 @@ def newton( x0,
             eta_max = 1.0e-2,
             alpha = 1.5, # only used by forcing_term='type 2'
             gamma = 0.9, # only used by forcing_term='type 2'
+            use_preconditioner = False,
             deflate_ix = False
           ):
     '''Newton's method with different forcing terms.
@@ -865,11 +866,17 @@ def newton( x0,
             x0new = initial_guess
             P = None
 
+        if use_preconditioner:
+            M = model_evaluator.get_preconditioner_inverse()
+        else:
+            M = None
+
         # Solve the linear system.
         out = linear_solver( jacobian,
                              rhs,
                              x0new,
                              Mr = P,
+                             M = M,
                              tol = eta,
                              inner_product = model_evaluator.inner_product
                            )

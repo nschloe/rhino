@@ -87,7 +87,7 @@ class Preconditioners:
                 pyamg.smoothed_aggregation_solver( self._modeleval._keo )
 
         return self._keo_amg_solver.solve( psi,
-                                           tol = 1e-10,
+                                           tol = 1e-12,
                                            accel = None
                                          )
     # ==========================================================================
