@@ -445,11 +445,6 @@ def minres( A,
             return xk, info, relresvec
 
 # ==============================================================================
-# Compute the projection P and adapted initial guess x0new for use with
-# MINRES/CG. P has to be used as the right preconditioner. 
-#
-# A has to be self-adjoint w.r.t. inner_product. Then also A*P is self-adjoint
-# w.r.t. inner_product.
 def get_projection( A, b, x0, W, inner_product = _ipstd ):
     """Get projection and appropriate initial guess for use in deflated methods.
 
@@ -466,7 +461,8 @@ def get_projection( A, b, x0, W, inner_product = _ipstd ):
 
     Returns:
         P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in
-            MINRES).
+            MINRES). The preconditioned operator A*P is self-adjoint w.r.t. 
+            inner_product.
             P(x)=x + W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)
         x0new: an adapted initial guess s.t. the deflated iterative solver 
             does not break down (in exact arithmetics).
