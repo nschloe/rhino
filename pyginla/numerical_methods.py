@@ -487,7 +487,7 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
         W:  a Nxk array. W's columns must be orthonormal w.r.t. the
             M-inner-product (inner_product(M^{-1} W, W) = I_k).
         AW: contains the result of A applied to W (passed in order to reduce #
-            of matrix-vector multiplications with A). 
+            of matrix-vector multiplications with A).
         Vfull: a Nxn array. Vfull's columns must be orthonormal w.r.t. the
             M-inner-product. Vfull and Tfull must be created with a (possibly
             deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
@@ -502,12 +502,14 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
             AW = A*W.
             M*A*Mr*Vfull[:,0:-1] = Vfull*Tfull,
                  where Mr=get_projection(A,...,W,inner_product).
-            inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.
+            inner_product( M^{-1}*[W,Vfull], [W,Vfull] ) = I_{k+n}.
 
     Returns:
         ritz_vals: an array with n+k Ritz values.
         ritz_vecs: a Nx(n+k) array where the ritz_vecs[:,i] is the 
-            Ritz-vector for the Ritz value ritz_vals[i].
+            Ritz vector for the Ritz value ritz_vals[i]. The Ritz vectors
+            also are orthonormal w.r.t. the M-inner-product, that is
+                inner_product( M^{-1}*ritz_vecs, ritz_vecs ) = I_{k+n}.
         norm_ritz_res: an array with n+k residual norms. norm_ritz_res[i] is 
             the M^{-1}-norm of the residual
                 M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].
@@ -515,13 +517,13 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
             residual norms are ascending.
     
     Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
-    M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis 
-    [W, Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of
-    the Ritz pair residual is computed. The computation of the residual norms do
-    not need the application of the operator A, but the preconditioner has to be
-    applied to the basis W. The computation of the residual norm may be unstable
-    (it seems as if residual norms below 1e-8 cannot be achieved... note that the
-    actual residual may be lower!).
+    M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis [W,
+    Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of the
+    Ritz pair residual is computed. The computation of the residual norms do
+    not need the application of the operator A, but the preconditioner has to
+    be applied to the basis W. The computation of the residual norm may be
+    unstable (it seems as if residual norms below 1e-8 cannot be achieved...
+    note that the actual residual may be lower!).
     """
     nW = W.shape[1]
     E = inner_product(W, AW)        # ~
