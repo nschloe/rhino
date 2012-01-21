@@ -188,7 +188,6 @@ class TestLinearSolvers(unittest.TestCase):
         A = self._create_sparse_herm_indef_matrix(num_unknowns)
         rhs = np.ones(num_unknowns)
         x0 = np.zeros(num_unknowns )
-        self._create_sparse_herm_indef_matrix(4)
 
         # get projection
         from scipy.sparse.linalg import eigs
@@ -199,7 +198,8 @@ class TestLinearSolvers(unittest.TestCase):
         #from scipy.linalg import qr
         #W, R = qr(W, mode='economic')
 
-        P, x0new, AW = numerical_methods.get_projection( A, rhs, x0, W )
+        AW = numerical_methods._apply(A, W);
+        P, x0new = numerical_methods.get_projection( W, AW, rhs, x0 )
 
         # Solve using MINRES.
         tol = 1.0e-10
@@ -213,6 +213,30 @@ class TestLinearSolvers(unittest.TestCase):
         # Check the residual.
         res = rhs - A * x
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+    # --------------------------------------------------------------------------
+    def test_get_projection(self):
+        N = 100
+        A = scipy.sparse.spdiags( range(1,N+1), [0], N, N)
+        b = np.ones(N)
+        x0 = np.ones(N)
+
+        # 'last' 2 eigenvectors
+        W = np.zeros( (N,2) )
+        W[-2,0]=1.
+        W[-1,1]=1
+        AW = A*W
+
+        P, x0new = numerical_methods.get_projection(W, AW, b, x0)
+
+        # Check A*(P*I) against exact A*P
+        AP = A*(P*np.eye(N))
+        AP_exact = scipy.sparse.spdiags( range(1,N-1)+[0,0], [0], N, N)
+        self.assertAlmostEqual( np.linalg.norm(AP-AP_exact), 0.0, delta=1e-14 )
+
+        # Check x0new
+        x0new_exact = np.r_[np.ones(N-2),[1./(N-1),1./N]]
+        self.assertAlmostEqual( np.linalg.norm(x0new-x0new_exact), 0.0, delta=1e-14 )
+        
     # --------------------------------------------------------------------------
 #    def test_lobpcg(self):
 #        num_unknowns = 5
