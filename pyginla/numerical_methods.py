@@ -430,19 +430,15 @@ def minres( A,
     # end MINRES iteration
     # --------------------------------------------------------------------------
 
+    ret = (xk, info, relresvec)
+    if exact_solution is not None:
+        ret = ret + (errvec,)
     if return_lanczos:
         Vfull = Vfull[:,0:k]
         Pfull = Pfull[:,0:k]
         Tfull = Tfull[0:k,0:k-1]
-        if exact_solution is not None:
-            return xk, info, relresvec, errvec, Vfull, Pfull, Tfull
-        else:
-            return xk, info, relresvec, Vfull, Pfull, Tfull
-    else:
-        if exact_solution is not None:
-            return xk, info, relresvec, errvec
-        else:
-            return xk, info, relresvec
+        ret = ret + (Vfull, Pfull, Tfull)
+    return ret
 
 # ==============================================================================
 def get_projection( W, AW, b, x0, inner_product = _ipstd ):
