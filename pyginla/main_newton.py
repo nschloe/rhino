@@ -38,7 +38,8 @@ def _main():
                             linear_solver = nm.minres,
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
-                            eta0 = 1.0e-12
+                            eta0 = 1.0e-12,
+                            deflate_ix = False
                           )
     print " done."
     print newton_out[2]

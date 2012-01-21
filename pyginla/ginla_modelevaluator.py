@@ -6,6 +6,7 @@ Provide tools for solving the Ginzburg--Landau equations.
 import mesh_io
 import numpy as np
 from scipy import sparse, linalg
+from scipy.sparse.linalg import LinearOperator
 import math, cmath
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 # ==============================================================================
@@ -62,9 +63,9 @@ class GinlaModelEvaluator:
         self._psi = psi
         return
     # ==========================================================================
-    def apply_jacobian( self, phi ):
-        '''Defines the matrix vector multiplication scheme for the
-        Jacobian operator as in
+    def get_jacobian( self ):
+        '''Rerturns a LinearOperator object that defines the matrix-vector
+        multiplication scheme for the Jacobian operator as in
 
             A phi + B phi*
 
@@ -73,15 +74,20 @@ class GinlaModelEvaluator:
             A = K - I * ( 1-T - 2*|psi|^2 ),
             B = - diag( psi^2 ).
         '''
-        if self._keo is None:
-            self._assemble_keo()
+        def _apply_jacobian( phi ):
+            if self._keo is None:
+                self._assemble_keo()
+            assert( self._psi is not None )
+            absPsiSquared = self._psi.real**2 + self._psi.imag**2
+            return - self._keo * phi \
+                + ( 1.0-self._T - 2.0*absPsiSquared ) * phi \
+                - self._psi**2 * phi.conj()
 
-        assert( self._psi is not None )
-
-        absPsiSquared = self._psi.real**2 + self._psi.imag**2
-        return - self._keo * phi \
-            + ( 1.0-self._T - 2.0*absPsiSquared ) * phi \
-            - self._psi**2 * phi.conj()
+        num_unknowns = len(self.mesh.nodes)
+        return LinearOperator( (num_unknowns, num_unknowns),
+                               _apply_jacobian,
+                               dtype = self.dtype
+                             )
     # ==========================================================================
     def inner_product( self, phi0, phi1 ):
         '''The natural inner product of the problem.

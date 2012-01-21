@@ -31,18 +31,13 @@ def l2_condition_number( linear_operator ):
 def _ipstd( X, Y ):
     return np.dot(X.T.conj(), Y)
 # ==============================================================================
-def _norm_squared( x, inner_product = _ipstd ):
-    '''Compute the norm^2 w.r.t. to a given scalar product.'''
-    rho = inner_product( x, x )
-
-    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
-        raise ValueError( 'inner_product not a proper inner product?' )
-
-    return rho.real
-# ==============================================================================
 def _norm( x, inner_product = _ipstd ):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    norm2 = _norm_squared( x, inner_product = inner_product )
+    norm2 = inner_product(x, x)
+    if norm2.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
+        raise ValueError( 'inner_product not a proper inner product?' )
+
+    norm2 = norm2.real
     if norm2 < 0.0:
         raise ValueError( '<x,x> = %g. Improper inner product?' % norm2 )
     return sqrt(norm2)
@@ -801,7 +796,8 @@ def newton( x0,
             eta_min = 1.0e-6,
             eta_max = 1.0e-2,
             alpha = 1.5, # only used by forcing_term='type 2'
-            gamma = 0.9  # only used by forcing_term='type 2'
+            gamma = 0.9, # only used by forcing_term='type 2'
+            deflate_ix = False
           ):
     '''Newton's method with different forcing terms.
     '''
@@ -812,10 +808,7 @@ def newton( x0,
     k = 0
 
     # Create Jacobian as linear operator object.
-    jacobian = LinearOperator( (len(x0), len(x0)),
-                               model_evaluator.apply_jacobian,
-                               dtype = model_evaluator.dtype
-                             )
+    jacobian = model_evaluator.get_jacobian()
 
     ## Create Jacobian as linear operator object.
     #preconditioner = LinearOperator( (len(x0), len(x0)),
@@ -857,14 +850,20 @@ def newton( x0,
         # initial guess for linear solver
         initial_guess = np.zeros( len(x0) )
         model_evaluator.set_current_x( x )
-
-        # deflate the null vector i*x
-        W = 1j * x
-        AW = jacobian * W
         rhs = -Fx
-        P, x0new = get_projection( W, AW, rhs, initial_guess,
-                                   inner_product = model_evaluator.inner_product
-                                 )
+
+        # Conditionally deflate the nearly-null vector i*x.
+        if deflate_ix:
+            W = 1j * x
+            # normalize W in the M-norm
+            #W = W / _normM( W, None, inner_product = model_evaluator.inner_product )
+            AW = jacobian * W
+            P, x0new = get_projection( W, AW, rhs, initial_guess,
+                                       inner_product = model_evaluator.inner_product
+                                     )
+        else:
+            x0new = initial_guess
+            P = None
 
         # Solve the linear system.
         out = linear_solver( jacobian,
