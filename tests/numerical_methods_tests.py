@@ -179,7 +179,9 @@ class TestLinearSolvers(unittest.TestCase):
         res = A*Vfull[:,0:-1] - Vfull*Tfull
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-9 )
         # Check if Lanczos basis is orthonormal w.r.t. inner product
-        res = np.eye(Vfull.shape[1]) - np.dot( Pfull.T.conj(), Vfull )
+        max_independent = min([num_unknowns,Vfull.shape[1]])
+        res = np.eye(max_independent) - \
+                np.dot( Pfull[:,0:max_independent].T.conj(), Vfull[:,0:max_independent] )
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-9 )
     # --------------------------------------------------------------------------
     def test_minres_deflation(self):
@@ -255,7 +257,7 @@ class TestLinearSolvers(unittest.TestCase):
         P, x0new = numerical_methods.get_projection(W, AW, b, x0)
 
         # Run MINRES (we are only interested in the Lanczos basis and tridiag matrix)
-        x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, b, x0new, Mr=None, tol=1e-14, maxiter=11, full_reortho=True, return_lanczos=True )
+        x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, b, x0new, Mr=P, tol=1e-14, maxiter=11, full_reortho=True, return_lanczos=True )
         
         # Get Ritz pairs
         ritz_vals, ritz_vecs, norm_ritz_res = numerical_methods.get_ritz( W, AW, Vfull, Tfull )
@@ -264,16 +266,16 @@ class TestLinearSolvers(unittest.TestCase):
         ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))
         for i in range(0,len(ritz_vals)):
             norm_ritz_res_exact = np.linalg.norm(ritz_res_exact[:,i])
-            self.assertAlmostEqual( abs(norm_ritz_res[i] - norm_ritz_res_exact), 0.0, delta=1e-14 )
+            self.assertAlmostEqual( abs(norm_ritz_res[i] - norm_ritz_res_exact), 0.0, delta=1e-13 )
 
         # Check if Ritz values / vectors corresponding to W are still there ;)
         order = np.argsort(ritz_vals)
         # 'last' eigenvalue
-        self.assertAlmostEqual( abs(ritz_vals[order[-1]] - N), 0.0, delta=1e-14 )
-        self.assertAlmostEqual( abs(ritz_vals[order[-2]] - (N-1)), 0.0, delta=1e-14 )
+        self.assertAlmostEqual( abs(ritz_vals[order[-1]] - N), 0.0, delta=1e-13 )
+        self.assertAlmostEqual( abs(ritz_vals[order[-2]] - (N-1)), 0.0, delta=1e-13 )
         # now the eigenvectors
-        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-1]],W[:,1])), 1.0, delta=1e-14 )
-        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-2]],W[:,0])), 1.0, delta=1e-14 )
+        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-1]],W[:,1])), 1.0, delta=1e-13 )
+        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-2]],W[:,0])), 1.0, delta=1e-13 )
 
     # --------------------------------------------------------------------------
 #    def test_lobpcg(self):
@@ -328,12 +330,12 @@ class TestLinearSolvers(unittest.TestCase):
             def get_jacobian(self, x0):
                 return 2.0 * x0
             def inner_product(self, x, y):
-                return np.vdot(x, y)
+                return np.dot(x.T.conj(), y)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         qmodeleval = QuadraticModelEvaluator()
         x0 = np.array( [[1.0]] )
         tol = 1.0e-10
-        x, error_code, resvec = numerical_methods.newton( x0, qmodeleval,
+        x, error_code, resvec, linear_relresvecs = numerical_methods.newton( x0, qmodeleval,
                                                           nonlinear_tol=tol )
         self.assertEqual(error_code, 0)
         self.assertAlmostEqual(x[0,0], np.sqrt(2.0), delta=tol)

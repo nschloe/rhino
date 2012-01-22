@@ -359,16 +359,22 @@ def minres( A,
         alpha = inner_product(z, v)[0,0]
         assert alpha.imag == 0.0
         alpha = alpha.real
-        assert alpha > 0.0
+        assert alpha >= 0.0
         ts = np.sqrt( alpha )
 
-        P  = np.c_[P[:,[1]], z / ts]
-        V  = np.c_[V[:,[1]], v / ts]
+        if ts>0.0:
+            P  = np.c_[P[:,[1]], z / ts]
+            V  = np.c_[V[:,[1]], v / ts]
+        else:
+            P  = np.c_[P[:,[1]], np.zeros(N)]
+            V  = np.c_[V[:,[1]], np.zeros(N)]
+
         
         # store new vectors in full basis
         if return_lanczos or full_reortho:
-            Vfull[:,k+1] = v.flatten() / ts
-            Pfull[:,k+1] = z.flatten() / ts
+            if ts>0.0:
+                Vfull[:,[k+1]] = v / ts
+                Pfull[:,[k+1]] = z / ts
             Tfull[k,k] = td        # diagonal
             Tfull[k+1,k] = ts      # subdiagonal
             if k+1 < maxiter:
@@ -439,10 +445,11 @@ def minres( A,
     ret = (xk, info, relresvec)
     if exact_solution is not None:
         ret = ret + (errvec,)
+
     if return_lanczos:
-        Vfull = Vfull[:,0:k]
-        Pfull = Pfull[:,0:k]
-        Tfull = Tfull[0:k,0:k-1]
+        Vfull = Vfull[:,0:k+1]
+        Pfull = Pfull[:,0:k+1]
+        Tfull = Tfull[0:k+1,0:k]
         ret = ret + (Vfull, Pfull, Tfull)
     return ret
 # ==============================================================================
@@ -558,13 +565,16 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
 
     # Compute residual norms.
     norm_ritz_res = np.zeros(lam.shape[0])
-    Einv = np.linalg.inv(E) # ~
+    if nW>0:
+        Einv = np.linalg.inv(E) # ~
+    else:
+        Einv = np.zeros( (0,0) )
     AWE = np.dot(AW, Einv)
     # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
     MAWE = _apply(M, AWE)
     D = inner_product(AWE, MAWE)
     D1 = np.eye(nW)
-    D2 = np.linalg.solve(E, B1)
+    D2 = np.dot(Einv, B1)
     CC = np.r_[ np.c_[D, D1, D2],
                 np.c_[D1.T.conj(), np.eye(nW), np.zeros( (nW,nVfull))],
                 np.c_[D2.T.conj(), np.zeros((nVfull,nW)), np.eye(nVfull)]
@@ -804,7 +814,7 @@ def newton( x0,
             model_evaluator,
             nonlinear_tol = 1.0e-10,
             maxiter = 20,
-            linear_solver = cg_wrap,
+            linear_solver = minres,
             forcing_term = 'constant',
             eta0 = 1.0e-1,
             eta_min = 1.0e-6,
@@ -878,6 +888,8 @@ def newton( x0,
         else:
             x0new = initial_guess
             P = None
+            W = np.zeros( (len(x),0) )
+            AW = np.zeros( (len(x),0) )
 
         # Solve the linear system.
         out = linear_solver( jacobian,
@@ -894,7 +906,7 @@ def newton( x0,
                                                        M = Minv,
                                                        inner_product = model_evaluator.inner_product)
 
-        print ritz_vals
+        #print ritz_vals
 
         # make sure the solution is alright
         assert( out[1] == 0 )
