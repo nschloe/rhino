@@ -433,7 +433,13 @@ def minres( A,
         Tfull = Tfull[0:k,0:k-1]
         ret = ret + (Vfull, Pfull, Tfull)
     return ret
-
+# ==============================================================================
+def _direct_solve(A, rhs):
+    '''Solve a (dense) equation system directly.'''
+    if type(A) == np.float64:
+        return rhs / A
+    else:
+        return np.linalg.solve(A, rhs)
 # ==============================================================================
 def get_projection( W, AW, b, x0, inner_product = _ipstd ):
     """Get projection and appropriate initial guess for use in deflated methods.
@@ -463,21 +469,10 @@ def get_projection( W, AW, b, x0, inner_product = _ipstd ):
     # --------------------------------------------------------------------------
     def Pfun(x):
         '''Computes x - W * E\<AW,x>.'''
-        AWx = inner_product(AW, x)
-        if type(AWx) == np.float64:
-            EAWx = AWx / E
-        else:
-            EAWx = np.linalg.solve(E, AWx)
-        # x - W*EAWx
-        return x - np.dot(W, EAWx)
+        return x - np.dot(W, _direct_solve(E, inner_product(AW, x)))
     # --------------------------------------------------------------------------
     E = inner_product(W, AW)
-
-    Wb = inner_product(W, b)
-    if type(Wb) == np.float64:
-        EWb = Wb / E
-    else:
-        EWb = np.linalg.solve(E, Wb)
+    EWb = _direct_solve(E, inner_product(W, b))
 
     # Define projection operator.
     N = len(b)
