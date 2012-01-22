@@ -126,7 +126,7 @@ class GinlaModelEvaluator:
         if self.control_volumes is None:
             self._compute_control_volumes()
         # np.vdot only works for vectors, so use np.dot(....T.conj()) here.
-        return np.dot(self.control_volumes * phi0.T.conj(), phi1).real
+        return np.dot( (self.control_volumes * phi0).T.conj(), phi1).real
     # ==========================================================================
     def energy( self, psi ):
         '''Compute the Gibbs free energy.
@@ -677,6 +677,7 @@ class GinlaModelEvaluator:
                     self.control_volumes[ index0 ] += pyramid_volume
                     self.control_volumes[ index1 ] += pyramid_volume
 
+        self.control_volumes = np.reshape(self.control_volumes, (len(self.control_volumes),1))
         return
     # ==========================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=

@@ -27,7 +27,7 @@ def _main():
 
     # initial guess
     num_nodes = len( mesh.nodes )
-    psi0 = np.ones( num_nodes,
+    psi0 = np.ones( (num_nodes,1),
                     dtype = complex
                   )
 

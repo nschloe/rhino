@@ -25,14 +25,26 @@ def l2_condition_number( linear_operator ):
 
     return large_eigenval[0] / small_eigenval[0]
 # ==============================================================================
-# np.vdot only works for vectors and np.dot does not use the conjugate
-# transpose. In Octave/MATLAB notation _ipstd(X,Y) == X'*Y
 def _ipstd( X, Y ):
+    '''Euclidean inner product
+    
+    np.vdot only works for vectors and np.dot does not use the conjugate
+    transpose. In Octave/MATLAB notation _ipstd(X,Y) == X'*Y.
+
+    Arguments: 
+        X:  array of shape [N,m]
+        Y:  array of shape [N,n]
+
+    Returns:
+        ip: array of shape [m,n] with X^H * Y
+    '''
     return np.dot(X.T.conj(), Y)
 # ==============================================================================
 def _norm( x, inner_product = _ipstd ):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    norm2 = inner_product(x, x)
+    assert( len(x.shape)==2 )
+    assert( x.shape[1]==1 )
+    norm2 = inner_product(x, x)[0,0]
     if norm2.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
         raise ValueError( 'inner_product not a proper inner product?' )
 
@@ -43,8 +55,10 @@ def _norm( x, inner_product = _ipstd ):
 # ==============================================================================
 def _normM_squared( x, M, inner_product = _ipstd ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
+    assert( len(x.shape)==2 )
+    assert( x.shape[1]==1 )
     Mx = _apply( M, x )
-    rho = inner_product( x, Mx )
+    rho = inner_product( x, Mx )[0,0]
 
 #    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
     if abs(rho.imag) > abs(rho) *1e-10:
@@ -283,17 +297,15 @@ def minres( A,
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
     if return_lanczos or full_reortho:
-        Vfull = np.zeros([N,maxiter+1], dtype=xtype)
-        Vfull[:,0] = MMlr0 / norm_MMlr0
-        Pfull = np.zeros([N,maxiter+1], dtype=xtype)
-        Pfull[:,0] = Mlr0 / norm_MMlr0
+        Vfull = np.c_[MMlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
+        Pfull = np.c_[Mlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
         Tfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
     # Last and current Lanczos vector:
-    V = [np.zeros(N), MMlr0 / norm_MMlr0]
+    V = np.c_[np.zeros(N), MMlr0 / norm_MMlr0]
     # M*v[i] = P[1], M*v[i-1] = P[0]
-    P = [np.zeros(N), Mlr0 / norm_MMlr0]
+    P = np.c_[np.zeros(N), Mlr0 / norm_MMlr0]
     # Necessary for efficient update of yk:
-    W = [np.zeros(N), np.zeros(N)]
+    W = np.c_[np.zeros(N), np.zeros(N)]
     # some small helpers
     ts = 0.0           # (non-existing) first off-diagonal entry (corresponds to pi1)
     y  = [norm_MMlr0, 0] # first entry is (updated) residual
@@ -302,7 +314,7 @@ def minres( A,
     k = 0
     
     # resulting approximation is xk = x0 + Mr*yk
-    yk = np.zeros(N)
+    yk = np.zeros((N,1))
 
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
@@ -311,24 +323,24 @@ def minres( A,
         # ---------------------------------------------------------------------
         # Lanczos
         tsold = ts
-        z  = _apply(Mr, V[1])
+        z  = _apply(Mr, V[:,1:2])
         z  = _apply(A, z)
         z  = _apply(Ml, z)
 
         # full reortho?
         if full_reortho:
             for i in range(0,k-1):
-                ip = inner_product(Vfull[:,i], z)
+                ip = inner_product(Vfull[:,i:i+1], z)[0,0]
                 assert(abs(ip) < 1e-9)
-                z = z - ip * Pfull[:,i]
+                z = z - ip * Pfull[:,i:i+1]
 
         # tsold = inner_product(V[0], z)
-        z  = z - tsold * P[0]
+        z  = z - tsold * P[:,0:1]
         # Should be real! (diagonal element):
-        td = inner_product(V[1], z)
+        td = inner_product(V[:,1:2], z)[0,0]
         assert abs(td.imag) < 1.0e-12
         td = td.real
-        z  = z - td * P[1]
+        z  = z - td * P[:,1:2]
 
         ## local reorthogonalization
         #tsold2 = inner_product(V[0], z)
@@ -344,19 +356,19 @@ def minres( A,
 
         # Apply the preconditioner.
         v  = _apply(M, z)
-        alpha = inner_product(z, v)
+        alpha = inner_product(z, v)[0,0]
         assert alpha.imag == 0.0
         alpha = alpha.real
         assert alpha > 0.0
         ts = np.sqrt( alpha )
 
-        P  = [P[1], z / ts]
-        V  = [V[1], v / ts]
+        P  = np.c_[P[:,1:2], z / ts]
+        V  = np.c_[V[:,1:2], v / ts]
         
         # store new vectors in full basis
         if return_lanczos or full_reortho:
-            Vfull[:,k+1] = v / ts
-            Pfull[:,k+1] = z / ts
+            Vfull[:,k+1] = v.flatten() / ts
+            Pfull[:,k+1] = z.flatten() / ts
             Tfull[k,k] = td        # diagonal
             Tfull[k+1,k] = ts      # subdiagonal
             if k+1 < maxiter:
@@ -379,8 +391,8 @@ def minres( A,
 
         # ----------------------------------------------------------------------
         # update solution
-        z  = (V[0] - R[0]*W[0] - R[1]*W[1]) / R[2]
-        W  = [W[1], z]
+        z  = (V[:,0:1] - R[0]*W[:,0:1] - R[1]*W[:,1:2]) / R[2]
+        W  = np.c_[W[:,1:2], z]
         yk = yk + y[0] * z
         y  = [y[1], 0]
 
@@ -472,6 +484,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
         return x - np.dot(W, _direct_solve(E, inner_product(AW, x)))
     # --------------------------------------------------------------------------
     E = inner_product(W, AW)
+    print E.shape
     EWb = _direct_solve(E, inner_product(W, b))
 
     # Define projection operator.
@@ -529,14 +542,16 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
     unstable (it seems as if residual norms below 1e-8 cannot be achieved...
     note that the actual residual may be lower!).
     """
-    E = np.asmatrix(inner_product(W, AW))        # ~
-    B1 = np.asmatrix(inner_product(AW, Vfull))   # can (and should) be obtained from MINRES
+    nW = W.shape[1]
+    nVfull = Vfull.shape[1]
+    E = inner_product(W, AW)        # ~
+    B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
     B = B1[:, 0:-1]
 
     # Stack matrices appropriately: [E, B; B', Tfull(1:end-1,:)].
-    ritzmat = np.bmat( [[E, B],
-                        [B.T.conj(), Tfull[0:-1,:].todense()]]
-                     )
+    ritzmat = np.r_[    np.c_[E,B],
+                        np.c_[B.T.conj(), Tfull[0:-1,:].todense()] 
+                   ]
 
     # Compute Ritz values / vectors.
     from scipy.linalg import eigh
@@ -549,31 +564,27 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
     # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
     MAWE = _apply(M, AWE)
     D = inner_product(AWE, MAWE)
-    if len(W.shape) == 1:
-        nW = 1
-    else:
-        nW = W.shape[1]
     D1 = np.eye(nW)
     D2 = np.linalg.solve(E, B1)
-    CC = np.bmat( [ [D, D1, D2] ,
-                    [D1.T.conj(), np.eye(nW), np.zeros( (nW,Vfull.shape[1]))],
-                    [D2.T.conj(), np.zeros((Vfull.shape[1],nW)), np.eye(Vfull.shape[1])]
-                  ] )
-    CC = np.asarray(CC)
+    CC = np.r_[ np.c_[D, D1, D2],
+                np.c_[D1.T.conj(), np.eye(nW), np.zeros( (nW,nVfull))],
+                np.c_[D2.T.conj(), np.zeros((nVfull,nW)), np.eye(nVfull)]
+              ]
     for i in range(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],i]
         v = U[W.shape[1]:,i]
         mu = lam[i]
 
         z = np.r_[mu*w, -mu*w, -np.dot(B.T.conj(), w), Tfull[-1,-1]*v[-1]]
+        z = np.reshape(z, (z.shape[0],1))
         CCz = np.dot(CC, z)
-        res_ip = inner_product(z, CCz)
+        res_ip = _ipstd(z, CCz)[0,0]
         assert(res_ip.imag < 1e-13)
         assert(res_ip.real > -1e-10)
         norm_ritz_res[i] = np.sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
-        #X = np.bmat( [[W, Vfull[:,0:-1]]])
+        #X = np.c_[W, Vfull[:,0:-1]]
         #V = np.dot(X, U)
         #AV = _apply(A, V)
         #res_explicit = AV[:,i] - lam[i]*V[:,i]
@@ -846,7 +857,7 @@ def newton( x0,
         eta_previous = eta
 
         # initial guess for linear solver
-        initial_guess = np.zeros( len(x0) )
+        initial_guess = np.zeros( (len(x0),1) )
         model_evaluator.set_current_x( x )
         rhs = -Fx
 
@@ -882,7 +893,6 @@ def newton( x0,
                              return_lanczos = True
                            )
 
-        print W.shape
         ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
                                                        M = Minv,
                                                        inner_product = model_evaluator.inner_product)
