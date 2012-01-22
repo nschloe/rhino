@@ -890,11 +890,11 @@ def newton( x0,
                              return_lanczos = True
                            )
 
-        ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
-                                                       M = Minv,
-                                                       inner_product = model_evaluator.inner_product)
+        #ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
+                                                       #M = Minv,
+                                                       #inner_product = model_evaluator.inner_product)
 
-        print ritz_vals
+        #print ritz_vals
 
         # make sure the solution is alright
         assert( out[1] == 0 )
