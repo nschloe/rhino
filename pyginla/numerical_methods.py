@@ -323,21 +323,21 @@ def minres( A,
         # ---------------------------------------------------------------------
         # Lanczos
         tsold = ts
-        z  = _apply(Mr, V[:,1:2])
+        z  = _apply(Mr, V[:,[1]])
         z  = _apply(A, z)
         z  = _apply(Ml, z)
 
         # full reortho?
         if full_reortho:
             for i in range(0,k-1):
-                ip = inner_product(Vfull[:,i:i+1], z)[0,0]
+                ip = inner_product(Vfull[:,[i]], z)[0,0]
                 assert(abs(ip) < 1e-9)
-                z = z - ip * Pfull[:,i:i+1]
+                z = z - ip * Pfull[:,[i]]
 
         # tsold = inner_product(V[0], z)
-        z  = z - tsold * P[:,0:1]
+        z  = z - tsold * P[:,[0]]
         # Should be real! (diagonal element):
-        td = inner_product(V[:,1:2], z)[0,0]
+        td = inner_product(V[:,[1]], z)[0,0]
         assert abs(td.imag) < 1.0e-12
         td = td.real
         z  = z - td * P[:,1:2]
@@ -362,8 +362,8 @@ def minres( A,
         assert alpha > 0.0
         ts = np.sqrt( alpha )
 
-        P  = np.c_[P[:,1:2], z / ts]
-        V  = np.c_[V[:,1:2], v / ts]
+        P  = np.c_[P[:,[1]], z / ts]
+        V  = np.c_[V[:,[1]], v / ts]
         
         # store new vectors in full basis
         if return_lanczos or full_reortho:
