@@ -54,8 +54,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create dense problem.
         num_unknowns = 5
         A = self._create_spd_matrix( num_unknowns )
-        rhs = np.random.rand(num_unknowns)
-        x0 = np.zeros( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # Solve using CG.
         tol = 1.0e-13
@@ -71,8 +71,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create sparse problem.
         num_unknowns = 100
         A = self._create_sparse_hpd_matrix( num_unknowns )
-        rhs = np.ones(num_unknowns)
-        x0 = np.zeros( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # Solve using CG.
         tol = 1.0e-11
@@ -88,8 +88,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create regular dense problem.
         num_unknowns = 5
         A = self._create_sym_indef_matrix( num_unknowns )
-        rhs = np.ones( num_unknowns )
-        x0 = np.zeros( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # Solve using MINRES.
         tol = 1.0e-13
@@ -105,8 +105,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create sparse HPD problem.
         num_unknowns = 100
         A = self._create_sparse_hpd_matrix(num_unknowns)
-        rhs = np.ones( num_unknowns )
-        x0 = np.zeros( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # Solve using MINRES.
         tol = 1.0e-10
@@ -124,8 +124,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create regular dense problem.
         num_unknowns = 3
         A = np.array( [[1,-2+1j,0], [-2-1j,2,-1], [0,-1,3]] )
-        rhs = np.ones( num_unknowns )
-        x0 = np.zeros( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # Solve using MINRES.
         tol = 1.0e-14
@@ -141,8 +141,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create sparse symmetric problem.
         num_unknowns = 100
         A = self._create_sparse_herm_indef_matrix(num_unknowns)
-        rhs = np.ones(num_unknowns)
-        x0 = np.zeros(num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # Solve using spsolve.
         xexact = scipy.sparse.linalg.spsolve(A, rhs)
@@ -162,8 +162,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create sparse symmetric problem.
         num_unknowns = 100
         A = self._create_sparse_herm_indef_matrix(num_unknowns)
-        rhs = np.ones(num_unknowns)
-        x0 = np.zeros(num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
         self._create_sparse_herm_indef_matrix(4)
 
         # Solve using MINRES.
@@ -186,8 +186,8 @@ class TestLinearSolvers(unittest.TestCase):
         # Create sparse symmetric problem.
         num_unknowns = 100
         A = self._create_sparse_herm_indef_matrix(num_unknowns)
-        rhs = np.ones(num_unknowns)
-        x0 = np.zeros(num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
 
         # get projection
         from scipy.sparse.linalg import eigs
@@ -217,8 +217,8 @@ class TestLinearSolvers(unittest.TestCase):
     def test_get_projection(self):
         N = 100
         A = scipy.sparse.spdiags( range(1,N+1), [0], N, N)
-        b = np.ones(N)
-        x0 = np.ones(N)
+        b = np.ones( (N,1) )
+        x0 = np.ones( (N,1) )
 
         # 'last' 2 eigenvectors
         W = np.zeros( (N,2) )
@@ -234,15 +234,16 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertAlmostEqual( np.linalg.norm(AP-AP_exact), 0.0, delta=1e-14 )
 
         # Check x0new
-        x0new_exact = np.r_[np.ones(N-2),[1./(N-1),1./N]]
+        x0new_exact = np.ones( (N,1) )
+        x0new_exact[N-2:N,0] = [1./(N-1),1./N]
         self.assertAlmostEqual( np.linalg.norm(x0new-x0new_exact), 0.0, delta=1e-14 )
     
     # --------------------------------------------------------------------------
     def test_get_ritz(self):
         N = 10
         A = scipy.sparse.spdiags( range(1,N+1), [0], N, N)
-        b = np.ones(N)
-        x0 = np.ones(N)
+        b = np.ones( (N,1) )
+        x0 = np.ones( (N,1) )
 
         # 'last' 2 eigenvectors
         W = np.zeros( (N,2) )
@@ -303,8 +304,8 @@ class TestLinearSolvers(unittest.TestCase):
                        ])
         diags = np.array([-1,0,1])
         A = scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
-        rhs = np.random.rand(num_unknowns)
-        x0 = np.zeros( num_unknowns )
+        rhs = np.random.rand( num_unknowns,1 )
+        x0 = np.zeros( (num_unknowns,1) )
         # Solve using CG.
         tol = 1.0e-11
         x, info = numerical_methods.gmres( A, rhs, x0, tol=tol )
@@ -333,12 +334,12 @@ class TestLinearSolvers(unittest.TestCase):
                 return np.vdot(x, y)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         qmodeleval = QuadraticModelEvaluator()
-        x0 = np.array( [1.0] )
+        x0 = np.array( [[1.0]] )
         tol = 1.0e-10
         x, error_code, resvec = numerical_methods.newton( x0, qmodeleval,
                                                           nonlinear_tol=tol )
         self.assertEqual(error_code, 0)
-        self.assertAlmostEqual(x[0], np.sqrt(2.0), delta=tol)
+        self.assertAlmostEqual(x[0,0], np.sqrt(2.0), delta=tol)
     # --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':

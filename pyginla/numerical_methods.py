@@ -484,7 +484,6 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
         return x - np.dot(W, _direct_solve(E, inner_product(AW, x)))
     # --------------------------------------------------------------------------
     E = inner_product(W, AW)
-    print E.shape
     EWb = _direct_solve(E, inner_product(W, b))
 
     # Define projection operator.
@@ -651,13 +650,14 @@ def gmres( A,
            explicit_residual = False
          ):
     '''Preconditioned GMRES, pretty standard.
+
     memory consumption is about maxiter+1 vectors for the Arnoldi basis.
     Solves   Ml*A*Mr*y = Ml*b,  x=Mr*y. '''
     # --------------------------------------------------------------------------
     def _compute_explicit_xk():
         '''Compute approximation xk to the solution.'''
         yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
-        u  = _apply(Mright, _apply(V[:, :k+1], yy))
+        u  = _apply(Mright, np.dot(V[:, :k+1], yy))
         xk = x0 + u
         return xk
     # --------------------------------------------------------------------------
@@ -696,14 +696,14 @@ def gmres( A,
         r    = _apply(Mleft, r)
         norm_r = _norm( r, inner_product=inner_product)
     else:
-        x0 = np.zeros( N )
+        x0 = np.zeros( (N,1) )
         r    = MleftB
         norm_r = norm_MleftB
 
-    V[:, 0] = r / norm_r
+    V[:, [0]] = r / norm_r
     norm_rel_residual  = norm_r / norm_MleftB
     # Right hand side of projected system:
-    y = np.zeros( maxiter+1, dtype=xtype )
+    y = np.zeros( (maxiter+1,1), dtype=xtype )
     y[0] = norm_r
     # Givens rotations:
     G = []
@@ -723,7 +723,7 @@ def gmres( A,
         for i in xrange(k+1):
             H[i, k] = inner_product(V[:, i], V[:, k+1])
             V[:, k+1] = V[:, k+1] - H[i, k] * V[:, i]
-        H[k+1, k] = _norm(V[:, k+1], inner_product=inner_product)
+        H[k+1, k] = _norm(V[:, [k+1]], inner_product=inner_product)
         V[:, k+1] = V[:, k+1] / H[k+1, k]
 
         # Apply previous Givens rotations.
