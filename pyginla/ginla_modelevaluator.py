@@ -44,7 +44,6 @@ class GinlaModelEvaluator:
         self.control_volumes = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
-        self._psi = None
         return
     # ==========================================================================
     def compute_f( self, psi ):
@@ -58,13 +57,7 @@ class GinlaModelEvaluator:
 
         return res
     # ==========================================================================
-    def set_current_x( self, psi ):
-        '''Sets the current psi.
-        '''
-        self._psi = psi
-        return
-    # ==========================================================================
-    def get_jacobian( self ):
+    def get_jacobian( self, psi0 ):
         '''Returns a LinearOperator object that defines the matrix-vector
         multiplication scheme for the Jacobian operator as in
 
@@ -79,12 +72,12 @@ class GinlaModelEvaluator:
         def _apply_jacobian( phi ):
             if self._keo is None:
                 self._assemble_keo()
-            assert( self._psi is not None )
-            absPsiSquared = self._psi.real**2 + self._psi.imag**2
+            absPsi0Squared = psi0.real**2 + psi0.imag**2
             return - self._keo * phi \
-                + ( 1.0-self._T - 2.0*absPsiSquared ) * phi \
-                - self._psi**2 * phi.conj()
+                + ( 1.0-self._T - 2.0*absPsi0Squared ) * phi \
+                - psi0**2 * phi.conj()
         # ----------------------------------------------------------------------
+        assert( psi0 is not None )
         num_unknowns = len(self.mesh.nodes)
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_jacobian,

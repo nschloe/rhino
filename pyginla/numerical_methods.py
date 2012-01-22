@@ -822,9 +822,6 @@ def newton( x0,
     error_code = 0
     k = 0
 
-    # Create Jacobian as linear operator object.
-    jacobian = model_evaluator.get_jacobian()
-
     x = x0
     Fx = model_evaluator.compute_f( x )
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
@@ -856,9 +853,9 @@ def newton( x0,
             return
         eta_previous = eta
 
-        # initial guess for linear solver
-        initial_guess = np.zeros( (len(x0),1) )
-        model_evaluator.set_current_x( x )
+        # Setup linear problem.
+        jacobian = model_evaluator.get_jacobian( x )
+        initial_guess = np.zeros( (len(x),1) )
         rhs = -Fx
 
         if use_preconditioner:

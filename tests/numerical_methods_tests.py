@@ -322,14 +322,11 @@ class TestLinearSolvers(unittest.TestCase):
         class QuadraticModelEvaluator:
             '''Simple model evalator for f(x) = x^2 - 2.'''
             def __init__(self):
-                self._x0 = None
                 self.dtype = float
             def compute_f(self, x):
                 return x**2 - 2.0
-            def set_current_x(self, x):
-                self._x0 = x
-            def apply_jacobian(self, x):
-                return 2.0 * self._x0 * x
+            def get_jacobian(self, x0):
+                return 2.0 * x0
             def inner_product(self, x, y):
                 return np.vdot(x, y)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
