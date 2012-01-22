@@ -441,7 +441,7 @@ def _direct_solve(A, rhs):
     else:
         return np.linalg.solve(A, rhs)
 # ==============================================================================
-def get_projection( W, AW, b, x0, inner_product = _ipstd ):
+def get_projection(W, AW, b, x0, inner_product = _ipstd):
     """Get projection and appropriate initial guess for use in deflated methods.
 
     Arguments:
@@ -484,7 +484,7 @@ def get_projection( W, AW, b, x0, inner_product = _ipstd ):
 
     return P, x0new
 # ==============================================================================
-def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
+def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -529,14 +529,14 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
     unstable (it seems as if residual norms below 1e-8 cannot be achieved...
     note that the actual residual may be lower!).
     """
-    nW = W.shape[1]
-    E = inner_product(W, AW)        # ~
-    Einv = np.linalg.inv(E)         # ~
-    B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
-    B = B1[:,0:-1]
+    E = np.asmatrix(inner_product(W, AW))        # ~
+    B1 = np.asmatrix(inner_product(AW, Vfull))   # can (and should) be obtained from MINRES
+    B = B1[:, 0:-1]
 
     # Stack matrices appropriately: [E, B; B', Tfull(1:end-1,:)].
-    ritzmat = np.bmat( [[E,B], [B.T.conj(), Tfull[0:-1,:].todense()]] )
+    ritzmat = np.bmat( [[E, B],
+                        [B.T.conj(), Tfull[0:-1,:].todense()]]
+                     )
 
     # Compute Ritz values / vectors.
     from scipy.linalg import eigh
@@ -544,13 +544,21 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
 
     # Compute residual norms.
     norm_ritz_res = np.zeros(lam.shape[0])
+    Einv = np.linalg.inv(E) # ~
     AWE = np.dot(AW, Einv)
     # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
     MAWE = _apply(M, AWE)
     D = inner_product(AWE, MAWE)
+    if len(W.shape) == 1:
+        nW = 1
+    else:
+        nW = W.shape[1]
     D1 = np.eye(nW)
     D2 = np.linalg.solve(E, B1)
-    CC = np.bmat( [ [D,D1,D2] , [D1.T.conj() , np.eye(nW) , np.zeros( (nW,Vfull.shape[1]) ) ], [D2.T.conj(), np.zeros( (Vfull.shape[1],nW)), np.eye(Vfull.shape[1])] ] )
+    CC = np.bmat( [ [D, D1, D2] ,
+                    [D1.T.conj(), np.eye(nW), np.zeros( (nW,Vfull.shape[1]))],
+                    [D2.T.conj(), np.zeros((Vfull.shape[1],nW)), np.eye(Vfull.shape[1])]
+                  ] )
     CC = np.asarray(CC)
     for i in range(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],i]
@@ -574,7 +582,8 @@ def get_ritz( W, AW, Vfull, Tfull, M=None, inner_product = _ipstd ):
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
     sorti = np.argsort(norm_ritz_res)
     ritz_vals = lam[sorti]
-    ritz_vecs = np.dot(W, U[0:nW,sorti]) + np.dot(Vfull[:,0:-1], U[nW:,sorti])
+    ritz_vecs = np.dot(W, U[0:nW,sorti]) \
+              + np.dot(Vfull[:,0:-1], U[nW:,sorti])
     norm_ritz_res  = norm_ritz_res[sorti]
 
     return ritz_vals, ritz_vecs, norm_ritz_res
@@ -869,8 +878,17 @@ def newton( x0,
                              Mr = P,
                              M = Minv,
                              tol = eta,
-                             inner_product = model_evaluator.inner_product
+                             inner_product = model_evaluator.inner_product,
+                             return_lanczos = True
                            )
+
+        print W.shape
+        ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
+                                                       M = Minv,
+                                                       inner_product = model_evaluator.inner_product)
+
+        print ritz_vals
+
         # make sure the solution is alright
         assert( out[1] == 0 )
 

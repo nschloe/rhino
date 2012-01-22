@@ -40,7 +40,7 @@ def _main():
                             forcing_term = 'constant', #'type 2'
                             eta0 = 1.0e-11,
                             use_preconditioner = False,
-                            deflate_ix = False
+                            deflate_ix = True
                           )
     print " done."
     print newton_out[2]
