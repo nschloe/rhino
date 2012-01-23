@@ -1,4 +1,4 @@
-import numerical_methods
+import numerical_methods as nm
 import numpy as np
 import scipy
 import unittest
@@ -59,7 +59,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using CG.
         tol = 1.0e-13
-        x, info = numerical_methods.cg( A, rhs, x0, tol=tol )
+        x, info = nm.cg( A, rhs, x0, tol=tol )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -76,7 +76,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using CG.
         tol = 1.0e-11
-        x, info, relresvec, _ = numerical_methods.cg_wrap( A, rhs, x0, tol=tol)
+        x, info, relresvec, _ = nm.cg_wrap( A, rhs, x0, tol=tol)
 
         # Make sure the method converged.
         #self.assertEqual(info, 0)
@@ -93,7 +93,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-13
-        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol )
+        x, info, relresvec = nm.minres( A, rhs, x0, tol=tol )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -110,7 +110,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol)
+        x, info, relresvec = nm.minres( A, rhs, x0, tol=tol)
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -129,7 +129,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-14
-        x, info, relresvec = numerical_methods.minres( A, rhs, x0, tol=tol )
+        x, info, relresvec = nm.minres( A, rhs, x0, tol=tol )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -148,7 +148,7 @@ class TestLinearSolvers(unittest.TestCase):
         xexact = scipy.sparse.linalg.spsolve(A, rhs)
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec, errvec = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, exact_solution=xexact)
+        x, info, relresvec, errvec = nm.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, exact_solution=xexact)
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -168,7 +168,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, rhs, x0, tol=tol, maxiter=num_unknowns, explicit_residual=False, return_lanczos=True, full_reortho=True )
+        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, rhs, x0, tol=tol, maxiter=num_unknowns, explicit_residual=False, return_lanczos=True, full_reortho=True )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -200,15 +200,15 @@ class TestLinearSolvers(unittest.TestCase):
         #from scipy.linalg import qr
         #W, R = qr(W, mode='economic')
 
-        AW = numerical_methods._apply(A, W);
-        P, x0new = numerical_methods.get_projection( W, AW, rhs, x0 )
+        AW = nm._apply(A, W);
+        P, x0new = nm.get_projection( W, AW, rhs, x0 )
 
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True, return_lanczos=True )
+        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True, return_lanczos=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, norm_ritz_res = numerical_methods.get_ritz( W, AW, Vfull, Tfull )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, Vfull, Tfull )
 
         # Make sure the method converged.
         self.assertEqual(info, 0)
@@ -228,7 +228,7 @@ class TestLinearSolvers(unittest.TestCase):
         W[-1,1]=1
         AW = A*W
 
-        P, x0new = numerical_methods.get_projection(W, AW, b, x0)
+        P, x0new = nm.get_projection(W, AW, b, x0)
 
         # Check A*(P*I) against exact A*P
         AP = A*(P*np.eye(N))
@@ -254,13 +254,13 @@ class TestLinearSolvers(unittest.TestCase):
         AW = A*W
 
         # Get the projection
-        P, x0new = numerical_methods.get_projection(W, AW, b, x0)
+        P, x0new = nm.get_projection(W, AW, b, x0)
 
         # Run MINRES (we are only interested in the Lanczos basis and tridiag matrix)
-        x, info, relresvec, Vfull, Pfull, Tfull = numerical_methods.minres( A, b, x0new, Mr=P, tol=1e-14, maxiter=11, full_reortho=True, return_lanczos=True )
+        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, b, x0new, Mr=P, tol=1e-14, maxiter=11, full_reortho=True, return_lanczos=True )
         
         # Get Ritz pairs
-        ritz_vals, ritz_vecs, norm_ritz_res = numerical_methods.get_ritz( W, AW, Vfull, Tfull )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, Vfull, Tfull )
 
         # Check Ritz pair residuals
         ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))
@@ -274,8 +274,8 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertAlmostEqual( abs(ritz_vals[order[-1]] - N), 0.0, delta=1e-13 )
         self.assertAlmostEqual( abs(ritz_vals[order[-2]] - (N-1)), 0.0, delta=1e-13 )
         # now the eigenvectors
-        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-1]],W[:,1])), 1.0, delta=1e-13 )
-        self.assertAlmostEqual( abs(numerical_methods._ipstd(ritz_vecs[:,order[-2]],W[:,0])), 1.0, delta=1e-13 )
+        self.assertAlmostEqual( abs(nm._ipstd(ritz_vecs[:,order[-1]],W[:,1])), 1.0, delta=1e-13 )
+        self.assertAlmostEqual( abs(nm._ipstd(ritz_vecs[:,order[-2]],W[:,0])), 1.0, delta=1e-13 )
 
     # --------------------------------------------------------------------------
 #    def test_lobpcg(self):
@@ -310,7 +310,7 @@ class TestLinearSolvers(unittest.TestCase):
         x0 = np.zeros( (num_unknowns,1) )
         # Solve using CG.
         tol = 1.0e-11
-        x, info = numerical_methods.gmres( A, rhs, x0, tol=tol )
+        x, info = nm.gmres( A, rhs, x0, tol=tol )
         # Make sure the method converged.
         self.assertEqual(info, 0)
         # Check the residual.
@@ -335,10 +335,9 @@ class TestLinearSolvers(unittest.TestCase):
         qmodeleval = QuadraticModelEvaluator()
         x0 = np.array( [[1.0]] )
         tol = 1.0e-10
-        x, error_code, resvec, linear_relresvecs = numerical_methods.newton( x0, qmodeleval,
-                                                          nonlinear_tol=tol )
-        self.assertEqual(error_code, 0)
-        self.assertAlmostEqual(x[0,0], np.sqrt(2.0), delta=tol)
+        out = nm.newton(x0, qmodeleval, nonlinear_tol=tol )
+        self.assertEqual(out[1], 0)
+        self.assertAlmostEqual(out[0][0,0], np.sqrt(2.0), delta=tol)
     # --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
