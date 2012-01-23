@@ -24,7 +24,7 @@ class TestLinearSolvers(unittest.TestCase):
         A = self._create_sym_matrix( num_unknowns )
         # Make sure that the lowest eigenvalue is -1 and the largest 1.
         D,V = np.linalg.eig( A )
-        I = np.eye( num_unknowns ) 
+        I = np.eye( num_unknowns )
         A = 2.0 / (max(D)-min(D)) * (A - min(D) * I) - 1.0 * I
         return A
     # --------------------------------------------------------------------------
@@ -202,19 +202,20 @@ class TestLinearSolvers(unittest.TestCase):
 
         # get projection
         from scipy.sparse.linalg import eigs
-        D, W = eigs(A)
+        num_vecs = 6
+        D, W = eigs(A, k=num_vecs, v0=np.ones((num_unknowns,1)))
         
         # Uncomment next lines to perturb W
         #W = W + 1.e-10*np.random.rand(W.shape[0], W.shape[1])
         #from scipy.linalg import qr
         #W, R = qr(W, mode='economic')
 
-        AW = nm._apply(A, W);
+        AW = nm._apply(A, W)
         P, x0new = nm.get_projection( W, AW, rhs, x0 )
 
         # Solve using MINRES.
-        tol = 1.0e-10
-        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns, full_reortho=True, return_lanczos=True )
+        tol = 1.0e-9
+        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_lanczos=True )
 
         # TODO: move to new unit test
         ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, Vfull, Tfull )
