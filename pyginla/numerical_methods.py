@@ -507,7 +507,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
+def get_ritz(W, AW, A, Vfull, Tfull, M=None, inner_product = _ipstd):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -571,11 +571,15 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
     norm_ritz_res = np.zeros(lam.shape[0])
     if nW>0:
         Einv = np.linalg.inv(E) # ~
+        AWE = np.dot(AW, Einv)
+        MAWE = _apply(M, AWE)
     else:
+        N = W.shape[0]
         Einv = np.zeros( (0,0) )
-    AWE = np.dot(AW, Einv)
+        AWE = np.zeros( (N,0) )
+        MAWE = np.zeros( (N,0) )
+
     # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
-    MAWE = _apply(M, AWE)
     D = inner_product(AWE, MAWE)
     D1 = np.eye(nW)
     D2 = np.dot(Einv, B1)
@@ -583,6 +587,19 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, inner_product = _ipstd):
                 np.c_[D1.T.conj(), np.eye(nW), np.zeros( (nW,nVfull))],
                 np.c_[D2.T.conj(), np.zeros((nVfull,nW)), np.eye(nVfull)]
               ]
+
+    AWVfull = _apply(A, np.c_[W, Vfull[:,0:-1]])
+    MAWVfull = _apply(M, AWVfull)
+    CC2 = inner_product( AWVfull, MAWVfull )
+    from scipy.linalg import norm
+    print CC.shape
+    print CC2.shape
+    print norm( CC - CC2 )
+    #print norm( CC - CC.transpose().conj() )
+    #from scipy.linalg import eigh
+    #values, vectors = eigh( CC2 )
+    #print values
+    #print norm( D2 )
     for i in range(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],i]
         v = U[W.shape[1]:,i]
@@ -909,14 +926,15 @@ def newton( x0,
                              return_lanczos = True
                            )
 
-        #ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
-                                                       #M = Minv,
-                                                       #inner_product = model_evaluator.inner_product)
 
         #print ritz_vals
 
         # make sure the solution is alright
         assert( out[1] == 0 )
+        ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
+                                                       M = Minv,
+                                                       inner_product = model_evaluator.inner_product)
+        #print norm_ritz_res
 
         # save the convergence history
         linear_relresvecs.append( out[2] )
