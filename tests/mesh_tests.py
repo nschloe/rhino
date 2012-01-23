@@ -1,5 +1,5 @@
-import mesh_io
-import ginla_modelevaluator
+import mesh.mesh_io
+import pyginla.ginla_modelevaluator as gm
 import numpy as np
 import unittest
 # ==============================================================================
@@ -10,12 +10,12 @@ class TestMesh(unittest.TestCase):
     # --------------------------------------------------------------------------
     def _run_test(self, filename, actual_values ):
         # read the mesh
-        mesh, psi, A, field_data = mesh_io.read_mesh( filename )
+        pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
 
         # build the model evaluator
         mu = 0.0
         self.ginla_modeleval = \
-            ginla_modelevaluator.GinlaModelEvaluator(mesh, A, mu)
+            gm.GinlaModelEvaluator(pyginlamesh, A, mu)
 
         # Compute the control volumes.
         self.ginla_modeleval._compute_control_volumes()
