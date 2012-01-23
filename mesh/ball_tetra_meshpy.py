@@ -96,16 +96,6 @@ def _parse_options():
                          help    = 'file to be written to'
                        )
 
-    parser.add_argument( '--refinements', '-r',
-                         metavar='NUM_REFINEMENTS',
-                         dest='ref_steps',
-                         nargs='?',
-                         type=int,
-                         const=0,
-                         default=0,
-                         help='number of mesh refinement steps to be performed (default: 0)'
-                       )
-
     args = parser.parse_args()
 
     return args

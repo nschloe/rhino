@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 # ==============================================================================
-import optparse
-import sys
-# ==============================================================================
 def _main():
     import meshpy_interface
     import numpy as np
-    import mesh, mesh_io
+    import mesh
 
-    file_name = _parse_options()
+    args = _parse_options()
 
-    lx = 10
-    ly = 10
-    lz = 10
-    max_volume = 2.0e-3
+    lx = 10.0
+    ly = 10.0
+    lz = 10.0
+    max_volume = 2.0e-2
 
     # Round trip corner points of the rectangle.
     points = [ ( -0.5*lx, -0.5*ly, -0.5*lz ),
@@ -39,23 +36,26 @@ def _main():
     for k, x in enumerate( mymesh.nodes ):
         X[k] = complex( 1.0, 0.0 )
 
-    mymesh.write(file_name, {'psi': X})
+    mymesh.write(args.filename, {'psi': X})
 
     return
 # ==============================================================================
 def _parse_options():
     '''Parse input options.'''
-    usage = "usage: %prog outfile"
+    import argparse
 
-    parser = optparse.OptionParser( usage = usage )
+    parser = argparse.ArgumentParser( description = 'Construct tetrahedrization of a cube.' )
 
-    (options, args) = parser.parse_args()
 
-    if not args  or  len(args) != 1:
-        parser.print_help()
-        sys.exit( "\nProvide a file to be written to." )
+    parser.add_argument( 'filename',
+                         metavar = 'FILE',
+                         type    = str,
+                         help    = 'file to be written to'
+                       )
 
-    return args[0]
+    args = parser.parse_args()
+
+    return args
 # ==============================================================================
 if __name__ == "__main__":
     _main()

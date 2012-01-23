@@ -50,7 +50,9 @@ def create_tetrahedron_mesh( roundtrip_points, facets ):
     info.set_points( roundtrip_points )
     info.set_facets( facets )
 
-    meshpy_mesh = meshpy.tet.build( info )
+    meshpy_mesh = meshpy.tet.build( info,
+                                    max_volume = MAX_AREA
+                                  )
 
     return meshpy_mesh
 # ==============================================================================
