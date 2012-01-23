@@ -4,7 +4,6 @@
 Creates a mesh on a hexahedron in the x-y-plane.
 '''
 import vtk
-import mesh_io
 import mesh
 import numpy as np
 from cmath import sin, pi
@@ -28,12 +27,12 @@ def _main():
     edges = [ [0,1], [0,2], [0,3], [0,4], [0,5], [0,6],
               [1,2], [2,3], [3,4], [4,5], [5,6], [6,1] ]
 
-    elements = [ mesh.Cell([0, 1, 2], vtk.VTK_TRIANGLE, [0,6,1]),
-                 mesh.Cell([0, 2, 3], vtk.VTK_TRIANGLE, [1,7,2]),
-                 mesh.Cell([0, 3, 4], vtk.VTK_TRIANGLE, [2,8,3]),
-                 mesh.Cell([0, 4, 5], vtk.VTK_TRIANGLE, [3,9,4]),
-                 mesh.Cell([0, 5, 6], vtk.VTK_TRIANGLE, [4,10,5]),
-                 mesh.Cell([0, 6, 1], vtk.VTK_TRIANGLE, [5,11,0]) ]
+    elements = [ mesh.Cell([0, 1, 2], [0,6,1]),
+                 mesh.Cell([0, 2, 3], [1,7,2]),
+                 mesh.Cell([0, 3, 4], [2,8,3]),
+                 mesh.Cell([0, 4, 5], [3,9,4]),
+                 mesh.Cell([0, 5, 6], [4,10,5]),
+                 mesh.Cell([0, 6, 1], [5,11,0]) ]
 
     # Create mesh data structure.
     mymesh = mesh.Mesh( nodes, elements, edges )
@@ -76,7 +75,7 @@ def _main():
     # write the mesh
     print 'Write mesh...',
     start = time.time()
-    mesh_io.write( args.filename, mymesh, {'psi':X, 'A':A} )
+    mymesh.write( args.filename, {'psi':X, 'A':A} )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 

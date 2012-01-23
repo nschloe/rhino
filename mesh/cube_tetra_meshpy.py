@@ -39,16 +39,7 @@ def _main():
     for k, x in enumerate( mymesh.nodes ):
         X[k] = complex( 1.0, 0.0 )
 
-    # add parameters
-    params = { "mu": 0.0,
-               "scaling": 1.0
-             }
-
-    mesh_io.write_mesh( file_name,
-                        mymesh,
-                        [X], ["psi"],
-                        params
-                      )
+    mymesh.write(file_name, {'psi': X})
 
     return
 # ==============================================================================

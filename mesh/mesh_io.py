@@ -7,52 +7,6 @@ import os, sys
 import numpy as np
 import mesh
 # ==============================================================================
-def write( filename,
-           mesh_in,
-           extra_arrays = None
-         ):
-    '''Writes data together with a mesh to a file.
-    '''
-    if isinstance( mesh_in, mesh.Mesh ):
-        # If given pymesh structure, convert iit to a VTK mesh first.
-        # create the VTK mesh structure
-        vtk_mesh = _generate_vtk_mesh( mesh_in.nodes, mesh_in.cells )
-    elif isinstance( mesh_in, vtk.vtkUnstructuredGrid ):
-        vtk_mesh = mesh_in
-    else:
-        raise ValueError( 'Unknown mesh type.' )
-
-    # add arrays
-    if extra_arrays:
-        for key, value in extra_arrays.iteritems():
-            vtk_mesh.GetPointData().AddArray(
-                                            _create_vtkdoublearray( value, key )
-                                            )
-
-    extension = os.path.splitext(filename)[1]
-    if extension == ".vtu": # VTK XML format
-        writer = vtk.vtkXMLUnstructuredGridWriter()
-    elif extension == ".pvtu": # parallel VTK XML format
-        writer = vtk.vtkXMLPUnstructuredGridWriter()
-    elif extension == ".vtk": # classical VTK format
-        writer = vtk.vtkUnstructuredGridWriter()
-        writer.SetFileTypeToASCII()
-    elif extension in [ ".ex2", ".exo", ".e" ]: # Exodus II format
-        writer = vtk.vtkExodusIIWriter()
-        # If the mesh contains vtkModelData information, make use of it
-        # and write out all time steps.
-        writer.WriteAllTimeStepsOn()
-    else:
-        raise IOError( "Unknown file type \"%s\"." % filename )
-
-    writer.SetFileName( filename )
-
-    writer.SetInput( vtk_mesh )
-
-    writer.Write()
-
-    return
-# ==============================================================================
 def read( file_name, timestep=None ):
     '''Reads an FEM mesh from an Exodus file.'''
     extension = os.path.splitext( file_name )[1]
@@ -274,86 +228,6 @@ def _extract_values( vtk_data ):
             msg = "Unexpected array \"%s\". Skipping." % arrayName
 
     return z, A
-# ==============================================================================
-def _generate_vtk_mesh( points, elems, X = None, name = None ):
-
-    mesh = vtk.vtkUnstructuredGrid()
-
-    # set points
-    vtk_points = vtk.vtkPoints()
-    for point in points:
-        vtk_points.InsertNextPoint( point )
-    mesh.SetPoints( vtk_points )
-
-    # set cells
-    for elem in elems:
-        pts = vtk.vtkIdList()
-        pts.SetNumberOfIds( len(elem.node_indices) )
-        # get the connectivity for this element
-        k = 0
-        for node_index in elem.node_indices:
-            pts.InsertId( k, node_index )
-            k += 1
-        mesh.InsertNextCell( elem.cell_type, pts )
-
-    # set values
-    if X is not None:
-        mesh.GetPointData().AddArray( _create_vtkdoublearray( X, name ) )
-
-    return mesh
-# ==============================================================================
-def _create_vtkdoublearray( X, name ):
-
-    scalars0 = vtk.vtkDoubleArray()
-    scalars0.SetName ( name )
-
-    if isinstance( X, float ):
-        scalars0.SetNumberOfComponents( 1 )
-        scalars0.InsertNextValue( X )
-    elif (len( X.shape ) == 1 or X.shape[1] == 1) and X.dtype==float:
-        # real-valued array
-        scalars0.SetNumberOfComponents( 1 )
-        for x in X:
-            scalars0.InsertNextValue( x )
-
-    elif (len( X.shape ) == 1 or X.shape[1] == 1) and X.dtype==complex:
-        # complex-valued array
-        scalars0.SetNumberOfComponents( 2 )
-        for x in X:
-            scalars0.InsertNextValue( x.real )
-            scalars0.InsertNextValue( x.imag )
-
-    elif len( X.shape ) == 2 and X.dtype==float: # 2D float field
-        m, n = X.shape
-        scalars0.SetNumberOfComponents( n )
-        for j in range(m):
-            for i in range(n):
-                scalars0.InsertNextValue( X[j, i] )
-
-    elif len( X.shape ) == 2 and X.dtype==complex: # 2D complex field
-        scalars0.SetNumberOfComponents( 2 )
-        m, n = X.shape
-        for j in range(n):
-            for i in range(m):
-                scalars0.InsertNextValue( X[j, i].real )
-                scalars0.InsertNextValue( X[j, i].imag )
-
-    elif len( X.shape ) == 3: # vector values
-        m, n, d = X.shape
-        if X.dtype==complex:
-            raise "Can't handle complex-valued vector fields."
-        if d != 3:
-            raise "Can only deal with 3-dimensional vector fields."
-        scalars0.SetNumberOfComponents( 3 )
-        for j in range( n ):
-            for i in range( m ):
-                for k in range( 3 ):
-                    scalars0.InsertNextValue( X[i,j,k] )
-
-    else:
-        raise ValueError( "Don't know what to do with array." )
-
-    return scalars0
 # ==============================================================================
 def _create_int_field_data ( arr, name ):
 

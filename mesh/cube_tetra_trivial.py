@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 '''Creates a simplisitc mesh on a cube.
 '''
-import vtk
-import mesh, mesh_io
+import mesh
 import numpy as np
 from math import sin, pi, atan, sqrt
 import time
@@ -59,24 +58,21 @@ def _main():
                                                N[2] * ( N[1]*i     + j+1 ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k,
                                                N[2] * ( N[1]*i     + j   ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j+1 ) + k,
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k,
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j+1 ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k,
                                                N[2] * ( N[1]*i     + j   ) + k+1,
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j+1 ) + k,
@@ -91,8 +87,7 @@ def _main():
                                                N[2] * ( N[1]*i     + j   ) + k+1,
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k+1,
                                                N[2] * ( N[1]*(i+1) + j   ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                 else:
@@ -102,40 +97,35 @@ def _main():
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k,
                                                N[2] * ( N[1]*i     + j   ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k+1
-                                            ],
-                                            vtk.VTK_TETRA
+                                            ]
                                           )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j+1 ) + k,
                                                N[2] * ( N[1]*i     + j+1 ) + k,
                                                N[2] * ( N[1]*i     + j   ) + k,
                                                N[2] * ( N[1]*i     + j+1 ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j+1 ) + k,
                                                N[2] * ( N[1]*i     + j   ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k+1,
                                                N[2] * ( N[1]*i     + j+1 ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j+1 ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k+1,
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k+1,
                                                N[2] * ( N[1]*i     + j+1 ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j   ) + k,
                                                N[2] * ( N[1]*(i+1) + j   ) + k+1,
                                                N[2] * ( N[1]*i     + j+1 ) + k+1,
                                                N[2] * ( N[1]*i     + j   ) + k+1
-                                             ],
-                                             vtk.VTK_TETRA
+                                             ]
                                            )
                                 )
     elapsed = time.time()-start
@@ -189,10 +179,6 @@ def _main():
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
-    # add parameters
-    params = { "mu": 0.0
-             }
-
     # create the mesh data structure
     print 'Create mesh data structure...',
     start = time.time()
@@ -203,11 +189,7 @@ def _main():
     # write the mesh with data
     print 'Write to file...',
     start = time.time()
-    mesh_io.write_mesh( file_name,
-                        mymesh,
-                        [X,A,thickness], ["psi","A","thickness"],
-                        params
-                      )
+    mymesh.write(file_name, {'psi': X, 'A': A, 'thickness': thickness})
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 

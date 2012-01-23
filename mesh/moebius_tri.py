@@ -79,63 +79,30 @@ def _main():
     for i in range(nl - 1):
         for j in range(nw - 1):
             elem_nodes = [ i*nw + j, (i + 1)*nw + j + 1,  i     *nw + j + 1 ]
-            elems.append( mesh.Cell( elem_nodes,
-                                     [], # edges
-                                     [], # faces
-                                     vtk.VTK_TRIANGLE
-                                   )
-                        )
+            elems.append( mesh.Cell( elem_nodes) )
             elem_nodes = [ i*nw + j, (i + 1)*nw + j    , (i + 1)*nw + j + 1 ]
-            elems.append( mesh.Cell( elem_nodes,
-                                     [], # edges
-                                     [], # faces
-                                     vtk.VTK_TRIANGLE
-                                   )
-                        )
+            elems.append( mesh.Cell( elem_nodes) )
     # close the geometry
     if moebius_index % 2 == 0:
         # Close the geometry upside up (even M\"obius fold)
         for j in range(nw - 1):
             elem_nodes = [ (nl - 1)*nw + j, j + 1 , (nl - 1)*nw + j + 1 ]
-            elems.append( mesh.Cell( elem_nodes,
-                                     [], # edges
-                                     [], # faces
-                                     vtk.VTK_TRIANGLE
-                                   )
-                        )
+            elems.append( mesh.Cell( elem_nodes) )
             elem_nodes = [ (nl - 1)*nw + j, j     , j + 1  ]
-            elems.append( mesh.Cell( elem_nodes,
-                                     [], # edges
-                                     [], # faces
-                                     vtk.VTK_TRIANGLE
-                                   )
-                        )
+            elems.append( mesh.Cell( elem_nodes) )
     else:
         # Close the geometry upside down (odd M\"obius fold)
         for j in range(nw - 1):
             elem_nodes = [ (nl-1)*nw + j, (nw-1) - (j+1) , (nl-1)*nw +  j+1  ]
-            elems.append( mesh.Cell( elem_nodes,
-                                     [], # edges
-                                     [], # faces
-                                     vtk.VTK_TRIANGLE
-                                   )
-                        )
+            elems.append( mesh.Cell( elem_nodes) )
             elem_nodes = [ (nl-1)*nw + j, (nw-1) - j     , (nw-1)    - (j+1) ]
-            elems.append( mesh.Cell( elem_nodes,
-                                     [], # edges
-                                     [], # faces
-                                     vtk.VTK_TRIANGLE
-                                   )
-                        )
+            elems.append( mesh.Cell( elem_nodes) )
 
     # add values
     num_nodes = len( nodes )
     X = np.empty( num_nodes, dtype = complex )
-    k = 0
-    for u in u_range:
-        for v in v_range:
-            X[k] = complex( 1.0, 0.0 )
-            k += 1
+    for k, node in enumerate(nodes):
+        X[k] = complex( 1.0, 0.0 )
 
     # Add thickness values in such a way as to increase
     # the thickness towards the boundaries.
@@ -144,34 +111,22 @@ def _main():
     beta  = 1024.0 # thickness at the boundary
     p     = 8      # steepness of the thickness function towards the boundary
     t = (beta-alpha) / (0.5*width)**p
-    k  = 0
-    for u in u_range:
-        for v in v_range:
-            thickness[k] = alpha + t * abs(v)**p
-            k += 1
+    for k, node in enumerate(nodes):
+        thickness[k] = alpha + t * abs(v)**p
 
     # Add magnetic vector potential corresponding to
     # B = ( 0, 1, 0 ).
     import magnetic_vector_potentials
     A = np.empty( (num_nodes,3), dtype = float )
-    k = 0
-    for u in u_range:
-        for v in v_range:
-            A[k,:] = magnetic_vector_potentials.mvp_z( nodes[k].coords )
-            k += 1
-
-    # add parameters
-    params = { "mu": 0.0 }
+    for k, node in enumerate(nodes):
+        A[k,:] = magnetic_vector_potentials.mvp_z( node )
 
     # create the mesh data structure
     mymesh = mesh.Mesh( nodes, elems )
 
     # create the mesh
-    mesh_io.write_mesh( file_name,
-                        mymesh,
-                        [X,A,thickness], ["psi","A","thickness"],
-                        params
-                       )
+    mymesh.write(file_name, {'psi': psi, 'A': A, 'thickness': thickness })
+
     return
 # ==============================================================================
 def _parse_options():

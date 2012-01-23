@@ -75,14 +75,16 @@ def _construct_mymesh( meshpy_mesh ):
     # Create the vertices.
     nodes = []
     for point in meshpy_mesh.points:
-        nodes.append( np.array([point[0], point[1], 0]) )
+        if len(point) == 2:
+            nodes.append(np.append(point, 0.0))
+        elif len(point) == 3:
+            nodes.append(point)
+        else:
+            raise ValueError('Unknown point.')
     # Create the elements (cells).
     elems = []
     for element in meshpy_mesh.elements:
-        elems.append( mesh.Cell( element,
-                                 vtk.VTK_TRIANGLE
-                               )
-                    )
+        elems.append(mesh.Cell(element))
     # create the mesh data structure
     return mesh.Mesh( nodes, elems )
 # ==============================================================================
