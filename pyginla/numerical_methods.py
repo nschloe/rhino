@@ -64,8 +64,6 @@ def _norm_squared( x, Mx = None, inner_product = _ipstd ):
 # ==============================================================================
 def _norm( x, Mx = None, inner_product = _ipstd ):
     '''Compute the norm w.r.t. to a given scalar product.'''
-    assert( len(x.shape)==2 )
-    assert( x.shape[1]==1 )
     return np.sqrt(_norm_squared( x, Mx = Mx, inner_product = inner_product ) )
 # ==============================================================================
 def _apply( A, x ):

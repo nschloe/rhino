@@ -3,7 +3,6 @@
 '''
 Provide tools for solving the Ginzburg--Landau equations.
 '''
-import mesh_io
 import numpy as np
 from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
@@ -151,11 +150,6 @@ class GinlaModelEvaluator:
         #self._coedge_edge_ratios = None
 
         #return
-    # ==========================================================================
-    def write( self, psi, filename ):
-        '''Writes the mesh to a file.'''
-        mesh_io.write_mesh( filename, self.mesh, psi )
-        return
     # ==========================================================================
     def _assemble_keo( self ):
         '''Take a pick for the KEO assembler.'''

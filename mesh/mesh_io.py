@@ -189,7 +189,7 @@ def _extract_cells( vtk_mesh ):
             #edges.append( pts )
 
         # create element
-        elems.append( mesh.Cell( nodes, cell.GetCellType() ) )
+        elems.append(mesh.Cell(nodes))
 
     return elems
 # ==============================================================================

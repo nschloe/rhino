@@ -4,6 +4,7 @@
 '''
 # ==============================================================================
 import mesh_io
+import matplotlib2tikz
 import numerical_methods as nm
 import sys
 import numpy as np
@@ -62,7 +63,7 @@ def _main():
 
     ## write the solution to a file
     #sol_filename = "solution.vtu"
-    #vtkio.write_mesh( sol_filename, mesh, psi_sol )
+    #mesh.write( sol_filename, psi_sol )
 
     return
 # ==============================================================================
