@@ -40,38 +40,33 @@ def _ipstd( X, Y ):
     '''
     return np.dot(X.T.conj(), Y)
 # ==============================================================================
-def _norm( x, inner_product = _ipstd ):
-    '''Compute the norm w.r.t. to a given scalar product.'''
-    assert( len(x.shape)==2 )
-    assert( x.shape[1]==1 )
-    norm2 = inner_product(x, x)[0,0]
-    if norm2.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
-        raise ValueError( 'inner_product not a proper inner product?' )
-
-    norm2 = norm2.real
-    if norm2 < 0.0:
-        raise ValueError( '<x,x> = %g. Improper inner product?' % norm2 )
-    return np.sqrt(norm2)
-# ==============================================================================
-def _normM_squared( x, M, inner_product = _ipstd ):
+def _norm_squared( x, Mx = None, inner_product = _ipstd ):
     '''Compute the norm^2 w.r.t. to a given scalar product.'''
     assert( len(x.shape)==2 )
     assert( x.shape[1]==1 )
-    Mx = _apply( M, x )
-    rho = inner_product( x, Mx )[0,0]
+    if Mx is None:
+        rho = inner_product(x, x)[0,0]
+    else:
+        assert( len(Mx.shape)==2 )
+        assert( Mx.shape[1]==1 )
+        rho = inner_product(x, Mx)[0,0]
 
 #    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
     if abs(rho.imag) > abs(rho) *1e-10:
         raise ValueError( 'M not positive definite?' )
 
-    return rho.real, Mx
-# ==============================================================================
-def _normM( x, M, inner_product = _ipstd ):
-    '''Compute the norm w.r.t. to a given scalar product.'''
-    norm2, Mx = _normM_squared( x, M, inner_product = inner_product )
-    if norm2 < 0.0:
+    rho = rho.real
+
+    if rho < 0.0:
         raise ValueError( '<x,Mx> = %g. M not positive definite?' % norm2 )
-    return np.sqrt(norm2), Mx
+
+    return rho.real
+# ==============================================================================
+def _norm( x, Mx = None, inner_product = _ipstd ):
+    '''Compute the norm w.r.t. to a given scalar product.'''
+    assert( len(x.shape)==2 )
+    assert( x.shape[1]==1 )
+    return np.sqrt(_norm_squared( x, Mx = Mx, inner_product = inner_product ) )
 # ==============================================================================
 def _apply( A, x ):
     '''Implement A*x for different types of linear operators.'''
@@ -147,7 +142,8 @@ def cg( A,
 
     r = rhs - _apply(A, x)
 
-    rho_old, Mr = _normM_squared( r, M, inner_product = inner_product )
+    Mr = _apply(M, r)
+    rho_old = _norm_squared(r, Mr, inner_product = inner_product)
     p = Mr.copy()
 
     if maxiter is None:
@@ -156,7 +152,8 @@ def cg( A,
     info = maxiter
 
     # Store rho0 = ||rhs||_M.
-    rho0, _ = _normM_squared( rhs, M, inner_product = inner_product )
+    Mrhs = _apply(M, rhs)
+    rho0 = _norm_squared( rhs, Mrhs, inner_product = inner_product )
 
     if callback is not None:
         callback( x, np.sqrt(rho_old / rho0) )
@@ -172,13 +169,15 @@ def cg( A,
         else:
             r -= alpha * Ap
 
-        rho_new, Mr = _normM_squared( r, M, inner_product = inner_product )
+        Mr = _apply(M, r)
+        rho_new = _norm_squared( r, Mr, inner_product = inner_product )
 
         relative_rho = np.sqrt(rho_new / rho0)
         if relative_rho < tol:
             # Compute exact residual
             r = rhs - _apply(A, x)
-            rho_new, Mr = _normM_squared( r, M, inner_product = inner_product )
+            Mr = _apply(M, r)
+            rho_new = _norm_squared( r, Mr, inner_product = inner_product )
             relative_rho = np.sqrt(rho_new / rho0)
             if relative_rho < tol:
                 info = 0
@@ -279,20 +278,22 @@ def minres( A,
 
     # Compute M-norm of M*Ml*b.
     Mlb = _apply(Ml, b)
-    norm_MMlb, _ = _normM(Mlb, M, inner_product = inner_product)
+    MMlb = _apply(M, Mlb)
+    norm_MMlb = _norm(Mlb, MMlb, inner_product = inner_product)
 
     # --------------------------------------------------------------------------
     # Init Lanczos and MINRES
     r0 = b - _apply(A, x0)
     Mlr0 = _apply(Ml, r0)
-    norm_MMlr0, MMlr0 = _normM(Mlr0, M, inner_product = inner_product)
+    MMlr0 = _apply(M, Mlr0)
+    norm_MMlr0 = _norm(Mlr0, MMlr0, inner_product = inner_product)
 
     # initial relative residual norm 
     relresvec = [norm_MMlr0 / norm_MMlb]
     
     # compute error?
     if exact_solution is not None:
-        errvec = [np.linalg.norm(exact_solution - x0)]
+        errvec = [_norm(exact_solution - x0, inner_product = inner_product)]
 
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
@@ -406,12 +407,13 @@ def minres( A,
         # update residual
         if exact_solution is not None:
             xk = x0 + _apply(Mr, yk)
-            errvec.append( np.linalg.norm(exact_solution - xk) )
+            errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
         if explicit_residual:
             xk = x0 + _apply(Mr, yk)
             r_exp = b - _apply(A, xk)
             r_exp = _apply(Ml, r_exp)
-            norm_r_exp, _ = _normM(r_exp, M, inner_product=inner_product)
+            Mr_exp = _apply(M, r_exp)
+            norm_r_exp = _norm(r_exp, Mr_exp, inner_product=inner_product)
             relresvec.append(norm_r_exp / norm_MMlb)
         else:
             relresvec.append(abs(y[0]) / norm_MMlb)
@@ -424,13 +426,15 @@ def minres( A,
                 xk = x0 + _apply(Mr, yk)
                 r_exp = b - _apply(A, xk)
                 r_exp = _apply(Ml, r_exp)
-                norm_r_exp, _ = _normM(r_exp, M, inner_product=inner_product)
+                Mr_exp = _apply(M, r_exp)
+                norm_r_exp = _norm(r_exp, Mr_exp, inner_product=inner_product)
                 relresvec[-1] = norm_r_exp / norm_MMlb
             # No convergence of explicit residual?
             if relresvec[-1] > tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' % (relresvec[-1], tol, k, norm_r_upd)
+                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' \
+                        % (relresvec[-1], tol, k, norm_r_upd)
                     info = 1
                 else:
                     print ( 'Info (iter %d): Updated residual is below tolerance, '
@@ -704,7 +708,7 @@ def gmres( A,
     if norm_x0 > np.finfo(float).eps:
         r    = b - _apply(A, x0)
         r    = _apply(Mleft, r)
-        norm_r = _norm( r, inner_product=inner_product)
+        norm_r = _norm(r, inner_product=inner_product)
     else:
         x0 = np.zeros( (N,1) )
         r    = MleftB
@@ -766,10 +770,12 @@ def gmres( A,
             if norm_rel_residual >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' % (norm_rel_residual, tol, k, norm_ur)
+                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' \
+                        % (norm_rel_residual, tol, k, norm_ur)
                     info = 1
                 else:
-                    print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' % (norm_rel_residual, tol, norm_ur, k)
+                    print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' \
+                        % (norm_rel_residual, tol, norm_ur, k)
 
         if callback is not None:
             if xk is None:
@@ -879,7 +885,8 @@ def newton( x0,
         if deflate_ix:
             W = 1j * x
             # normalize W in the M-norm
-            nrm_W, _ = _normM(W, M, inner_product = model_evaluator.inner_product)
+            MW = _apply(M, W)
+            nrm_W = _norm(W, MW, inner_product = model_evaluator.inner_product)
             W = W / nrm_W
             AW = jacobian * W
             P, x0new = get_projection( W, AW, rhs, initial_guess,
@@ -920,7 +927,7 @@ def newton( x0,
         # do the household
         k += 1
         Fx = model_evaluator.compute_f( x )
-        Fx_norms.append( _norm( Fx, inner_product=model_evaluator.inner_product ) )
+        Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
 
     if k == maxiter:
         error_code = 1

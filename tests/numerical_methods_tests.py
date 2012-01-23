@@ -146,6 +146,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using spsolve.
         xexact = scipy.sparse.linalg.spsolve(A, rhs)
+        xexact = np.reshape(xexact, (len(xexact),1))
         # Solve using MINRES.
         tol = 1.0e-10
         x, info, relresvec, errvec = nm.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, exact_solution=xexact)
