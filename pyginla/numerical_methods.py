@@ -331,7 +331,7 @@ def minres( A,
             for i in range(0,k-1):
                 ip = inner_product(Vfull[:,[i]], z)[0,0]
                 if abs(ip) > 1.0e-9:
-                    raise ValueError('abs(ip) = %g > 1.0e-9' % abs(ip))
+                    raise ValueError('abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter too large?' % abs(ip))
                 z = z - ip * Pfull[:,[i]]
 
         # tsold = inner_product(V[0], z)
