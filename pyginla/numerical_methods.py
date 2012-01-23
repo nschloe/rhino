@@ -332,14 +332,16 @@ def minres( A,
         if full_reortho:
             for i in range(0,k-1):
                 ip = inner_product(Vfull[:,[i]], z)[0,0]
-                assert(abs(ip) < 1e-9)
+                if abs(ip) > 1.0e-9:
+                    raise ValueError('abs(ip) = %g > 1.0e-9' % abs(ip))
                 z = z - ip * Pfull[:,[i]]
 
         # tsold = inner_product(V[0], z)
         z  = z - tsold * P[:,[0]]
         # Should be real! (diagonal element):
         td = inner_product(V[:,[1]], z)[0,0]
-        assert abs(td.imag) < 1.0e-12
+        if abs(td.imag) > 1.0e-12:
+            raise ValueError('abs(td.imag) = %g > 1.0e-12' % abs(td.imag))
         td = td.real
         z  = z - td * P[:,1:2]
 

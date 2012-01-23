@@ -168,22 +168,30 @@ class TestLinearSolvers(unittest.TestCase):
         self._create_sparse_herm_indef_matrix(4)
 
         # Solve using MINRES.
-        tol = 1.0e-10
-        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, rhs, x0, tol=tol, maxiter=num_unknowns, explicit_residual=False, return_lanczos=True, full_reortho=True )
+        tol = 1.0e-9
+        out = nm.minres( A, rhs, x0, tol=tol, maxiter=num_unknowns,
+                         explicit_residual=False, return_lanczos=True,
+                         full_reortho=True
+                         )
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out[1], 0)
         # Check the residual.
-        res = rhs - A * x
-        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+        res = rhs - A * out[0]
+        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0,
+                                delta=tol )
         # Check if Lanczos relation holds
+        Vfull = out[3]
+        Tfull = out[5]
         res = A*Vfull[:,0:-1] - Vfull*Tfull
-        self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-9 )
+        self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-8 )
         # Check if Lanczos basis is orthonormal w.r.t. inner product
         max_independent = min([num_unknowns,Vfull.shape[1]])
+        Pfull = out[4]
         res = np.eye(max_independent) - \
-                np.dot( Pfull[:,0:max_independent].T.conj(), Vfull[:,0:max_independent] )
-        self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-9 )
+                np.dot( Pfull[:,0:max_independent].T.conj(),
+                        Vfull[:,0:max_independent] )
+        self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-8 )
     # --------------------------------------------------------------------------
     def test_minres_deflation(self):
         # Create sparse symmetric problem.
