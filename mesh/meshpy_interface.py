@@ -18,10 +18,6 @@ def create_mesh( max_area, roundtrip_points, facets = None ):
     else:
         mesh = create_triangle_mesh( roundtrip_points )
 
-    # Give some info.
-    print "Created mesh with %d nodes and %d elements." % \
-          (  len( mesh.points ), len( mesh.elements ) )
-
     return _construct_mymesh( mesh )
 # ==============================================================================
 def create_triangle_mesh( roundtrip_points ):
