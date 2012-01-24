@@ -69,8 +69,6 @@ class GinlaModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            if self._keo is None:
-                self._assemble_keo()
             absPsi0Squared = psi0.real**2 + psi0.imag**2
             return - self._keo * phi \
                 + ( 1.0-self._T - 2.0*absPsi0Squared ) * phi \
@@ -78,6 +76,8 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.nodes)
+        if self._keo is None:
+            self._assemble_keo()
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_jacobian,
                                dtype = self.dtype
@@ -664,7 +664,8 @@ class GinlaModelEvaluator:
                     self.control_volumes[ index0 ] += pyramid_volume
                     self.control_volumes[ index1 ] += pyramid_volume
 
-        self.control_volumes = np.reshape(self.control_volumes, (len(self.control_volumes),1))
+        self.control_volumes = np.reshape( self.control_volumes,
+                                           (len(self.control_volumes),1))
         return
     # ==========================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
