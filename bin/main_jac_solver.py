@@ -4,10 +4,10 @@
 Solve the linearized Ginzburg--Landau problem.
 '''
 # ==============================================================================
-import mesh_io
-import ginla_modelevaluator
-import preconditioners
-import numerical_methods as nm
+import mesh.mesh_io
+import pyginla.ginla_modelevaluator
+import pyginla.preconditioners
+import pyginla.numerical_methods as nm
 from scipy.sparse.linalg import LinearOperator, arpack
 import time
 
@@ -34,41 +34,26 @@ def _main():
 def _solve_system( filename, timestep, use_preconditioner ):
     # read the mesh
     #print "Reading the mesh...",
-    mesh, psi, A, field_data = mesh_io.read_mesh( filename,
+    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename,
                                                   timestep=timestep
                                                 )
     #print "done."
 
     # build the model evaluator
     mu = 1.0e-1
-    ginla_modelval = ginla_modelevaluator.GinlaModelEvaluator( mesh, A, mu )
+    ginla_modelval = pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
 
     # initialize the preconditioners
-    precs = preconditioners.Preconditioners( ginla_modelval )
+    #precs = preconditioners.Preconditioners( ginla_modelval )
 
-    num_unknowns = len( mesh.nodes )
-
-    # create the linear operator
-    ginla_jacobian = LinearOperator( (num_unknowns, num_unknowns),
-                                    matvec = ginla_modelval.apply_jacobian,
-                                    dtype = ginla_modelval.dtype
-                                  )
-
-    # create precondictioner obj
-    if use_preconditioner:
-        keo_prec = LinearOperator( (num_unknowns, num_unknowns),
-                                    matvec = precs.keo_amg,
-                                    dtype = complex
-                                )
-    else:
-        keo_prec = None
+    num_unknowns = len( pyginlamesh.nodes )
 
     #_plot_l2_condition_numbers( ginla_modelval )
 
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
     #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns, dtype = complex )
-    current_psi = 1.0 * np.ones( num_unknowns, dtype = complex )
+    current_psi = 1.0 * np.ones( (num_unknowns,1), dtype = complex )
 
     #current_psi = psi
 
@@ -78,14 +63,22 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
     #for k in range( num_unknowns ):
         #current_psi[ k ] = cmath.rect(radius[k], arg[k])
+    # --------------------------------------------------------------------------
+    # create the linear operator
+    ginla_jacobian = ginla_modelval.get_jacobian( current_psi )
 
-    ginla_modelval.set_current_x( current_psi )
+    # create precondictioner obj
+    if use_preconditioner:
+        keo_prec = ginla_modelval.get_preconditioner_inverse()
+    else:
+        keo_prec = None
+
     # --------------------------------------------------------------------------
     # create right hand side and initial guess
-    phi0 = np.zeros( num_unknowns, dtype=complex )
+    phi0 = np.zeros( (num_unknowns,1), dtype=complex )
 
     # right hand side
-    rhs = np.ones( num_unknowns, dtype=complex )
+    rhs = np.ones( (num_unknowns,1), dtype=complex )
 
     #rhs = np.empty( num_unknowns, dtype = complex )
     #radius = np.random.rand( num_unknowns )

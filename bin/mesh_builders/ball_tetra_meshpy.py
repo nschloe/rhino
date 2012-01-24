@@ -76,7 +76,7 @@ def _main():
     # write the mesh
     print 'Write mesh...',
     start = time.time()
-    mymesh.write( args.filename )
+    mymesh.write(args.filename, {'psi': X, 'A': A})
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
