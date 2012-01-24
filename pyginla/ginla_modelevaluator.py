@@ -93,20 +93,20 @@ class GinlaModelEvaluator:
     def get_preconditioner_inverse( self ):
         '''Return the LinearOperator corresponding to K^{-1}.
         '''
+        import pyamg
         # ----------------------------------------------------------------------
         def _apply_inverse_keo(phi):
-            import pyamg
-            if self._keo_amg_solver is None:
-                if self._keo is None:
-                    self._assemble_keo()
-                self._keo_amg_solver = \
-                    pyamg.smoothed_aggregation_solver( self._keo )
             return self._keo_amg_solver.solve( phi,
                                                tol = 1e-10,
                                                accel = None
                                              )
         # ----------------------------------------------------------------------
         num_unknowns = len(self.mesh.nodes)
+        if self._keo_amg_solver is None:
+            if self._keo is None:
+                self._assemble_keo()
+            self._keo_amg_solver = \
+                pyamg.smoothed_aggregation_solver( self._keo )
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_inverse_keo,
                                dtype = self.dtype
