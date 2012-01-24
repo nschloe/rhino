@@ -4,16 +4,17 @@ Create irregular mesh on a regular tetrahedron centered at the origin.
 '''
 # ==============================================================================
 def _main():
-    import meshpy_interface
     import numpy as np
-    import mesh
     import time
+    import mesh
+    import mesh.meshpy_interface
+    import mesh.magnetic_vector_potentials
 
     args = _parse_options()
 
     # circumcircle radius
     r = 5.0
-    max_volume = 1.0e-3
+    max_volume = 1.0 / args.n**3
 
     # boundary points
     points = []
@@ -43,7 +44,7 @@ def _main():
     # create the mesh
     print 'Create mesh...',
     start = time.time()
-    mymesh = meshpy_interface.create_mesh( max_volume, points, facets )
+    mymesh = mesh.meshpy_interface.create_mesh( max_volume, points, facets )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -64,13 +65,12 @@ def _main():
     print 'Create mvp...',
     start = time.time()
     A = np.empty( (num_nodes,3), dtype = float )
-    import magnetic_vector_potentials
     height0 = 0.1
     height1 = 1.1
     radius = 2.0
     for k, node in enumerate(mymesh.nodes):
-        A[k,:] = magnetic_vector_potentials.mvp_z( node )
-        #A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
+        #A[k,:] = mesh.magnetic_vector_potentials.mvp_z( node )
+        A[k,:] = mesh.magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -92,6 +92,17 @@ def _parse_options():
                          type    = str,
                          help    = 'file to be written to'
                        )
+
+    parser.add_argument( '--maxvol', '-m',
+                         metavar = 'N',
+                         dest='n',
+                         nargs='?',
+                         type=int,
+                         const=1,
+                         default=1,
+                         help    = 'max volume of a tetrahedron is 1.0/N^3'
+                       )
+
 
     args = parser.parse_args()
 

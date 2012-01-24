@@ -4,20 +4,26 @@
 '''
 import mesh
 import numpy as np
-from math import sin, pi, atan, sqrt
+#from math import sin, pi, atan, sqrt
+from mesh import mesh
+from mesh import magnetic_vector_potentials
 import time
 # ==============================================================================
 def _main():
 
     # get the file name to be written to
-    file_name = _parse_options()
+    args = _parse_options()
+
+    # circumcirlce radius
+    cc_radius = 5.0
 
     # dimensions of the cube
-    l = [ 10.0, 10.0, 10.0 ]
+    lx = 2.0/np.sqrt(3.0) * cc_radius
+    l = [lx, lx, lx]
 
     # Mesh parameters
     # Number of nodes along the length of the strip
-    N = [ 30, 30, 30 ]
+    N = [ args.nx, args.nx, args.nx ]
 
     # Generate suitable ranges for parametrization
     x_range = np.linspace( -0.5*l[0], 0.5*l[0], N[0] )
@@ -32,7 +38,7 @@ def _main():
     for x in x_range:
         for y in y_range:
             for z in z_range:
-                nodes.append( mesh.Node( [ x, y, z ] ) )
+                nodes.append(np.array([x, y, z]))
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -45,7 +51,6 @@ def _main():
     # Also interesting: <http://en.wikipedia.org/wiki/Marching_tetrahedrons>.
     num_cubes = (N[0]-1) * (N[1]-1) * (N[2]-1)
     num_cells = 5 * num_cubes
-    #print type( vtk.VTK_TETRA )
     #dt = np.dtype( [ (int, 4), (int) ] )
     elems = []
     for i in range(N[0] - 1):
@@ -80,7 +85,6 @@ def _main():
                                                N[2] * ( N[1]*i     + j+1 ) + k+1,
                                                N[2] * ( N[1]*(i+1) + j+1 ) + k+1
                                              ],
-                                             vtk.VTK_TETRA
                                            )
                                 )
                     elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j   ) + k,
@@ -135,13 +139,9 @@ def _main():
     start = time.time()
     # create values
     X = np.empty( num_nodes, dtype = complex )
-    k = 0
-    for x in x_range:
-        for y in y_range:
-            for z in z_range:
-                X[k] = complex( 1.0, 0.0 )
-                #X[k] = complex( sin( x/lx * pi ), sin( y/ly * pi ) )
-                k += 1
+    for k, node in enumerate(nodes):
+        X[k] = complex( 1.0, 0.0 )
+        #X[k] = complex( sin( x/lx * np.pi ), sin( y/ly * np.pi ) )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -151,31 +151,25 @@ def _main():
     thickness = np.empty( num_nodes, dtype = float )
     alpha = 1.0
     beta = 2.0
-    k = 0
-    for x in x_range:
-        for y in y_range:
-            for z in z_range:
-                #thickness[k] = alpha + (beta-alpha) * (y/(0.5*ly))**2
-                thickness[k] = 1.0
-                k += 1
+    for k, node in enumerate(nodes):
+        #thickness[k] = alpha + (beta-alpha) * (y/(0.5*ly))**2
+        thickness[k] = 1.0
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
     print 'Create mvp...',
     start = time.time()
     # add magnetic vector potential
-    import magnetic_vector_potentials
     A = np.empty( (num_nodes,3), dtype = float )
-    k = 0
     # exact corner of a cube
-    phi = pi/4.0 # azimuth
-    theta = atan( 1.0/sqrt(2.0) ) # altitude
-    for x in x_range:
-        for y in y_range:
-            for z in z_range:
-                #A[k,:] = magnetic_vector_potentials.mvp_z( nodes[k].coords )
-                A[k,:] = magnetic_vector_potentials.mvp_spherical( nodes[k].coords, phi, theta )
-                k += 1
+    phi = np.pi/4.0 # azimuth
+    theta = np.arctan( 1.0/np.sqrt(2.0) ) # altitude
+    height0 = 0.1
+    height1 = 1.1
+    radius = 2.
+    for k, node in enumerate(nodes):
+        #A[k,:] = magnetic_vector_potentials.mvp_z( node )
+        A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -189,9 +183,11 @@ def _main():
     # write the mesh with data
     print 'Write to file...',
     start = time.time()
-    mymesh.write(file_name, {'psi': X, 'A': A, 'thickness': thickness})
+    mymesh.write(args.filename, {'psi': X, 'A': A, 'thickness': thickness})
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
+
+    print '\n%d nodes, %d elements' % (num_nodes, len(mymesh.cells))
 
     return
 # ==============================================================================
@@ -208,9 +204,19 @@ def _parse_options():
                          help    = 'file to be written to'
                        )
 
+    parser.add_argument( '--nx',
+                         metavar = 'NX',
+                         dest='nx',
+                         nargs='?',
+                         type=int,
+                         const=10,
+                         default=10,
+                         help    = 'number of discretization points along each axis'
+                       )
+
     args = parser.parse_args()
 
-    return args.filename
+    return args
 # ==============================================================================
 if __name__ == "__main__":
     _main()
