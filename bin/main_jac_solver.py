@@ -65,11 +65,19 @@ def _solve_system( filename, timestep, use_preconditioner ):
         #current_psi[ k ] = cmath.rect(radius[k], arg[k])
     # --------------------------------------------------------------------------
     # create the linear operator
+    print 'Getting Jacobian...',
+    start_time = time.clock()
     ginla_jacobian = ginla_modelval.get_jacobian( current_psi )
+    end_time = time.clock()
+    print 'done. (%gs)' % (end_time - start_time)
 
     # create precondictioner obj
     if use_preconditioner:
+        print 'Getting preconditioner...',
+        start_time = time.clock()
         keo_prec = ginla_modelval.get_preconditioner_inverse()
+        end_time = time.clock()
+        print 'done. (%gs)' % (end_time - start_time)
     else:
         keo_prec = None
 
@@ -103,7 +111,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
         #print "no convergence.",
     #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
 
-    #print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
+    print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     start_time = time.clock()
     sol, info, relresvec = nm.minres( ginla_jacobian, rhs,
                                       phi0,
@@ -123,6 +131,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
                                           ##exact_solution = ref_sol
                                         #)
     end_time = time.clock()
+    print 'done. (%gs)' % (end_time - start_time)
     #if info == 0:
         #print "success!",
     #else:

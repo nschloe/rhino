@@ -152,10 +152,6 @@ class GinlaModelEvaluator:
         #return
     # ==========================================================================
     def _assemble_keo( self ):
-        '''Take a pick for the KEO assembler.'''
-        return self._assemble_keo1()
-    # ==========================================================================
-    def _assemble_keo1( self ):
         '''Assemble the kinetic energy operator.'''
 
         # Create the matrix structure.
@@ -163,17 +159,13 @@ class GinlaModelEvaluator:
         self._keo = sparse.lil_matrix( ( num_nodes, num_nodes ),
                                        dtype = complex
                                      )
-
         # Build caches.
         if self._edgecoeff_cache is None:
             self._build_edgecoeff_cache()
         if self._mvp_edge_cache is None:
             self._build_mvp_edge_cache()
-        if self.control_volumes is None:
-            self._compute_control_volumes()
-
         # Loop over the all local edges of all cells.
-        for ( cell_index, cell ) in enumerate( self.mesh.cells ):
+        for cell_index, cell in enumerate( self.mesh.cells ):
             local_edge_index = 0
             num_local_nodes = len( cell.node_indices )
             for e0 in xrange( num_local_nodes ):
@@ -182,166 +174,31 @@ class GinlaModelEvaluator:
                     index1 = cell.node_indices[e1]
 
                     # Fetch the cached values.
-                    a_integral = \
-                        self._mvp_edge_cache[cell_index][local_edge_index]
                     alpha = self._edgecoeff_cache[cell_index][local_edge_index]
+                    alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[cell_index][local_edge_index])
 
                     # Sum them into the matrix.
-                    self._keo[ index0, index0 ] += alpha \
-                                               / self.control_volumes[index0]
-                    self._keo[ index0, index1 ] -= alpha \
-                                               * cmath.exp( -1j * a_integral ) \
-                                               / self.control_volumes[index0]
-                    self._keo[ index1, index0 ] -= alpha \
-                                               * cmath.exp(  1j * a_integral ) \
-                                               / self.control_volumes[index1]
-                    self._keo[ index1, index1 ] += alpha \
-                                               / self.control_volumes[index1]
+                    self._keo[ index0, index0 ] += alpha
+                    self._keo[ index0, index1 ] -= alphaExp0.conjugate()
+                    self._keo[ index1, index0 ] -= alphaExp0
+                    self._keo[ index1, index1 ] += alpha
 
                     local_edge_index += 1
+
+        # Row-scale.
+        # This is *much* faster than individually accessing
+        # self.control_volumes in each step of the iteration above.
+        # (Bad random access performance of np.array?)
+        if self.control_volumes is None:
+            self._compute_control_volumes()
+        from scipy.sparse import spdiags
+        D = spdiags(1.0/self.control_volumes.T, [0], num_nodes, num_nodes)
+        self._keo = D * self._keo
 
         # transform the matrix into the more efficient CSR format
         self._keo = self._keo.tocsr()
 
         return
-    # ==========================================================================
-    #def _assemble_keo2( self ):
-        #'''
-        #Create FVM equation system for Poisson's problem with Dirichlet boundary
-        #conditions.
-        #'''
-        ## count the number of edges
-        #num_edges = 0
-        #for element in self.mesh.elements:
-            #for edge in element.edges:
-                #num_edges += 1
-
-        #row  = np.empty( 4*num_edges, dtype = int )
-        #col  = np.empty( 4*num_edges, dtype = int )
-        #data = np.empty( 4*num_edges, dtype = complex )
-
-        ## compute the FVM entities for the mesh
-        #if self._edge_lengths is None or self._coedge_edge_ratios is None:
-            #self._create_fvm_entities()
-
-        #k = 0
-        #ii = 0
-        #for element in self.mesh.elements:
-            ## loop over the edges
-            #l = 0
-            #for edge in element.edges:
-                ## --------------------------------------------------------------
-                ## Compute the integral
-                ##
-                ##    I = \int_{x0}^{xj} (xj-x0).A(x) dx
-                ##
-                ## numerically by the midpoint rule, i.e.,
-                ##
-                ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
-                ##
-                #node0 = self.mesh.nodes[ edge[0] ]
-                #node1 = self.mesh.nodes[ edge[1] ]
-                #midpoint = 0.5 * ( node0 + node1 )
-
-                ## Instead of projecting onto the normalized edge and then
-                ## multiplying with the edge length for the approximation of the
-                ## integral, just project on the not normalized edge.
-                #a_integral = np.dot( node1 - node0,
-                                     #self._magnetic_vector_potential( midpoint )
-                                   #)
-
-                ## sum it into the matrix
-                #row[ ii ]  = edge[0]
-                #col[ ii ]  = edge[0]
-                #data[ ii ] = self._coedge_edge_ratios[k][l]
-                #ii += 1
-
-                #row[ ii ]  = edge[0]
-                #col[ ii ]  = edge[1]
-                #data[ ii ] = - self._coedge_edge_ratios[k][l] \
-                            #* cmath.exp( -1j * a_integral )
-                #ii += 1
-
-                #row[ ii ]  = edge[1]
-                #col[ ii ]  = edge[0]
-                #data[ ii ] = - self._coedge_edge_ratios[k][l] \
-                            #* cmath.exp(  1j * a_integral )
-                #ii += 1
-
-                #row[ ii ]  = edge[1]
-                #col[ ii ]  = edge[1]
-                #data[ ii ] = self._coedge_edge_ratios[k][l]
-                #ii += 1
-
-                #l += 1
-            #k += 1
-
-        #num_nodes = len( self.mesh.nodes )
-        ## transform the matrix into the more efficient CSR format
-        #self._keo = sparse.coo_matrix( (data,(row,col)),
-                                       #shape=(num_nodes,num_nodes)
-                                     #).tocsr()
-
-        #return
-    ## ==========================================================================
-    #def _assemble_keo3( self ):
-        #'''
-        #Create FVM equation system for Poisson's problem with Dirichlet boundary
-        #conditions.
-        #'''
-        #num_nodes = len( self.mesh.nodes )
-
-        #if self._keo is None:
-            #self._keo = sparse.lil_matrix( ( num_nodes, num_nodes ),
-                                           #dtype = complex
-                                         #)
-        #else:
-            #self._keo.data[:] = 0.0
-
-        ## compute the FVM entities for the mesh
-        #if self._edge_lengths is None or self._coedge_edge_ratios is None:
-            #self._create_fvm_entities()
-
-        #k = 0
-        #for element in self.mesh.elements:
-            ## loop over the edges
-            #l = 0
-            #for edge in element.edges:
-                ## --------------------------------------------------------------
-                ## Compute the integral
-                ##
-                ##    I = \int_{x0}^{xj} (xj-x0).A(x) dx
-                ##
-                ## numerically by the midpoint rule, i.e.,
-                ##
-                ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
-                ##
-                #node0 = self.mesh.nodes[ edge[0] ]
-                #node1 = self.mesh.nodes[ edge[1] ]
-                #midpoint = 0.5 * ( node0 + node1 )
-
-                ## Instead of projecting onto the normalized edge and then
-                ## multiplying with the edge length for the approximation of the
-                ## integral, just project on the not normalized edge.
-                #a_integral = np.dot( node1 - node0,
-                                     #self._magnetic_vector_potential( midpoint )
-                                   #)
-
-                ## sum it into the matrix
-                #if self._coedge_edge_ratios[k][l] != 0.0:
-                    #self._keo[ edge[0], edge[0] ] += self._coedge_edge_ratios[k][l]
-                    #self._keo[ edge[0], edge[1] ] -= self._coedge_edge_ratios[k][l] \
-                                                  #* cmath.exp( -1j * a_integral )
-                    #self._keo[ edge[1], edge[0] ] -= self._coedge_edge_ratios[k][l] \
-                                                  #* cmath.exp(  1j * a_integral )
-                    #self._keo[ edge[1], edge[1] ] += self._coedge_edge_ratios[k][l]
-                #l += 1
-            #k += 1
-
-        ## transform the matrix into the more efficient CSR format
-        #self._keo = self._keo.tocsr()
-
-        #return
     # ==========================================================================
     def _build_edgecoeff_cache( self ):
         '''Build cache for the edge coefficients.
@@ -540,13 +397,17 @@ class GinlaModelEvaluator:
             # coedge is to be taken positive or negative.
             # To this end, make sure that the order (x0, cc, edge_midpoint)
             # is of the same orientation as (x0, other0, edge_midpoint).
-            cell_normal = np.cross( other0 - x0, edge_midpoint - x0 )
-            cc_normal = np.cross( cc - x0, edge_midpoint - x0 )
+            a = other0 - x0
+            c = edge_midpoint - x0
+            b = cc - x0
+            #cell_normal = np.cross(a, c)
+            #cc_normal = np.cross(b, c)
+            #alpha0 = np.dot( cc_normal, cell_normal )
+            alpha = np.dot(b, a) * np.dot(c, c) - np.dot(b, c) * np.dot(a, c)
 
             # math.copysign() takes the absolute value of the first argument
             # and the sign of the second.
-            return math.copysign( coedge_length,
-                                  np.dot( cc_normal, cell_normal ) )
+            return math.copysign( coedge_length, alpha )
         # ----------------------------------------------------------------------
         def _compute_covolume_3d( x0, x1, cc, other0, other1 ):
             covolume = 0.0
@@ -564,7 +425,7 @@ class GinlaModelEvaluator:
             # Use the triangle (MP, localNodes[other[0]], localNodes[other[1]] )
             # (in this order) to gauge the orientation of the two triangles that
             # compose the quadrilateral.
-            gauge = np.cross(other0 - edge_midpoint, other1 - edge_midpoint )
+            gauge = np.cross(other0 - edge_midpoint, other1 - edge_midpoint)
 
             # Add the area of the first triangle (MP,ccFace0,cc).
             # This makes use of the right angles.
@@ -580,8 +441,8 @@ class GinlaModelEvaluator:
                                        cc - edge_midpoint)
             # copysign takes the absolute value of the first argument and the
             # sign of the second.
-            covolume += math.copysign( triangleArea0,
-                                       np.dot( triangleNormal0, gauge ) )
+            covolume += math.copysign(triangleArea0,
+                                      np.dot(triangleNormal0, gauge))
 
             # Add the area of the second triangle (MP,cc,ccFace1).
             # This makes use of the right angles.
@@ -597,8 +458,8 @@ class GinlaModelEvaluator:
                                        ccFace1 - edge_midpoint)
             # copysign takes the absolute value of the first argument and the
             # sign of the second.
-            covolume += math.copysign( triangleArea1,
-                                       np.dot( triangleNormal1, gauge ) )
+            covolume += math.copysign(triangleArea1,
+                                      np.dot(triangleNormal1, gauge))
             return covolume
         # ----------------------------------------------------------------------
         def _get_other_indices( e0, e1 ):
