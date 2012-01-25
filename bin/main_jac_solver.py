@@ -4,22 +4,21 @@
 Solve the linearized Ginzburg--Landau problem.
 '''
 # ==============================================================================
-import mesh.mesh_io
-import pyginla.ginla_modelevaluator
-import pyginla.preconditioners
-import pyginla.numerical_methods as nm
 from scipy.sparse.linalg import LinearOperator, arpack
 import time
-
 import numpy as np
 import cmath
-
 import matplotlib.pyplot as pp
 #from matplotlib import rc
 #rc( 'text', usetex = True )
 #rc( 'font', family = 'serif' )
 
 import matplotlib2tikz
+
+import mesh.mesh_io
+import pyginla.ginla_modelevaluator
+import pyginla.preconditioners
+import pyginla.numerical_methods as nm
 # ==============================================================================
 def _main():
     '''Main function.
@@ -38,6 +37,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
                                                   timestep=timestep
                                                 )
     #print "done."
+    pyginlamesh.create_edges()
 
     # build the model evaluator
     mu = 1.0e-1

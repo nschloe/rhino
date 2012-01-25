@@ -7,6 +7,7 @@ import numpy as np
 from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
 import math, cmath
+import itertools
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 # ==============================================================================
 def get_triangle_area( edge0, edge1 ):
@@ -167,23 +168,19 @@ class GinlaModelEvaluator:
         # Loop over the all local edges of all cells.
         for cell_index, cell in enumerate( self.mesh.cells ):
             local_edge_index = 0
-            num_local_nodes = len( cell.node_indices )
-            for e0 in xrange( num_local_nodes ):
-                index0 = cell.node_indices[e0]
-                for e1 in xrange( e0+1, num_local_nodes ):
-                    index1 = cell.node_indices[e1]
+            # Loop over all pairs of (local) nodes.
+            for index0, index1 in itertools.combinations(cell.node_indices, 2):
+                # Fetch the cached values.
+                alpha = self._edgecoeff_cache[cell_index][local_edge_index]
+                alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[cell_index][local_edge_index])
 
-                    # Fetch the cached values.
-                    alpha = self._edgecoeff_cache[cell_index][local_edge_index]
-                    alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[cell_index][local_edge_index])
+                # Sum them into the matrix.
+                self._keo[ index0, index0 ] += alpha
+                self._keo[ index0, index1 ] -= alphaExp0.conjugate()
+                self._keo[ index1, index0 ] -= alphaExp0
+                self._keo[ index1, index1 ] += alpha
 
-                    # Sum them into the matrix.
-                    self._keo[ index0, index0 ] += alpha
-                    self._keo[ index0, index1 ] -= alphaExp0.conjugate()
-                    self._keo[ index1, index0 ] -= alphaExp0
-                    self._keo[ index1, index1 ] += alpha
-
-                    local_edge_index += 1
+                local_edge_index += 1
 
         # Row-scale.
         # This is *much* faster than individually accessing
@@ -213,11 +210,11 @@ class GinlaModelEvaluator:
             # We only deal with simplices.
             num_local_edges = num_local_nodes*(num_local_nodes-1) / 2
             local_edge = []
-            for e0 in xrange( num_local_nodes ):
-                node0 = self.mesh.nodes[cell.node_indices[e0]]
-                for e1 in xrange( e0+1, num_local_nodes ):
-                    node1 = self.mesh.nodes[cell.node_indices[e1]]
-                    local_edge.append( node1 - node0 )
+            # Loop over all pairs of (local) nodes.
+            for index0, index1 in itertools.combinations(cell.node_indices, 2):
+                node0 = self.mesh.nodes[index0]
+                node1 = self.mesh.nodes[index1]
+                local_edge.append( node1 - node0 )
 
             # Compute the volume of the simplex.
             if num_local_edges == 3:
@@ -273,27 +270,21 @@ class GinlaModelEvaluator:
         # Loop over the all local edges of all cells.
         for ( cell_index, cell ) in enumerate( self.mesh.cells ):
             self._mvp_edge_cache.append( [] )
-            num_local_nodes = len( cell.node_indices )
-            for e0 in xrange( num_local_nodes ):
-                index0 = cell.node_indices[e0]
-                node0 = self.mesh.nodes[index0]
-                for e1 in xrange( e0+1, num_local_nodes ):
-                    index1 = cell.node_indices[e1]
-                    node1 = self.mesh.nodes[index1]
-                    # ----------------------------------------------------------
-                    # Approximate the integral
-                    #
-                    #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
-                    #
-                    # numerically by the midpoint rule, i.e.,
-                    #
-                    #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
-                    #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
-                    #
-                    mvp = 0.5 * (self._get_mvp(index0) + self._get_mvp(index1))
-                    self._mvp_edge_cache[cell_index].append(
-                                                   np.vdot( node1 - node0, mvp )
-                                                           )
+            # Loop over all pairs of (local) nodes.
+            for index0, index1 in itertools.combinations(cell.node_indices, 2):
+                # ----------------------------------------------------------
+                # Approximate the integral
+                #
+                #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
+                #
+                # numerically by the midpoint rule, i.e.,
+                #
+                #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
+                #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
+                #
+                edge = self.mesh.nodes[index1] - self.mesh.nodes[index0]
+                mvp = 0.5 * (self._get_mvp(index0) + self._get_mvp(index1))
+                self._mvp_edge_cache[cell_index].append(np.vdot(edge, mvp))
         return
     # ==========================================================================
     def _get_mvp( self, index ):

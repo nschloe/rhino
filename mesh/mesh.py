@@ -10,6 +10,9 @@ class Cell:
     # --------------------------------------------------------------------------
 # ==============================================================================
 class Mesh:
+    import os
+    import numpy as np
+    import vtk
     # --------------------------------------------------------------------------
     def __init__( self,
                   nodes,
@@ -26,8 +29,6 @@ class Mesh:
              ):
         '''Writes data together with the mesh to a file.
         '''
-        import vtk
-        import os
 
         if self.vtk_mesh is None:
             self.vtk_mesh = self._generate_vtk_mesh( self.nodes, self.cells )
@@ -63,7 +64,7 @@ class Mesh:
         return
     # --------------------------------------------------------------------------
     def _generate_vtk_mesh(self, points, elems, X = None, name = None):
-        import vtk
+
         mesh = vtk.vtkUnstructuredGrid()
 
         # set points
@@ -97,7 +98,6 @@ class Mesh:
         return mesh
     # --------------------------------------------------------------------------
     def _create_vtkdoublearray(self, X, name ):
-        import vtk
 
         scalars0 = vtk.vtkDoubleArray()
         scalars0.SetName ( name )
@@ -150,11 +150,37 @@ class Mesh:
 
         return scalars0
     # --------------------------------------------------------------------------
+    def create_edges( self ):
+        if self.edges is not None:
+            return
+
+        # Create cache matrix that stores the node-edge relations.
+        # If the nodes i, j are connected by the edge k, A[i,j] = A[j,i] = k+1.
+        # Adding 1 is necessary to permit for edge index 0.
+        num_nodes = len( self.nodes )
+        from scipy.sparse import lil_matrix
+        import itertools
+        node_edges = lil_matrix((num_nodes, num_nodes), dtype = int)
+
+        # Loop over all elements.
+        self.edges = []
+        for cell_index, cell in enumerate( self.cells ):
+            cell.edge_indices = []
+            for index0, index1 in itertools.combinations(cell.node_indices, 2):
+                if node_edges[index0, index1] == 0:
+                    new_edge_index = len(self.edges)
+                    self.edges.append([index0, index1])
+                    cell.edge_indices.append( new_edge_index )
+                    node_edges[index0, index1] = new_edge_index + 1
+                    node_edges[index1, index0] = new_edge_index + 1
+                else:
+                    # edge already assigned
+                    cell.edge_indices.append(node_edges[index0,index1] - 1)
+        return
+    # --------------------------------------------------------------------------
     def refine( self ):
         '''Canonically refine a mesh by inserting nodes at all edge midpoints and
         make four triangular elements where there was one.'''
-        import numpy as np
-        import vtk
         if self.edges is None:
             raise RuntimeError("Edges must be defined to do refinement.")
         new_nodes = self.nodes
