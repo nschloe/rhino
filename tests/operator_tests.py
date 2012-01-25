@@ -44,7 +44,7 @@ class TestKeo(unittest.TestCase):
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.52975932763119626-0.070728618206931701j
+        actual_control_sum_real = 0.52975932763121936-0.070728618206931257j
         self._run_test(filename, mu, actual_control_sum_real)
     # --------------------------------------------------------------------------
     def test_cubesmall(self):

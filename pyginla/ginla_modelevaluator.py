@@ -140,18 +140,6 @@ class GinlaModelEvaluator:
         self._keo = None
         return
     # ==========================================================================
-    #def set_mesh( self, mesh ):
-        #'''Update the mesh.
-        #'''
-        #self.mesh = mesh
-
-        #self._keo = None
-        #self.control_volumes = None
-        #self._edge_lengths = None
-        #self._coedge_edge_ratios = None
-
-        #return
-    # ==========================================================================
     def _assemble_keo( self ):
         '''Assemble the kinetic energy operator.'''
 
@@ -165,22 +153,19 @@ class GinlaModelEvaluator:
             self._build_edgecoeff_cache()
         if self._mvp_edge_cache is None:
             self._build_mvp_edge_cache()
-        # Loop over the all local edges of all cells.
-        for cell_index, cell in enumerate( self.mesh.cells ):
-            local_edge_index = 0
-            # Loop over all pairs of (local) nodes.
-            for index0, index1 in itertools.combinations(cell.node_indices, 2):
-                # Fetch the cached values.
-                alpha = self._edgecoeff_cache[cell_index][local_edge_index]
-                alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[cell_index][local_edge_index])
 
-                # Sum them into the matrix.
-                self._keo[ index0, index0 ] += alpha
-                self._keo[ index0, index1 ] -= alphaExp0.conjugate()
-                self._keo[ index1, index0 ] -= alphaExp0
-                self._keo[ index1, index1 ] += alpha
+        # loop over all edges
+        self.mesh.create_edges()
+        for k, node_indices in enumerate(self.mesh.edges):
+            # Fetch the cached values.
+            alpha = self._edgecoeff_cache[k]
+            alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[k])
 
-                local_edge_index += 1
+            # Sum them into the matrix.
+            self._keo[node_indices[0], node_indices[0]] += alpha
+            self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conjugate()
+            self._keo[node_indices[1], node_indices[0]] -= alphaExp0
+            self._keo[node_indices[1], node_indices[1]] += alpha
 
         # Row-scale.
         # This is *much* faster than individually accessing
@@ -201,7 +186,11 @@ class GinlaModelEvaluator:
         '''Build cache for the edge coefficients.
         (in 2D: coedge-edge ratios).'''
 
-        self._edgecoeff_cache = []
+        # make sure the mesh has edges
+        self.mesh.create_edges()
+
+        num_edges = len(self.mesh.edges)
+        self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
 
         # Calculate the edge contributions cell by cell.
         for cell in self.mesh.cells:
@@ -256,35 +245,39 @@ class GinlaModelEvaluator:
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
-            self._edgecoeff_cache.append( linalg.solve( A, rhs,
-                                                        sym_pos = True
-                                                      )
-                                        )
+            coeffs = linalg.solve( A, rhs, sym_pos=True )
+            for k, coeff in enumerate(coeffs):
+                self._edgecoeff_cache[cell.edge_indices[k]] += coeff
+
         return
     # ==========================================================================
     def _build_mvp_edge_cache( self ):
         '''Builds the cache for the magnetic vector potential.'''
 
-        self._mvp_edge_cache = []
+        # make sure the mesh has edges
+        self.mesh.create_edges()
+
+        num_edges = len(self.mesh.edges)
+        self._mvp_edge_cache = np.zeros(num_edges, dtype=float)
 
         # Loop over the all local edges of all cells.
-        for ( cell_index, cell ) in enumerate( self.mesh.cells ):
-            self._mvp_edge_cache.append( [] )
-            # Loop over all pairs of (local) nodes.
-            for index0, index1 in itertools.combinations(cell.node_indices, 2):
-                # ----------------------------------------------------------
-                # Approximate the integral
-                #
-                #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
-                #
-                # numerically by the midpoint rule, i.e.,
-                #
-                #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
-                #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
-                #
-                edge = self.mesh.nodes[index1] - self.mesh.nodes[index0]
-                mvp = 0.5 * (self._get_mvp(index0) + self._get_mvp(index1))
-                self._mvp_edge_cache[cell_index].append(np.vdot(edge, mvp))
+        for k, node_indices in enumerate(self.mesh.edges):
+            # ----------------------------------------------------------
+            # Approximate the integral
+            #
+            #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
+            #
+            # numerically by the midpoint rule, i.e.,
+            #
+            #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
+            #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
+            #
+            edge = self.mesh.nodes[node_indices[1]] \
+                 - self.mesh.nodes[node_indices[0]]
+            mvp = 0.5 * (self._get_mvp(node_indices[1]) \
+                       + self._get_mvp(node_indices[0]))
+            self._mvp_edge_cache[k] = np.dot(edge, mvp)
+
         return
     # ==========================================================================
     def _get_mvp( self, index ):
