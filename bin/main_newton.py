@@ -47,6 +47,7 @@ def _main():
 
     multiplot_data_series( newton_out[3] )
     pp.show()
+    #matplotlib2tikz.save('w-defl.tex')
 
     # energy of the state
     print "Energy of the solution state: %g." % ginla_modelval.energy( newton_out[0] )
@@ -70,6 +71,9 @@ def multiplot_data_series( list_of_data_vectors ):
     num_plots = len( list_of_data_vectors )
     for k, relresvec in enumerate(list_of_data_vectors):
         pp.semilogy(relresvec, color=str(1.0 - float(k+1)/num_plots))
+    pp.xlabel('MINRES step')
+    pp.ylabel('||r||/||b||')
+    return
 # ==============================================================================
 def _parse_input_arguments():
     '''Parse input arguments.

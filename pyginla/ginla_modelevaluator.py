@@ -44,6 +44,7 @@ class GinlaModelEvaluator:
         self.control_volumes = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
+        self._prec_type = 'amg' #'direct'
         return
     # ==========================================================================
     def compute_f( self, psi ):
@@ -92,7 +93,16 @@ class GinlaModelEvaluator:
         return self._keo
     # ==========================================================================
     def get_preconditioner_inverse( self ):
-        '''Return the LinearOperator corresponding to K^{-1}.
+        if self._prec_type == 'amg':
+            return self._get_preconditioner_inverse_amg()
+        elif self._prec_type == 'direct':
+            return self._get_preconditioner_inverse_directsolve()
+        else:
+            raise ValueError('Unknown preconditioner type \'%s\'.' %
+                             self._prec_type )
+    # ==========================================================================
+    def _get_preconditioner_inverse_amg( self ):
+        '''Use AMG to invert K approximately.
         '''
         import pyamg
         # ----------------------------------------------------------------------
@@ -108,6 +118,22 @@ class GinlaModelEvaluator:
                 self._assemble_keo()
             self._keo_amg_solver = \
                 pyamg.smoothed_aggregation_solver( self._keo )
+        return LinearOperator( (num_unknowns, num_unknowns),
+                               _apply_inverse_keo,
+                               dtype = self.dtype
+                             )
+    # ==========================================================================
+    def _get_preconditioner_inverse_directsolve( self ):
+        '''Use a direct solver for K^{-1}.
+        '''
+        from scipy.sparse.linalg import spsolve
+        # ----------------------------------------------------------------------
+        def _apply_inverse_keo(phi):
+            return spsolve(self._keo, phi)
+        # ----------------------------------------------------------------------
+        num_unknowns = len(self.mesh.nodes)
+        if self._keo is None:
+            self._assemble_keo()
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_inverse_keo,
                                dtype = self.dtype
@@ -160,7 +186,6 @@ class GinlaModelEvaluator:
             # Fetch the cached values.
             alpha = self._edgecoeff_cache[k]
             alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[k])
-
             # Sum them into the matrix.
             self._keo[node_indices[0], node_indices[0]] += alpha
             self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conjugate()

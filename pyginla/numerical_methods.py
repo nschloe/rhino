@@ -588,13 +588,13 @@ def get_ritz(W, AW, A, Vfull, Tfull, M=None, inner_product = _ipstd):
                 np.c_[D2.T.conj(), np.zeros((nVfull,nW)), np.eye(nVfull)]
               ]
 
-    AWVfull = _apply(A, np.c_[W, Vfull[:,0:-1]])
-    MAWVfull = _apply(M, AWVfull)
-    CC2 = inner_product( AWVfull, MAWVfull )
-    from scipy.linalg import norm
-    print CC.shape
-    print CC2.shape
-    print norm( CC - CC2 )
+    #AWVfull = _apply(A, np.c_[W, Vfull[:,0:-1]])
+    #MAWVfull = _apply(M, AWVfull)
+    #CC2 = inner_product( AWVfull, MAWVfull )
+    #from scipy.linalg import norm
+    #print CC.shape
+    #print CC2.shape
+    #print norm( CC - CC2 )
     #print norm( CC - CC.transpose().conj() )
     #from scipy.linalg import eigh
     #values, vectors = eigh( CC2 )
@@ -931,9 +931,9 @@ def newton( x0,
 
         # make sure the solution is alright
         assert( out[1] == 0 )
-        ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
-                                                       M = Minv,
-                                                       inner_product = model_evaluator.inner_product)
+        #ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
+                                                       #M = Minv,
+                                                       #inner_product = model_evaluator.inner_product)
         #print norm_ritz_res
 
         # save the convergence history
