@@ -117,7 +117,18 @@ class GinlaModelEvaluator:
             if self._keo is None:
                 self._assemble_keo()
             self._keo_amg_solver = \
-                pyamg.smoothed_aggregation_solver( self._keo )
+                pyamg.smoothed_aggregation_solver( self._keo,
+                strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
+                smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
+                Bimprove=None,
+                aggregate='standard',
+                presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+                postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+                max_levels=25,
+                max_coarse=300,
+                coarse_solver='pinv'
+                )
+
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_inverse_keo,
                                dtype = self.dtype
@@ -392,7 +403,7 @@ class GinlaModelEvaluator:
             omega = (2.0 * np.dot( b, np.cross(c, d)))
 
             if abs(omega) < 1.0e-10:
-                raise ZeroDivisionError( "Tetrahedron is degenerate." )
+                raise ZeroDivisionError( 'Tetrahedron is degenerate.' )
             return x[0] + (   np.dot(b, b) * np.cross(c, d)
                             + np.dot(c, c) * np.cross(d, b)
                             + np.dot(d, d) * np.cross(b, c)
