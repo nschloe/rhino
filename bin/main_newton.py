@@ -8,7 +8,7 @@ import pyginla.ginla_modelevaluator as gm
 import mesh.mesh_io
 import numpy as np
 import matplotlib.pyplot as pp
-import matplotlib2tikz
+#import matplotlib2tikz
 # ==============================================================================
 def _main():
     '''Main function.
@@ -26,7 +26,7 @@ def _main():
 
     # initial guess
     num_nodes = len( pyginlamesh.nodes )
-    psi0 = 30 * np.ones( (num_nodes,1),
+    psi0 = np.ones( (num_nodes,1),
                     dtype = complex
                   )
 

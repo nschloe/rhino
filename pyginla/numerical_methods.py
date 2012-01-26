@@ -507,7 +507,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, A, Vfull, Tfull, M=None, inner_product = _ipstd):
+def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -616,9 +616,12 @@ def get_ritz(W, AW, A, Vfull, Tfull, M=None, inner_product = _ipstd):
         # Explicit computation of residual (this part only works for M=I)
         #X = np.c_[W, Vfull[:,0:-1]]
         #V = np.dot(X, U)
-        #AV = _apply(A, V)
-        #res_explicit = AV[:,i] - lam[i]*V[:,i]
-        #print np.linalg.norm(res_explicit)
+        #MAV = _apply(M,_apply(A, V))
+        #res_explicit = MAV[:,[i]] - lam[i]*V[:,[i]]
+        #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
+        #assert( zz.imag<1e-13 )
+        #print norm_ritz_res[i]
+        #print np.sqrt(abs(zz))
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
     sorti = np.argsort(norm_ritz_res)
@@ -931,10 +934,10 @@ def newton( x0,
 
         # make sure the solution is alright
         assert( out[1] == 0 )
-        #ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
-                                                       #M = Minv,
-                                                       #inner_product = model_evaluator.inner_product)
-        #print norm_ritz_res
+        ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
+                                                       M = Minv, Minv=M,
+                                                       inner_product = model_evaluator.inner_product)
+        # print norm_ritz_res
 
         # save the convergence history
         linear_relresvecs.append( out[2] )
