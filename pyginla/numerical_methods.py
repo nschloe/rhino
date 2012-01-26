@@ -629,7 +629,7 @@ def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
         #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
-    sorti = np.argsort(norm_ritz_res)
+    sorti = np.argsort(abs(lam))
     ritz_vals = lam[sorti]
     ritz_vecs = np.dot(W, U[0:nW,sorti]) \
               + np.dot(Vfull[:,0:-1], U[nW:,sorti])
