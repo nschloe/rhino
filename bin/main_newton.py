@@ -26,7 +26,7 @@ def _main():
 
     # initial guess
     num_nodes = len( pyginlamesh.nodes )
-    psi0 = np.ones( (num_nodes,1),
+    psi0 = 30 * np.ones( (num_nodes,1),
                     dtype = complex
                   )
 

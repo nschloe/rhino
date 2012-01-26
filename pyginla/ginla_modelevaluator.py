@@ -6,6 +6,7 @@ Provide tools for solving the Ginzburg--Landau equations.
 import numpy as np
 from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
+from scipy.sparse import spdiags
 import math, cmath
 import itertools
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
@@ -40,7 +41,7 @@ class GinlaModelEvaluator:
         self.mu = mu
         self._T = 0.0
         self._keo = None
-        self._keo_amg_solver = None
+        self._prec_amg_solver = None
         self.control_volumes = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
@@ -85,72 +86,71 @@ class GinlaModelEvaluator:
                                dtype = self.dtype
                              )
     # ==========================================================================
-    def get_preconditioner( self ):
-        '''Return the kinetic energy operator.
+    def get_preconditioner(self, psi0):
+        '''Return the preconditioner.
         '''
         if self._keo is None:
             self._assemble_keo()
-        return self._keo
+        absPsi0Squared = psi0.real**2 + psi0.imag**2
+        return self._keo + spdiags(2.0*absPsi0Squared.T, [0],
+                                   len(psi0), len(psi0)
+                                   )
     # ==========================================================================
-    def get_preconditioner_inverse( self ):
+    def get_preconditioner_inverse(self, psi0):
         if self._prec_type == 'amg':
-            return self._get_preconditioner_inverse_amg()
+            return self._get_preconditioner_inverse_amg(psi0)
         elif self._prec_type == 'direct':
-            return self._get_preconditioner_inverse_directsolve()
+            return self._get_preconditioner_inverse_directsolve(psi0)
         else:
             raise ValueError('Unknown preconditioner type \'%s\'.' %
                              self._prec_type )
     # ==========================================================================
-    def _get_preconditioner_inverse_amg( self ):
-        '''Use AMG to invert K approximately.
+    def _get_preconditioner_inverse_amg(self, psi0):
+        '''Use AMG to invert M approximately.
         '''
         import pyamg
         # ----------------------------------------------------------------------
-        def _apply_inverse_keo(phi):
-            return self._keo_amg_solver.solve( phi,
+        def _apply_inverse_prec(phi):
+            return self._prec_amg_solver.solve(phi,
                                                tol = 1e-13,
                                                accel = 'cg',
                                                cycle = 'V'
-                                             )
+                                               )
         # ----------------------------------------------------------------------
-        num_unknowns = len(self.mesh.nodes)
-        if self._keo_amg_solver is None:
-            if self._keo is None:
-                self._assemble_keo()
-            self._keo_amg_solver = \
-                pyamg.smoothed_aggregation_solver( self._keo,
-                strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
-                smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
-                Bimprove=None,
-                aggregate='standard',
-                presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-                postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-                max_levels=25,
-                coarse_solver='pinv'
-                )
+        prec = self.get_preconditioner(psi0)
+        self._prec_amg_solver = \
+            pyamg.smoothed_aggregation_solver( prec,
+            strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
+            smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
+            Bimprove=None,
+            aggregate='standard',
+            presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+            postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+            max_levels=25,
+            coarse_solver='pinv'
+            )
 
         #return self._keo_amg_solver.aspreconditioner( cycle='V' )
-
-        return LinearOperator( (num_unknowns, num_unknowns),
-                               _apply_inverse_keo,
-                               dtype = self.dtype
-                             )
+        num_unknowns = len(psi0)
+        return LinearOperator((num_unknowns, num_unknowns),
+                              _apply_inverse_prec,
+                              dtype = self.dtype
+                              )
     # ==========================================================================
-    def _get_preconditioner_inverse_directsolve( self ):
-        '''Use a direct solver for K^{-1}.
+    def _get_preconditioner_inverse_directsolve(self, psi0):
+        '''Use a direct solver for M^{-1}.
         '''
         from scipy.sparse.linalg import spsolve
         # ----------------------------------------------------------------------
-        def _apply_inverse_keo(phi):
-            return spsolve(self._keo, phi)
+        def _apply_inverse_prec(phi):
+            return spsolve(prec, phi)
         # ----------------------------------------------------------------------
-        num_unknowns = len(self.mesh.nodes)
-        if self._keo is None:
-            self._assemble_keo()
-        return LinearOperator( (num_unknowns, num_unknowns),
-                               _apply_inverse_keo,
-                               dtype = self.dtype
-                             )
+        prec = self.get_preconditioner(psi0)
+        num_unknowns = len(psi0)
+        return LinearOperator((num_unknowns, num_unknowns),
+                              _apply_inverse_prec,
+                              dtype = self.dtype
+                              )
     # ==========================================================================
     def inner_product( self, phi0, phi1 ):
         '''The natural inner product of the problem.
@@ -212,7 +212,6 @@ class GinlaModelEvaluator:
         # (Bad random access performance of np.array?)
         if self.control_volumes is None:
             self._compute_control_volumes()
-        from scipy.sparse import spdiags
         D = spdiags(1.0/self.control_volumes.T, [0], num_nodes, num_nodes)
         self._keo = D * self._keo
 

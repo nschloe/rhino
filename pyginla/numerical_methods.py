@@ -892,8 +892,8 @@ def newton( x0,
         rhs = -Fx
 
         if use_preconditioner:
-            M = model_evaluator.get_preconditioner()
-            Minv = model_evaluator.get_preconditioner_inverse()
+            M = model_evaluator.get_preconditioner(x)
+            Minv = model_evaluator.get_preconditioner_inverse(x)
         else:
             M = None
             Minv = None
