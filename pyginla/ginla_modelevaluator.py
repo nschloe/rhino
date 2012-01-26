@@ -108,8 +108,9 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_keo(phi):
             return self._keo_amg_solver.solve( phi,
-                                               tol = 1e-10,
-                                               accel = None
+                                               tol = 1e-13,
+                                               accel = 'cg',
+                                               cycle = 'V'
                                              )
         # ----------------------------------------------------------------------
         num_unknowns = len(self.mesh.nodes)
@@ -125,9 +126,10 @@ class GinlaModelEvaluator:
                 presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
                 postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
                 max_levels=25,
-                max_coarse=300,
                 coarse_solver='pinv'
                 )
+
+        #return self._keo_amg_solver.aspreconditioner( cycle='V' )
 
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_inverse_keo,
@@ -170,11 +172,12 @@ class GinlaModelEvaluator:
 
         return alpha.real / self.control_volumes.sum()
     # ==========================================================================
-    def set_parameter( self, mu ):
+    def set_parameter(self, mu):
         '''Update the parameter.
         '''
         self.mu = mu
         self._keo = None
+        self._mvp_edge_cache = None
         return
     # ==========================================================================
     def _assemble_keo( self ):
