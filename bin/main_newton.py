@@ -38,8 +38,9 @@ def _main():
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
                             eta0 = 1.0e-11,
-                            use_preconditioner = True,
-                            deflate_ix = True
+                            use_preconditioner = False,
+                            deflate_ix = False,
+                            num_deflation_vectors = 5
                           )
     print " done."
     print newton_out[2]

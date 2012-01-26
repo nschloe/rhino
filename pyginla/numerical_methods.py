@@ -836,6 +836,12 @@ def _givens(a, b):
     return np.array([[c, s],
                      [-s.conjugate(), c.conjugate()]])
 # ==============================================================================
+def orth_vec(v, W, inner_product=_ipstd):
+    '''Orthogonalize v w.r.t. the orthonormal set W.'''
+    for k in xrange(W.shape[1]):
+        v -= inner_product(v,W[:,[k]]) * W[:,[k]]
+    return v
+# ==============================================================================
 def newton( x0,
             model_evaluator,
             nonlinear_tol = 1.0e-10,
@@ -848,7 +854,8 @@ def newton( x0,
             alpha = 1.5, # only used by forcing_term='type 2'
             gamma = 0.9, # only used by forcing_term='type 2'
             use_preconditioner = False,
-            deflate_ix = False
+            deflate_ix = False,
+            num_deflation_vectors = 0
           ):
     '''Newton's method with different forcing terms.
     '''
@@ -862,6 +869,7 @@ def newton( x0,
     Fx = model_evaluator.compute_f( x )
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
+    W = np.zeros( (len(x),0 ) )
     linear_relresvecs = []
     while Fx_norms[-1] > nonlinear_tol and k < maxiter:
         # Linear tolerance is given by
@@ -903,40 +911,51 @@ def newton( x0,
 
         # Conditionally deflate the nearly-null vector i*x.
         if deflate_ix:
-            W = 1j * x
-            # normalize W in the M-norm
-            MW = _apply(M, W)
-            nrm_W = _norm(W, MW, inner_product = model_evaluator.inner_product)
-            W = W / nrm_W
+            u = 1j * x
+            u = orth_vec(u, W)
+
+            # normalize u in the M-norm
+            Mu = _apply(M, u)
+            nrm_u = _norm(u, Mu, inner_product = model_evaluator.inner_product)
+            if nrm_u > 1.0e-10:
+                u = u / nrm_u
+                W = np.c_[W, u]
+
+        if W.shape[1] > 0:
             AW = jacobian * W
             P, x0new = get_projection( W, AW, rhs, initial_guess,
                                        inner_product = model_evaluator.inner_product
                                      )
         else:
-            x0new = initial_guess
+            AW = np.zeros( (len(x),0 ) )
             P = None
-            W = np.zeros( (len(x),0) )
-            AW = np.zeros( (len(x),0) )
+            x0new = initial_guess
 
         # Solve the linear system.
-        out = linear_solver( jacobian,
-                             rhs,
-                             x0new,
-                             Mr = P,
-                             M = Minv,
-                             tol = eta,
-                             inner_product = model_evaluator.inner_product,
-                             return_lanczos = True
-                           )
-
+        out = linear_solver(jacobian,
+                            rhs,
+                            x0new,
+                            Mr = P,
+                            M = Minv,
+                            tol = eta,
+                            inner_product = model_evaluator.inner_product,
+                            return_lanczos = True
+                            )
 
         #print ritz_vals
 
         # make sure the solution is alright
         assert( out[1] == 0 )
-        ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
+
+        if num_deflation_vectors > 0:
+            ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
                                                        M = Minv, Minv=M,
                                                        inner_product = model_evaluator.inner_product)
+            # Ritz vectors are ordered such that the ones with the smallest
+            # residuals come first.
+            W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
+
+
         # print norm_ritz_res
 
         # save the convergence history
