@@ -613,8 +613,10 @@ def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
         z = np.reshape(z, (z.shape[0],1))
         CCz = np.dot(CC, z)
         res_ip = _ipstd(z, CCz)[0,0]
-        assert(res_ip.imag < 1e-13)
-        assert(res_ip.real > -1e-10)
+        if res_ip.imag > 1e-13:
+            print 'Warning: res_ip.imag = %g > 1e-13' % res_ip.imag
+        if res_ip.real < -1e-10:
+            print 'Warning: res_ip.real = %g < -1e-10' % res_ip.real
         norm_ritz_res[i] = np.sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
@@ -624,8 +626,7 @@ def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
         #res_explicit = MAV[:,[i]] - lam[i]*V[:,[i]]
         #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
         #assert( zz.imag<1e-13 )
-        #print norm_ritz_res[i]
-        #print np.sqrt(abs(zz))
+        #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
     sorti = np.argsort(norm_ritz_res)
