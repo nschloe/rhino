@@ -237,6 +237,7 @@ def minres( A,
             tol = 1e-5,
             maxiter = None,
             M = None,
+            Minv = None,
             Ml = None,
             Mr = None,
             inner_product = _ipstd,
@@ -312,6 +313,9 @@ def minres( A,
     G1 = np.eye(2)     # even older givens rotation ;)
     k = 0
     
+    def Minner_product(x,y):
+        return inner_product(_apply(Minv,x), y)
+
     # resulting approximation is xk = x0 + Mr*yk
     yk = np.zeros((N,1))
 
@@ -325,14 +329,6 @@ def minres( A,
         z  = _apply(Mr, V[:,[1]])
         z  = _apply(A, z)
         z  = _apply(Ml, z)
-
-        # full reortho?
-        if full_reortho:
-            for i in range(0,k-1):
-                ip = inner_product(Vfull[:,[i]], z)[0,0]
-                if abs(ip) > 1.0e-9:
-                    raise ValueError('abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter too large?' % abs(ip))
-                z = z - ip * Pfull[:,[i]]
 
         # tsold = inner_product(V[0], z)
         z  = z - tsold * P[:,[0]]
@@ -354,6 +350,14 @@ def minres( A,
         # needed for QR-update:
         R = _apply(G1, [0, tsold])
         R = np.append(R, [0.0, 0.0])
+
+        # full reortho?
+        if full_reortho:
+            for i in range(0,k):
+                ip = inner_product(Vfull[:,[i]], z)[0,0]
+                if abs(ip) > 1.0e-9:
+                    raise ValueError('abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter too large?' % abs(ip))
+                z = z - ip * Pfull[:,[i]]
 
         # Apply the preconditioner.
         v  = _apply(M, z)
@@ -909,10 +913,14 @@ def newton( x0,
             M = None
             Minv = None
 
+        def Minner_product(x,y):
+            return model_evaluator.inner_product(_apply(M,x), y)
+
         # Conditionally deflate the nearly-null vector i*x.
         if deflate_ix:
             u = 1j * x
-            u = orth_vec(u, W)
+            u = orth_vec(u, W, Minner_product)
+            print Minner_product(u, W)
 
             # normalize u in the M-norm
             Mu = _apply(M, u)
@@ -921,6 +929,7 @@ def newton( x0,
                 u = u / nrm_u
                 W = np.c_[W, u]
 
+        print Minner_product(W,W)
         if W.shape[1] > 0:
             AW = jacobian * W
             P, x0new = get_projection( W, AW, rhs, initial_guess,
@@ -937,9 +946,11 @@ def newton( x0,
                             x0new,
                             Mr = P,
                             M = Minv,
+                            Minv = M,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
-                            return_lanczos = True
+                            return_lanczos = True,
+                            full_reortho = True
                             )
 
         #print ritz_vals
@@ -953,6 +964,7 @@ def newton( x0,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
             # residuals come first.
+            print np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
             W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
 
 
