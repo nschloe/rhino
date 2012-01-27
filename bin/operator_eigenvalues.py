@@ -45,18 +45,17 @@ def _main():
     for mu in mus:
         ginla_modelval.set_parameter(mu)
 
-        phi0 = np.ones(num_unknowns)
         if args.operator == 'k':
             ginla_modelval._assemble_keo()
             A = ginla_modelval._keo
         elif args.operator == 'p':
-            A = ginla_modelval.get_preconditioner(phi0)
+            A = ginla_modelval.get_preconditioner(psi)
         elif args.operator == 'j':
-            A = ginla_modelval.get_jacobian(phi0)
+            A = ginla_modelval.get_jacobian(psi)
         elif args.operator == 'pj':
             # build preconditioned operator
-            prec_inv = ginla_modelval.get_preconditioner_inverse(phi0)
-            jacobian = ginla_modelval.get_jacobian(phi0)
+            prec_inv = ginla_modelval.get_preconditioner_inverse(psi)
+            jacobian = ginla_modelval.get_jacobian(psi)
             def _apply_prec_jacobian(phi):
                 return prec_inv * (jacobian * phi)
             A = LinearOperator((num_unknowns, num_unknowns),
