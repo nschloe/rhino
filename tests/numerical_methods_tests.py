@@ -350,11 +350,16 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertAlmostEqual(out[0][0,0], np.sqrt(2.0), delta=tol)
     # --------------------------------------------------------------------------
     def test_jacobi_davidson(self):
-        num_unknowns = 5
-        A  = self._create_sym_matrix(num_unknowns)
+        num_unknowns = 10
+        #A = self._create_sym_matrix(num_unknowns)
+        A = self._create_sparse_herm_indef_matrix(num_unknowns)
         v0 = np.ones((num_unknowns, 1))
-        out = nm.jacobi_davidson(A, v0, tol = 1e-5 )
+        tol = 1.0e-8
+        out = nm.jacobi_davidson(A, v0, tol = tol )
         self.assertEqual(out[2], 0) # info == 0
+        # check eigenresidual
+        res = A*out[1] - out[0]*out[1]
+        assert np.norm(res, res) < tol
     # --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':

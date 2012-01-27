@@ -1011,65 +1011,88 @@ def jacobi_davidson(A,
                     ):
     '''Jacobi-Davidson for the largest-magnitude eigenvalue of a
     self-adjoint operator.'''
+    xtype = upcast( A.dtype, v0.dtype )
     num_unknowns = len(v0)
     if maxiter is None:
         maxiter = num_unknowns
     t = v0
     # Set up fields.
-    V = np.empty((num_unknowns, maxiter))
-    AV = np.empty((num_unknowns, maxiter))
+    V = np.empty((num_unknowns, maxiter), dtype=xtype)
+    AV = np.empty((num_unknowns, maxiter), dtype=xtype)
     B = np.empty((maxiter, maxiter), dtype=float)
+
     resvec = []
     info = 1
     for m in xrange(maxiter):
         # orthgonalize t w.r.t. to the basis V
         t = orth_vec(t, V[:,0:m], inner_product=inner_product)
+
+        # normalize
         norm_t = np.sqrt(inner_product(t, t))[0,0]
         assert norm_t > 1.0e-10, '||t|| = 0. Breakdown.'
+
         V[:,[m]] = t / norm_t
         AV[:,[m]] = _apply(A, V[:,[m]])
+
+        # B = <V,AV>.
         # Only fill the lower triangle of B.
         for i in xrange(m+1):
-            alpha = inner_product(V[:, [i]], AV[:,[m]])
-            B[i, m] = alpha
+            alpha = inner_product(V[:, [i]], AV[:,[m]])[0,0]
+            assert alpha.imag < 1.0e-10, 'A not self-adjoint?'
+            B[m, i] = alpha.real
+
         # Compute the largest eigenpair of B.
         from scipy.linalg import eigh
         Theta, S = eigh(B[0:m+1,0:m+1], lower=True)
+
         # Extract the largest-magnitude one.
         index = np.argmax(abs(Theta))
         theta = Theta[index]
         s = S[:,[index]]
-        #print theta
+        # normalize s in the inner product
+        norm_s = np.sqrt(inner_product(s, s))[0,0]
+        assert norm_s > 1.0e-10, '||s|| = 0. Breakdown.'
+        s /= norm_s
+
         # Get u, Au.
         u = np.dot(V[:,0:m+1], s)
         Au = np.dot(AV[:,0:m+1], s)
+
+        # Compute residual.
         res = Au - theta*u
         resvec.append(np.sqrt(inner_product(res, res)[0,0]))
-        #print resvec[-1]
+
         if resvec[-1] < tol:
             info = 0
             break
         else:
             # (Approximately) solve for t\ortho u from
             # (I-uu*)(A-theta I)(I-uu*) t = -r.
-            def _proj(u):
+            def _shifted_projected_operator(A, u, theta):
                 def _apply_proj(phi):
                     return phi - u * inner_product(u, phi)
+                def _apply_shifted_projected_operator(phi):
+                    return _apply_proj(A*_apply_proj(phi) - theta*_apply_proj(phi))
                 return LinearOperator((num_unknowns, num_unknowns),
-                                      _apply_proj,
-                                      dtype = u.dtype
+                                      _apply_shifted_projected_operator,
+                                      dtype = A.dtype
                                       )
-            out = minres(A, -res,
+            assert abs(inner_product(u, res)) < 1.0e-10
+            out = minres(_shifted_projected_operator(A, u, theta),
+                         -res,
                          x0 = np.zeros((num_unknowns,1)),
-                         tol = 1e-10,
+                         tol = 1.0e-8,
                          M = M,
                          #Minv = None,
-                         Ml = _proj(u),
-                         Mr = _proj(u),
+                         #Ml = _proj(u),
+                         #Mr = _proj(u),
+                         maxiter = num_unknowns,
                          inner_product = inner_product
                          )
+            print out[2]
             assert out[1] == 0, 'MINRES did not converge.'
             t = out[0]
+            assert abs(inner_product(t, u)[0,0]) < 1.0e-10, abs(inner_product(t, u))[0,0]
 
     return theta, u, info, resvec
 # ==============================================================================
