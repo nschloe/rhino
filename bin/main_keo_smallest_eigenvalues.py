@@ -22,12 +22,13 @@ def _main():
                                                 )
 
     # build the model evaluator
-    mu = 1.0e-1
-    ginla_modelval = pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
+    mu = 0.0
+    ginla_modelval = \
+        pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
 
     # set the range of parameters
-    steps = 11
-    mus = np.linspace( 0.0, 0.5, steps )
+    steps = 51
+    mus = np.linspace( 0.0, 0.2, steps )
 
     #small_eigenvals = np.zeros( len(mus) )
     #large_eigenvals = np.zeros( len(mus) )
@@ -113,20 +114,19 @@ def _plot_eigenvalue_series(x, eigenvals_list):
         return ( (Y1 - Y0) * x2 + x1*Y0 - Y1*x0 ) \
                / (x1 - x0)
     # --------------------------------------------------------------------------
-    def _permutation_match( y, y2 ):
+    def _permutation_match(y, y2):
         '''Returns the permutation of y that best matches y2.
         '''
         n = len(y2)
         assert len(y) == n
         #y = np.array( y ) # to make Boolean indices possible
         y_new = np.empty( n )
-        active_set = np.ones( n, dtype = bool )
-        for k in xrange( n ):
-            diff = abs(y - y2[k])
-            # TODO what if the same index is found more than once?
-            # This needs to be prevented.
-            min_index = min(xrange(len(diff)), key=diff.__getitem__)
-            y_new[k] = y[min_index]
+        y_masked = np.ma.array(y, mask=np.zeros(n, dtype = bool))
+        for k in xrange(n):
+            min_index = np.argmin(abs(y_masked - y2[k]))
+            y_new[k] = y_masked[min_index]
+            # mask the index
+            y_masked.mask[min_index] = True
         return y_new
     # --------------------------------------------------------------------------
 
@@ -134,7 +134,7 @@ def _plot_eigenvalue_series(x, eigenvals_list):
     num_eigenvalues = len(eigenvals_list[0])
     # Stuff the reordered eigenvalues into an array so we can easily fill the
     # columns and then plot the rows.
-    reordered_eigenvalues = np.empty((num_eigenvalues, len_list), dtype=float)
+    reordered_eigenvalues = np.zeros((num_eigenvalues, len_list), dtype=float)
     reordered_eigenvalues[:,0] = eigenvals_list[0]
     # use the same values for the first (constant) extrapolation)
     eigenvals_extrapolation = reordered_eigenvalues[:,0]
@@ -152,7 +152,6 @@ def _plot_eigenvalue_series(x, eigenvals_list):
                                                             )
 
     # plot it
-    print reordered_eigenvalues
     for k in xrange(num_eigenvalues):
         pp.plot(x, reordered_eigenvalues[k,:], '-x')
 

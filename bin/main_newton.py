@@ -39,8 +39,8 @@ def _main():
                             forcing_term = 'constant', #'type 2'
                             eta0 = 1.0e-11,
                             use_preconditioner = False,
-                            deflate_ix = True,
-                            num_deflation_vectors = 50
+                            deflate_ix = False,
+                            num_deflation_vectors = 0
                           )
     print " done."
     print newton_out[2]
