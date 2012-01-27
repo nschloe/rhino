@@ -59,7 +59,7 @@ class GinlaModelEvaluator:
 
         return res
     # ==========================================================================
-    def get_jacobian( self, psi0 ):
+    def get_jacobian(self, psi0):
         '''Returns a LinearOperator object that defines the matrix-vector
         multiplication scheme for the Jacobian operator as in
 

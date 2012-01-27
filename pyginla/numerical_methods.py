@@ -843,8 +843,23 @@ def _givens(a, b):
 # ==============================================================================
 def orth_vec(v, W, inner_product=_ipstd):
     '''Orthogonalize v w.r.t. the orthonormal set W.'''
-    for k in xrange(W.shape[1]):
-        v -= inner_product(v,W[:,[k]]) * W[:,[k]]
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _mod_gram_schmidt(v, W):
+        for k in xrange(W.shape[1]):
+            v -= inner_product(v,W[:,[k]]) * W[:,[k]]
+        return v
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    tau = inner_product(v, v)
+    v = _mod_gram_schmidt(v, W)
+    # Refine if necessary.
+    # See
+    # J. W. Daniel, W. B. Gragg, L. Kaufman, and G. W. Stewart.
+    # Reorthogonalization and stable algorithms for updating the Gram-Schmidt
+    # QR factorization; Math. Comp., 30:772-795, 1976.
+    kappa = 0.25
+    if inner_product(v, v) / tau < kappa**2:
+        v = _mod_gram_schmidt(v, W)
+
     return v
 # ==============================================================================
 def newton( x0,
@@ -986,6 +1001,77 @@ def newton( x0,
         error_code = 1
 
     return x, error_code, Fx_norms, linear_relresvecs
+# ==============================================================================
+def jacobi_davidson(A,
+                    v0, # starting vector
+                    tol = 1e-5,
+                    maxiter = None,
+                    M = None,
+                    inner_product = _ipstd
+                    ):
+    '''Jacobi-Davidson for the largest-magnitude eigenvalue of a
+    self-adjoint operator.'''
+    num_unknowns = len(v0)
+    if maxiter is None:
+        maxiter = num_unknowns
+    t = v0
+    # Set up fields.
+    V = np.empty((num_unknowns, maxiter))
+    AV = np.empty((num_unknowns, maxiter))
+    B = np.empty((maxiter, maxiter), dtype=float)
+    resvec = []
+    info = 1
+    for m in xrange(maxiter):
+        # orthgonalize t w.r.t. to the basis V
+        t = orth_vec(t, V[:,0:m], inner_product=inner_product)
+        norm_t = np.sqrt(inner_product(t, t))[0,0]
+        assert norm_t > 1.0e-10, '||t|| = 0. Breakdown.'
+        V[:,[m]] = t / norm_t
+        AV[:,[m]] = _apply(A, V[:,[m]])
+        # Only fill the lower triangle of B.
+        for i in xrange(m+1):
+            alpha = inner_product(V[:, [i]], AV[:,[m]])
+            B[i, m] = alpha
+        # Compute the largest eigenpair of B.
+        from scipy.linalg import eigh
+        Theta, S = eigh(B[0:m+1,0:m+1], lower=True)
+        # Extract the largest-magnitude one.
+        index = np.argmax(abs(Theta))
+        theta = Theta[index]
+        s = S[:,[index]]
+        #print theta
+        # Get u, Au.
+        u = np.dot(V[:,0:m+1], s)
+        Au = np.dot(AV[:,0:m+1], s)
+        res = Au - theta*u
+        resvec.append(np.sqrt(inner_product(res, res)[0,0]))
+        #print resvec[-1]
+        if resvec[-1] < tol:
+            info = 0
+            break
+        else:
+            # (Approximately) solve for t\ortho u from
+            # (I-uu*)(A-theta I)(I-uu*) t = -r.
+            def _proj(u):
+                def _apply_proj(phi):
+                    return phi - u * inner_product(u, phi)
+                return LinearOperator((num_unknowns, num_unknowns),
+                                      _apply_proj,
+                                      dtype = u.dtype
+                                      )
+            out = minres(A, -res,
+                         x0 = np.zeros((num_unknowns,1)),
+                         tol = 1e-10,
+                         M = M,
+                         #Minv = None,
+                         Ml = _proj(u),
+                         Mr = _proj(u),
+                         inner_product = inner_product
+                         )
+            assert out[1] == 0, 'MINRES did not converge.'
+            t = out[0]
+
+    return theta, u, info, resvec
 # ==============================================================================
 def poor_mans_continuation( x0,
                             model_evaluator,

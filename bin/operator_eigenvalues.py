@@ -30,11 +30,7 @@ def _main():
     steps = 51
     mus = np.linspace( 0.0, 0.5, steps )
 
-    #small_eigenvals = np.zeros( len(mus) )
-    #large_eigenvals = np.zeros( len(mus) )
-
     # initial guess for the eigenvectors
-    small_eigenvals = []
     small_eigenvals_approx = []
     num_eigenvalues = 10
     X = np.ones( (len(pyginlamesh.nodes), 1) )

@@ -28,7 +28,7 @@ class TestLinearSolvers(unittest.TestCase):
         A = 2.0 / (max(D)-min(D)) * (A - min(D) * I) - 1.0 * I
         return A
     # --------------------------------------------------------------------------
-    def _create_sparse_hpd_matrix ( self, num_unknowns ):
+    def _create_sparse_hpd_matrix(self, num_unknowns):
         o = np.ones(num_unknowns)
         L = scipy.sparse.spdiags( [-o, 2.*o, -o], [-1,0,1], num_unknowns, num_unknowns)
         V = scipy.sparse.lil_matrix( (num_unknowns, num_unknowns) , dtype=complex)
@@ -42,7 +42,7 @@ class TestLinearSolvers(unittest.TestCase):
         # A has the same eigenvalues as L and A is Hermitian but non-symmetric
         return A.tocsr()
     # --------------------------------------------------------------------------
-    def _create_sparse_herm_indef_matrix ( self, num_unknowns ):
+    def _create_sparse_herm_indef_matrix(self, num_unknowns):
         # Check if number of unknowns is multiple of 2
         self.assertEqual(num_unknowns % 2, 0)
 
@@ -348,6 +348,13 @@ class TestLinearSolvers(unittest.TestCase):
         out = nm.newton(x0, qmodeleval, nonlinear_tol=tol )
         self.assertEqual(out[1], 0)
         self.assertAlmostEqual(out[0][0,0], np.sqrt(2.0), delta=tol)
+    # --------------------------------------------------------------------------
+    def test_jacobi_davidson(self):
+        num_unknowns = 5
+        A  = self._create_sym_matrix(num_unknowns)
+        v0 = np.ones((num_unknowns, 1))
+        out = nm.jacobi_davidson(A, v0, tol = 1e-5 )
+        self.assertEqual(out[2], 0) # info == 0
     # --------------------------------------------------------------------------
 # ==============================================================================
 if __name__ == '__main__':
