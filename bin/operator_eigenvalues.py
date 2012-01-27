@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ==============================================================================
-from scipy.sparse.linalg import eigs, eigsh
+from scipy.sparse.linalg import eigs, eigsh, LinearOperator
 import time
 import matplotlib.pyplot as pp
 import numpy as np
@@ -28,7 +28,7 @@ def _main():
 
     # set the range of parameters
     steps = 51
-    mus = np.linspace( 0.0, 0.2, steps )
+    mus = np.linspace( 0.0, 0.5, steps )
 
     #small_eigenvals = np.zeros( len(mus) )
     #large_eigenvals = np.zeros( len(mus) )
@@ -39,70 +39,90 @@ def _main():
     num_eigenvalues = 10
     X = np.ones( (len(pyginlamesh.nodes), 1) )
     #X[:,0] = 1.0
-    eigenvals = []
+    eigenvals_list = []
+    num_unknowns = len(pyginlamesh.nodes)
     # --------------------------------------------------------------------------
-    k = 0
     for mu in mus:
         ginla_modelval.set_parameter(mu)
 
-        # assemble KEO
-        ginla_modelval._assemble_keo()
+        phi0 = np.ones(num_unknowns)
+        if args.operator == 'k':
+            ginla_modelval._assemble_keo()
+            A = ginla_modelval._keo
+        elif args.operator == 'p':
+            A = ginla_modelval.get_preconditioner(phi0)
+        elif args.operator == 'j':
+            A = ginla_modelval.get_jacobian(phi0)
+        elif args.operator == 'pj':
+            # build preconditioned operator
+            prec_inv = ginla_modelval.get_preconditioner_inverse(phi0)
+            jacobian = ginla_modelval.get_jacobian(phi0)
+            def _apply_prec_jacobian(phi):
+                return prec_inv * (jacobian * phi)
+            A = LinearOperator((num_unknowns, num_unknowns),
+                               _apply_prec_jacobian,
+                               dtype = complex
+                               )
+        else:
+            raise ValueError('Unknown operator \'', args.operator, '\'.')
 
         print 'Compute smallest eigenvalues for mu =', mu, '..'
         # get smallesteigenvalues
         start_time = time.clock()
-        small_eigenval, X = eigs(ginla_modelval._keo,
-                                 k = num_eigenvalues,
-                                 sigma = None,
-                                 which = 'SM',
-                                 v0 = X[:,0],
-                                 return_eigenvectors = True
-                                 )
-        small_eigenval = small_eigenval.real
+        eigenvals, X = eigs(A,
+                            k = num_eigenvalues,
+                            sigma = None,
+                            which = args.eigenvalue_type,
+                            v0 = X[:,0],
+                            return_eigenvectors = True
+                            )
+        end_time = time.clock()
+        print 'done. (', end_time - start_time, 's).'
+
+        # make sure they are real (as they are supposed to be)
+        assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
+        eigenvals = eigenvals.real
         #small_eigenval, X = my_lobpcg( ginla_modelval._keo,
                                        #X,
                                        #tolerance = 1.0e-5,
                                        #maxiter = len(pyginlamesh.nodes),
                                        #verbosity = 1
                                      #)
-        end_time = time.clock()
-        print "done. (", end_time - start_time, "s)."
-        print "Calculated values: ", small_eigenval
+        #print 'Calculated values: ', small_eigenval
         #alpha = ginla_modelval.keo_smallest_eigenvalue_approximation()
-        #print "Linear approximation: ", alpha
+        #print 'Linear approximation: ', alpha
         #small_eigenvals_approx.append( alpha )
-        print
-        eigenvals.append( small_eigenval )
-        k += 1
+        #print
+        eigenvals_list.append( eigenvals )
     # --------------------------------------------------------------------------
 
     # plot all the eigenvalues as balls
-    _plot_eigenvalue_series( mus, eigenvals )
+    _plot_eigenvalue_series( mus, eigenvals_list )
 
     #pp.plot( mus,
              #small_eigenvals_approx,
              #'--'
            #)
     #pp.legend()
-    pp.title( 'Smallest magnitude eigenvalues of KEO' )
+    pp.title('%s eigenvalues of %s' % (args.eigenvalue_type, args.operator))
 
-    pp.ylim( ymin = 0.0 )
+    #pp.ylim( ymin = 0.0 )
 
     pp.xlabel( '$\mu$' )
 
     pp.show()
 
-    matplotlib2tikz.save( "smallest-ev.tikz",
-                          figurewidth = "\\figurewidth",
-                          figureheight = "\\figureheight"
-                        )
+    #matplotlib2tikz.save('eigenvalues.tikz',
+                         #figurewidth = '\\figurewidth',
+                         #figureheight = '\\figureheight'
+                         #)
     return
 # ==============================================================================
 def _plot_eigenvalue_series(x, eigenvals_list):
     '''Plotting series of eigenvalues can be hard to make visually appealing.
     The reason for this is that at each data point, the values are mostly
     ordered in some way, not respecting previous calculations. When two
-    eigenvalues "cross" -- and this notion doesn't actually exist -- then the
+    eigenvalues 'cross' -- and this notion doesn't actually exist -- then the
     colors of the two crossing parts change.
     This function tries to take care of this by guessing which are the
     corresponding values by linear extrapolation.
@@ -181,10 +201,27 @@ def _parse_input_arguments():
                          help='read a particular time step (default: 0)'
                        )
 
+    parser.add_argument( '--operator', '-o',
+                         metavar='OPERATOR',
+                         dest='operator',
+                         nargs='?',
+                         type=str,
+                         const='k',
+                         default='k',
+                         help='operator to compute the eigenvalues of (k, p, j, pj; default: k)'
+                       )
+
+    parser.add_argument( '--largest', '-l',
+                         dest='eigenvalue_type',
+                         action='store_const',
+                         const='LM',
+                         default='SM',
+                         help='get the largest eigenvalues (default: smallest)')
+
     args = parser.parse_args()
 
     return args
 # ==============================================================================
-if __name__ == "__main__":
+if __name__ == '__main__':
     _main()
 # ==============================================================================

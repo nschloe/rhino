@@ -74,7 +74,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
     if use_preconditioner:
         #print 'Getting preconditioner...',
         #start_time = time.clock()
-        keo_prec = ginla_modelval.get_preconditioner_inverse()
+        keo_prec = ginla_modelval.get_preconditioner_inverse( current_psi )
         #end_time = time.clock()
         #print 'done. (%gs)' % (end_time - start_time)
     else:
@@ -635,7 +635,4 @@ def _parse_input_arguments():
 # ==============================================================================
 if __name__ == "__main__":
     _main()
-
-    #import cProfile
-    #cProfile.run( '_main()', 'pfvm_profile.dat' )
 # ==============================================================================
