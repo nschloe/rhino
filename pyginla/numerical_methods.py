@@ -862,6 +862,34 @@ def orth_vec(v, W, inner_product=_ipstd):
 
     return v
 # ==============================================================================
+def qr(W, inner_product=_ipstd):
+    '''QR-decomposition w.r.t. given inner-product
+    
+    [Q,R] = qr(W, inner_product) yields Q and R such that W=dot(Q,R) and
+    inner_product(Q,Q)=I.
+    '''
+    m = W.shape[0]
+    n = W.shape[1]
+    Q = np.zeros( (m,n), dtype=W.dtype)
+    R = np.zeros( (n,n), dtype=W.dtype)
+
+    for i in range(0,n):
+        Q[:,[i]] = W[:,[i]]
+        for j in range(0,i):
+            R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])
+            Q[:,[i]] -= R[j,i] * Q[:,[j]]
+        R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])
+        if (R[i,i].imag > 1e-10):
+            print 'R[i,i].imag = %g > 1e-10' % R[i,i].imag
+        if (R[i,i].real < -1e-14):
+            print 'R[i,i].real = %g < -1e-14' % R[i,i].real
+        R[i,i] = np.sqrt(abs(R[i,i]))
+        Q[:,[i]] /= R[i,i]
+
+    return Q, R
+
+
+# ==============================================================================
 def newton( x0,
             model_evaluator,
             nonlinear_tol = 1.0e-10,
@@ -932,11 +960,12 @@ def newton( x0,
         def Minner_product(x,y):
             return model_evaluator.inner_product(_apply(M,x), y)
 
+        W, R = qr(W, inner_product=Minner_product)
+
         # Conditionally deflate the nearly-null vector i*x.
         if deflate_ix:
             u = 1j * x
             u = orth_vec(u, W, Minner_product)
-            print Minner_product(u, W)
 
             # normalize u in the M-norm
             Mu = _apply(M, u)
@@ -945,7 +974,6 @@ def newton( x0,
                 u = u / nrm_u
                 W = np.c_[W, u]
 
-        print Minner_product(W,W)
         if W.shape[1] > 0:
             AW = jacobian * W
             P, x0new = get_projection( W, AW, rhs, initial_guess,
@@ -956,17 +984,26 @@ def newton( x0,
             P = None
             x0new = initial_guess
 
+        from math import floor
+        return_lanczos = True
+        full_reortho = True
+        if return_lanczos or full_reortho:
+            # limit to 0.5 GB memory for Vfull/Pfull (together)
+            maxmem = 0.5*(2**30) # bytes
+            maxiter = min(len(x), int(floor(maxmem/(2*16*len(x)))))
+
         # Solve the linear system.
         out = linear_solver(jacobian,
                             rhs,
                             x0new,
+                            maxiter = maxiter,
                             Mr = P,
                             M = Minv,
                             Minv = M,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
-                            return_lanczos = True,
-                            full_reortho = True
+                            return_lanczos = return_lanczos,
+                            full_reortho = full_reortho
                             )
 
         #print ritz_vals
@@ -982,6 +1019,8 @@ def newton( x0,
             # residuals come first.
             print np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
             W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
+        else:
+            W = np.zeros( (len(x),0) )
 
 
         # print norm_ritz_res
