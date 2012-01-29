@@ -177,8 +177,8 @@ def _parse_input_arguments():
     '''
     import argparse
 
-    parser = argparse.ArgumentParser( description = 'Smallest eigenvalues of the KEO.'
-                                    )
+    parser = argparse.ArgumentParser(description = \
+                                     'Compute a few eigenvalues of a specified operator.')
 
     parser.add_argument( 'filename',
                          metavar = 'FILE',
