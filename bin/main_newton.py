@@ -37,10 +37,10 @@ def _main():
                             linear_solver = nm.minres,
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
-                            eta0 = 1.0e-11,
+                            eta0 = 1.0e-13,
                             use_preconditioner = True,
                             deflate_ix = True,
-                            num_deflation_vectors = 0
+                            num_deflation_vectors = 10
                           )
     print " done."
     print newton_out[2]

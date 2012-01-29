@@ -330,14 +330,14 @@ def minres( A,
         z  = _apply(A, z)
         z  = _apply(Ml, z)
 
-        # tsold = inner_product(V[0], z)
+        # tsold = inner_product(V[:,[0]], z)[0,0]
         z  = z - tsold * P[:,[0]]
         # Should be real! (diagonal element):
         td = inner_product(V[:,[1]], z)[0,0]
         if abs(td.imag) > 1.0e-12:
-            raise ValueError('abs(td.imag) = %g > 1.0e-12' % abs(td.imag))
+            print 'Warning (iter %d): abs(td.imag) = %g > 1e-12' % (k+1, abs(td.imag))
         td = td.real
-        z  = z - td * P[:,1:2]
+        z  = z - td * P[:,[1]]
 
         ## local reorthogonalization
         #tsold2 = inner_product(V[0], z)
@@ -347,24 +347,32 @@ def minres( A,
         #z   = z - td2*P[1]
         #tsold = tsold + tsold2
 
+        # full reortho?
+        if full_reortho:
+            # double reortho
+            for l in range(0,2):
+                # here we can (and should) orthogonalize against ALL THE
+                # vectors (thus k+1).
+                # http://memegenerator.net/instance/13779948
+                for i in range(0,k+1):
+                    ip = inner_product(Vfull[:,[i]], z)[0,0]
+                    if abs(ip) > 1.0e-9:
+                        print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
+                    z = z - ip * Pfull[:,[i]]
+        
         # needed for QR-update:
         R = _apply(G1, [0, tsold])
         R = np.append(R, [0.0, 0.0])
 
-        # full reortho?
-        if full_reortho:
-            for i in range(0,k):
-                ip = inner_product(Vfull[:,[i]], z)[0,0]
-                if abs(ip) > 1.0e-9:
-                    raise ValueError('abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter too large?' % abs(ip))
-                z = z - ip * Pfull[:,[i]]
-
         # Apply the preconditioner.
         v  = _apply(M, z)
         alpha = inner_product(z, v)[0,0]
-        assert alpha.imag == 0.0
+        if abs(alpha.imag)>1e-12:
+            print 'Warning (iter %d): abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag))
         alpha = alpha.real
-        assert alpha >= 0.0
+        if alpha<0.0:
+            print 'Warning (iter %d): alpha = %g < 0' % (k+1, alpha)
+            alpha = 0.0
         ts = np.sqrt( alpha )
 
         if ts>0.0:
@@ -412,13 +420,21 @@ def minres( A,
         if exact_solution is not None:
             xk = x0 + _apply(Mr, yk)
             errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
-        if explicit_residual:
+        def compute_norm_r_exp(xk):
             xk = x0 + _apply(Mr, yk)
             r_exp = b - _apply(A, xk)
             r_exp = _apply(Ml, r_exp)
+            # normalize residual before applying the preconditioner here.
+            # otherwise norm_r_exp can become 0 exactly (pyamg seems to miss a
+            # normalization step somewhere).
+            r_exp /= norm_MMlb
             Mr_exp = _apply(M, r_exp)
             norm_r_exp = _norm(r_exp, Mr_exp, inner_product=inner_product)
-            relresvec.append(norm_r_exp / norm_MMlb)
+            return xk, norm_r_exp
+
+        if explicit_residual:
+            xk, norm_r_exp = compute_norm_r_exp(yk)
+            relresvec.append( norm_r_exp )
         else:
             relresvec.append(abs(y[0]) / norm_MMlb)
 
@@ -427,25 +443,24 @@ def minres( A,
             norm_r_upd = relresvec[-1]
             # Compute the exact residual norm (if not yet done above)
             if not explicit_residual:
-                xk = x0 + _apply(Mr, yk)
-                r_exp = b - _apply(A, xk)
-                r_exp = _apply(Ml, r_exp)
-                Mr_exp = _apply(M, r_exp)
-                norm_r_exp = _norm(r_exp, Mr_exp, inner_product=inner_product)
-                relresvec[-1] = norm_r_exp / norm_MMlb
+                xk, norm_r_exp = compute_norm_r_exp(yk)
+                relresvec[-1] = norm_r_exp
             # No convergence of explicit residual?
             if relresvec[-1] > tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' \
-                        % (relresvec[-1], tol, k, norm_r_upd)
+                    print 'Warning (iter %d): No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
+                        % (k+1, relresvec[-1], tol, norm_r_upd)
                     info = 1
                 else:
                     print ( 'Info (iter %d): Updated residual is below tolerance, '
                           + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
                           + 'resup=%g)\n' \
-                          ) % (k, relresvec[-1], tol, norm_r_upd)
+                          ) % (k+1, relresvec[-1], tol, norm_r_upd)
 
+        # limit relative residual to machine precision (an exact 0 is rare but
+        # seems to occur with pyamg...).
+        relresvec[-1] = max(np.finfo(float).eps, relresvec[-1])
         k += 1
     # end MINRES iteration
     # --------------------------------------------------------------------------
@@ -846,7 +861,7 @@ def orth_vec(v, W, inner_product=_ipstd):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _mod_gram_schmidt(v, W):
         for k in xrange(W.shape[1]):
-            v -= inner_product(v,W[:,[k]]) * W[:,[k]]
+            v -= inner_product(W[:,[k]],v) * W[:,[k]]
         return v
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     tau = inner_product(v, v)
@@ -876,9 +891,9 @@ def qr(W, inner_product=_ipstd):
     for i in range(0,n):
         Q[:,[i]] = W[:,[i]]
         for j in range(0,i):
-            R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])
+            R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])[0,0]
             Q[:,[i]] -= R[j,i] * Q[:,[j]]
-        R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])
+        R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])[0,0]
         if (R[i,i].imag > 1e-10):
             print 'R[i,i].imag = %g > 1e-10' % R[i,i].imag
         if (R[i,i].real < -1e-14):
@@ -965,6 +980,10 @@ def newton( x0,
         # Conditionally deflate the nearly-null vector i*x.
         if deflate_ix:
             u = 1j * x
+            Mu = _apply(M, u)
+            nrm_u = _norm(u, Mu, inner_product = model_evaluator.inner_product)
+            u /= nrm_u
+
             u = orth_vec(u, W, Minner_product)
 
             # normalize u in the M-norm
@@ -979,10 +998,13 @@ def newton( x0,
             P, x0new = get_projection( W, AW, rhs, initial_guess,
                                        inner_product = model_evaluator.inner_product
                                      )
+            print 'dim of deflation space: %d' % W.shape[1]
+            print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
         else:
             AW = np.zeros( (len(x),0 ) )
             P = None
             x0new = initial_guess
+        
 
         from math import floor
         return_lanczos = True
@@ -990,7 +1012,7 @@ def newton( x0,
         if return_lanczos or full_reortho:
             # limit to 0.5 GB memory for Vfull/Pfull (together)
             maxmem = 0.5*(2**30) # bytes
-            maxiter = min(len(x), int(floor(maxmem/(2*16*len(x)))))
+            maxiter = min(2*len(x), int(floor(maxmem/(2*16*len(x)))))
 
         # Solve the linear system.
         out = linear_solver(jacobian,
@@ -1003,13 +1025,17 @@ def newton( x0,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
                             return_lanczos = return_lanczos,
-                            full_reortho = full_reortho
+                            full_reortho = full_reortho,
+                            explicit_residual = False
                             )
 
-        #print ritz_vals
-
         # make sure the solution is alright
-        assert( out[1] == 0 )
+        if out[1]!=0:
+            print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
+
+        Vfull = out[3]
+        print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
+        #print Minner_product(W,Vfull)
 
         if num_deflation_vectors > 0:
             ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
@@ -1017,8 +1043,10 @@ def newton( x0,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
             # residuals come first.
-            print np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
+            print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
             W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
+            print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+            print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
         else:
             W = np.zeros( (len(x),0) )
 

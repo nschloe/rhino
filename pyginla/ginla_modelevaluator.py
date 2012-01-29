@@ -112,7 +112,7 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_prec(phi):
             return self._prec_amg_solver.solve(phi,
-                                               tol = 1e-13,
+                                               tol = 1e-16,
                                                accel = 'cg',
                                                cycle = 'V'
                                                )
