@@ -893,7 +893,7 @@ def qr(W, inner_product=_ipstd):
 def newton( x0,
             model_evaluator,
             nonlinear_tol = 1.0e-10,
-            maxiter = 20,
+            newton_maxiter = 20,
             linear_solver = minres,
             forcing_term = 'constant',
             eta0 = 1.0e-1,
@@ -919,7 +919,7 @@ def newton( x0,
     eta_previous = None
     W = np.zeros( (len(x),0 ) )
     linear_relresvecs = []
-    while Fx_norms[-1] > nonlinear_tol and k < maxiter:
+    while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
         # Linear tolerance is given by
         #
         # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
@@ -990,13 +990,13 @@ def newton( x0,
         if return_lanczos or full_reortho:
             # limit to 0.5 GB memory for Vfull/Pfull (together)
             maxmem = 0.5*(2**30) # bytes
-            maxiter = min(len(x), int(floor(maxmem/(2*16*len(x)))))
+            linear_maxiter = min(len(x), int(floor(maxmem/(2*16*len(x)))))
 
         # Solve the linear system.
         out = linear_solver(jacobian,
                             rhs,
                             x0new,
-                            maxiter = maxiter,
+                            maxiter = linear_maxiter,
                             Mr = P,
                             M = Minv,
                             Minv = M,
@@ -1036,7 +1036,7 @@ def newton( x0,
         Fx = model_evaluator.compute_f( x )
         Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
 
-    if k == maxiter:
+    if k == newton_maxiter:
         error_code = 1
 
     return x, error_code, Fx_norms, linear_relresvecs
