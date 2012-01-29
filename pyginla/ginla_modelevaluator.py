@@ -67,7 +67,7 @@ class GinlaModelEvaluator:
 
         with
 
-            A = K - I * ( 1-T - 2*|psi|^2 ),
+            A = - K + I * ( 1-T - 2*|psi|^2 ),
             B = - diag( psi^2 ).
         '''
         # ----------------------------------------------------------------------
@@ -86,14 +86,30 @@ class GinlaModelEvaluator:
                                dtype = self.dtype
                              )
     # ==========================================================================
+    def get_jacobian_blocks(self, psi0):
+        '''Returns A and B of the Jacobian operator
+            A = - K + I * ( 1-T - 2*|psi|^2 ),
+            B = - diag( psi^2 ).
+        '''
+        assert( psi0 is not None )
+        num_unknowns = len(psi0)
+        if self._keo is None:
+            self._assemble_keo()
+        absPsi0Squared = psi0.real**2 + psi0.imag**2
+        A = -self._keo + spdiags(1.0 - self._T - 2.0*absPsi0Squared.T,
+                                 [0], num_unknowns, num_unknowns
+                                 )
+        B = spdiags(-psi0**2, [0], num_unknowns, num_unknowns)
+        return A, B
+    # ==========================================================================
     def get_preconditioner(self, psi0):
         '''Return the preconditioner.
         '''
         if self._keo is None:
             self._assemble_keo()
         absPsi0Squared = psi0.real**2 + psi0.imag**2
-        return self._keo + spdiags(2.0*absPsi0Squared.T, [0],
-                                   len(psi0), len(psi0)
+        return self._keo + spdiags(2.0*absPsi0Squared.T,
+                                   [0], len(psi0), len(psi0)
                                    )
     # ==========================================================================
     def get_preconditioner_inverse(self, psi0):
