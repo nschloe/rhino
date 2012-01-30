@@ -93,20 +93,13 @@ def _canonical(l, N):
     y_range = np.linspace( -0.5*l[1], 0.5*l[1], N[1] )
     z_range = np.linspace( -0.5*l[2], 0.5*l[2], N[2] )
 
-    print 'Create nodes...',
-    start = time.time()
     # Create the vertices.
-    num_nodes = N[0] * N[1] * N[2]
     nodes = []
     for x in x_range:
         for y in y_range:
             for z in z_range:
                 nodes.append(np.array([x, y, z]))
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
 
-    print 'Create elements...',
-    start = time.time()
     # Create the elements (cells).
     # There is 1 way to split a cube into 5 tetrahedra,
     # and 12 ways to split it into 6 tetrahedra.
