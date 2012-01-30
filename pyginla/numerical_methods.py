@@ -526,7 +526,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
+def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -998,8 +998,8 @@ def newton( x0,
             P, x0new = get_projection( W, AW, rhs, initial_guess,
                                        inner_product = model_evaluator.inner_product
                                      )
-            print 'dim of deflation space: %d' % W.shape[1]
-            print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+            #print 'dim of deflation space: %d' % W.shape[1]
+            #print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
         else:
             AW = np.zeros( (len(x),0 ) )
             P = None
@@ -1034,7 +1034,7 @@ def newton( x0,
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
 
         Vfull = out[3]
-        print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
+        #print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
         #print Minner_product(W,Vfull)
 
         if num_deflation_vectors > 0:
@@ -1043,10 +1043,10 @@ def newton( x0,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
             # residuals come first.
-            print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
+            #print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
             W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
-            print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
-            print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
+            #print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+            #print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
         else:
             W = np.zeros( (len(x),0) )
 
