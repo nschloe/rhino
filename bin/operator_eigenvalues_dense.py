@@ -34,11 +34,9 @@ def _main():
     num_unknowns = len(pyginlamesh.nodes)
 
     # initial guess for the eigenvectors
-    small_eigenvals_approx = []
-    num_eigenvalues = 10
-    X = np.ones((num_unknowns, 1))
     psi = np.random.rand(num_unknowns) + 1j * np.random.rand(num_unknowns)
-    #X[:,0] = 1.0
+    psi *= 100.0
+    #psi = 4.0 * 1.0j * np.ones(num_unknowns)
     print num_unknowns
     eigenvals_list = []
     # --------------------------------------------------------------------------
@@ -97,6 +95,8 @@ def _main():
                             )
         end_time = time.clock()
         print 'done. (', end_time - start_time, 's).'
+        X_complex = _build_complex_vector(X)
+        #print X[:,-1].imag
 
         # make sure they are real (as they are supposed to be)
         assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
@@ -148,6 +148,13 @@ def _build_stacked_operator(A, B=None):
     else:
         return np.r_[ np.c_[A.real+B.real, -A.imag+B.imag],
                       np.c_[A.imag+B.imag,  A.real-B.real] ]
+# ==============================================================================
+def _build_complex_vector(x):
+    '''Build the operator
+    '''
+    xreal = x[:,0:2:]
+    ximag = x[:,1:2:]
+    return xreal + 1j * ximag
 # ==============================================================================
 def _parse_input_arguments():
     '''Parse input arguments.
