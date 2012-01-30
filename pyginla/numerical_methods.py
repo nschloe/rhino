@@ -350,11 +350,11 @@ def minres( A,
         # full reortho?
         if full_reortho:
             # double reortho
-            for l in range(0,2):
+            for l in xrange(0,2):
                 # here we can (and should) orthogonalize against ALL THE
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
-                for i in range(0,k+1):
+                for i in xrange(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
@@ -619,7 +619,7 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     #values, vectors = eigh( CC2 )
     #print values
     #print norm( D2 )
-    for i in range(0,ritzmat.shape[0]):
+    for i in xrange(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],i]
         v = U[W.shape[1]:,i]
         mu = lam[i]
@@ -888,9 +888,9 @@ def qr(W, inner_product=_ipstd):
     Q = np.zeros( (m,n), dtype=W.dtype)
     R = np.zeros( (n,n), dtype=W.dtype)
 
-    for i in range(0,n):
+    for i in xrange(0,n):
         Q[:,[i]] = W[:,[i]]
-        for j in range(0,i):
+        for j in xrange(0,i):
             R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])[0,0]
             Q[:,[i]] -= R[j,i] * Q[:,[j]]
         R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])[0,0]
@@ -1193,7 +1193,7 @@ def poor_mans_continuation( x0,
 
     current_step_size = initial_step_size
 
-    for k in range( max_steps ):
+    for k in xrange( max_steps ):
         print "Continuation step %d (parameter=%e)..." % ( k, parameter_value )
 
         # Try to converge to a solution and adapt the step size.
