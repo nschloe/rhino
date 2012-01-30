@@ -355,7 +355,7 @@ def minres( A,
                 # here we can (and should) orthogonalize against ALL THE
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
-                for i in range(0,k+1):
+                for i in xrange(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
@@ -533,7 +533,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
+def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -626,7 +626,7 @@ def get_ritz(W, AW, A, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     #values, vectors = eigh( CC2 )
     #print values
     #print norm( D2 )
-    for i in range(0,ritzmat.shape[0]):
+    for i in xrange(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],i]
         v = U[W.shape[1]:,i]
         mu = lam[i]
@@ -895,9 +895,9 @@ def qr(W, inner_product=_ipstd):
     Q = np.zeros( (m,n), dtype=W.dtype)
     R = np.zeros( (n,n), dtype=W.dtype)
 
-    for i in range(0,n):
+    for i in xrange(0,n):
         Q[:,[i]] = W[:,[i]]
-        for j in range(0,i):
+        for j in xrange(0,i):
             R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])[0,0]
             Q[:,[i]] -= R[j,i] * Q[:,[j]]
         R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])[0,0]
@@ -1005,8 +1005,8 @@ def newton( x0,
             P, x0new = get_projection( W, AW, rhs, initial_guess,
                                        inner_product = model_evaluator.inner_product
                                      )
-            print 'dim of deflation space: %d' % W.shape[1]
-            print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+            #print 'dim of deflation space: %d' % W.shape[1]
+            #print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
         else:
             AW = np.zeros( (len(x),0 ) )
             P = None
@@ -1053,10 +1053,10 @@ def newton( x0,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
             # residuals come first.
-            print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
+            #print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
             W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
-            print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
-            print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
+            #print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+            #print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
         else:
             W = np.zeros( (len(x),0) )
 
@@ -1203,7 +1203,7 @@ def poor_mans_continuation( x0,
 
     current_step_size = initial_step_size
 
-    for k in range( max_steps ):
+    for k in xrange( max_steps ):
         print "Continuation step %d (parameter=%e)..." % ( k, parameter_value )
 
         # Try to converge to a solution and adapt the step size.
