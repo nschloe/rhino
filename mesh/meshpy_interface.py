@@ -5,7 +5,7 @@ import numpy as np
 # ==============================================================================
 MAX_AREA = 0.0
 # ==============================================================================
-def create_mesh( max_area, roundtrip_points, facets = None ):
+def create_mesh( max_area, roundtrip_points, facets = None, holes=None ):
     '''Create a mesh.
     '''
     import meshpy.triangle
@@ -16,11 +16,11 @@ def create_mesh( max_area, roundtrip_points, facets = None ):
     if facets is not None:
         mesh = create_tetrahedron_mesh( roundtrip_points, facets )
     else:
-        mesh = create_triangle_mesh( roundtrip_points )
+        mesh = create_triangle_mesh( roundtrip_points, holes )
 
     return _construct_mymesh( mesh )
 # ==============================================================================
-def create_triangle_mesh( roundtrip_points ):
+def create_triangle_mesh(roundtrip_points, holes):
     '''Create a mesh.
     '''
     import meshpy.triangle
@@ -28,11 +28,13 @@ def create_triangle_mesh( roundtrip_points ):
     # Set the geometry and build the mesh.
     info = meshpy.triangle.MeshInfo()
     info.set_points( roundtrip_points )
+    if holes is not None:
+        info.set_holes(holes)
     info.set_facets( _round_trip_connect(0, len(roundtrip_points)-1) )
 
-    meshpy_mesh = meshpy.triangle.build( info,
-                                         refinement_func = _needs_refinement
-                                       )
+    meshpy_mesh = meshpy.triangle.build(info,
+                                        refinement_func = _needs_refinement
+                                        )
 
     return meshpy_mesh
 # ==============================================================================
@@ -57,7 +59,7 @@ def _round_trip_connect(start, end):
     '''
     result = []
     for i in range(start, end):
-      result.append((i, i+1))
+        result.append((i, i+1))
     result.append((end, start))
     return result
 # ==============================================================================
