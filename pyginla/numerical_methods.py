@@ -238,6 +238,7 @@ def minres( A,
             maxiter = None,
             M = None,
             Minv = None,
+            deflW = None,
             Ml = None,
             Mr = None,
             inner_product = _ipstd,
@@ -347,10 +348,10 @@ def minres( A,
         #z   = z - td2*P[1]
         #tsold = tsold + tsold2
 
-        # full reortho?
-        if full_reortho:
-            # double reortho
-            for l in range(0,2):
+        # double reortho
+        for l in range(0,2):
+            # full reortho?
+            if full_reortho:
                 # here we can (and should) orthogonalize against ALL THE
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
@@ -359,6 +360,12 @@ def minres( A,
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
                     z = z - ip * Pfull[:,[i]]
+            if deflW is not None:
+                for i in range(0,deflW.shape[1]):
+                    ip = inner_product(deflW[:,[i]], z)[0,0]
+                    if abs(ip) > 1.0e-9:
+                        print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip))
+                    z = z - ip * deflW[:,[i]]
         
         # needed for QR-update:
         R = _apply(G1, [0, tsold])
@@ -1022,6 +1029,7 @@ def newton( x0,
                             Mr = P,
                             M = Minv,
                             Minv = M,
+                            deflW = W,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
                             return_lanczos = return_lanczos,
@@ -1034,6 +1042,8 @@ def newton( x0,
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
 
         Vfull = out[3]
+        Pfull = out[4]
+        print '||ip(Vfull,W)|| = %g' % np.linalg.norm(model_evaluator.inner_product(Pfull, W))
         print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
         #print Minner_product(W,Vfull)
 

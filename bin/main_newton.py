@@ -40,7 +40,7 @@ def _main():
                             eta0 = 1.0e-13,
                             use_preconditioner = True,
                             deflate_ix = True,
-                            num_deflation_vectors = 10
+                            num_deflation_vectors = 0
                           )
     print " done."
     print newton_out[2]
