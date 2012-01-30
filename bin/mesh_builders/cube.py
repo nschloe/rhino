@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-'''Creates a simplisitc mesh on a cube.
+'''Creates meshes on a cube.
 '''
 import mesh
 import numpy as np
@@ -16,14 +16,77 @@ def _main():
 
     # circumcirlce radius
     cc_radius = 5.0
-
-    # dimensions of the cube
     lx = 2.0/np.sqrt(3.0) * cc_radius
     l = [lx, lx, lx]
 
-    # Mesh parameters
-    # Number of nodes along the length of the strip
-    N = [ args.nx, args.nx, args.nx ]
+    # create the mesh data structure
+    print 'Create mesh...',
+    start = time.time()
+    if args.nx != 0:
+        mymesh = _canonical(l, [args.nx, args.nx, args.nx])
+    elif args.maxvol != 0.0:
+        mymesh = _meshpy(l, args.maxvol)
+    else:
+        raise RuntimeError('Set either -c or -m.')
+    elapsed = time.time() - start
+    print 'done. (%gs)' % elapsed
+
+    num_nodes = len(mymesh.nodes)
+    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cells))
+
+    print 'Create values...',
+    start = time.time()
+    # create values
+    X = np.empty( num_nodes, dtype = complex )
+    for k, node in enumerate(mymesh.nodes):
+        X[k] = complex( 1.0, 0.0 )
+        #X[k] = complex( sin( x/lx * np.pi ), sin( y/ly * np.pi ) )
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
+    print 'Create thickness values...',
+    start = time.time()
+    # add thickness value
+    thickness = np.empty( num_nodes, dtype = float )
+    alpha = 1.0
+    beta = 2.0
+    for k, node in enumerate(mymesh.nodes):
+        #thickness[k] = alpha + (beta-alpha) * (y/(0.5*ly))**2
+        thickness[k] = 1.0
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
+    print 'Create mvp...',
+    start = time.time()
+    # add magnetic vector potential
+    A = np.empty( (num_nodes,3), dtype = float )
+    # exact corner of a cube
+    phi = np.pi/4.0 # azimuth
+    theta = np.arctan( 1.0/np.sqrt(2.0) ) # altitude
+    height0 = 0.1
+    height1 = 1.1
+    radius = 2.
+    for k, node in enumerate(mymesh.nodes):
+        A[k,:] = magnetic_vector_potentials.mvp_z( node )
+        #A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
+    # write the mesh with data
+    print 'Write to file...',
+    start = time.time()
+    mymesh.write(args.filename, {'psi': X, 'A': A, 'thickness': thickness})
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
+    return
+# ==============================================================================
+def _canonical(l, N):
+    '''Canonical tetrahedrization of the cube.
+    Input:
+    Edge lenghts of the cube
+    Number of nodes along the edges.
+    '''
 
     # Generate suitable ranges for parametrization
     x_range = np.linspace( -0.5*l[0], 0.5*l[0], N[0] )
@@ -132,64 +195,39 @@ def _main():
                                              ]
                                            )
                                 )
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
 
-    print 'Create values...',
+
+    mymesh = mesh.Mesh(nodes, elems)
+
+    return mymesh
+# ==============================================================================
+def _meshpy(l, max_volume):
+    import mesh.meshpy_interface
+
+    # Corner points of the cube
+    points = [ ( -0.5*l[0], -0.5*l[1], -0.5*l[2] ),
+               (  0.5*l[0], -0.5*l[1], -0.5*l[2] ),
+               (  0.5*l[0],  0.5*l[1], -0.5*l[2] ),
+               ( -0.5*l[0],  0.5*l[1], -0.5*l[2] ),
+               ( -0.5*l[0], -0.5*l[1],  0.5*l[2] ),
+               (  0.5*l[0], -0.5*l[1],  0.5*l[2] ),
+               (  0.5*l[0],  0.5*l[1],  0.5*l[2] ),
+               ( -0.5*l[0],  0.5*l[1],  0.5*l[2] ) ]
+    facets = [ [0,1,2,3],
+               [4,5,6,7],
+               [0,4,5,1],
+               [1,5,6,2],
+               [2,6,7,3],
+               [3,7,4,0] ]
+
+    # create the mesh
+    print 'Create mesh...',
     start = time.time()
-    # create values
-    X = np.empty( num_nodes, dtype = complex )
-    for k, node in enumerate(nodes):
-        X[k] = complex( 1.0, 0.0 )
-        #X[k] = complex( sin( x/lx * np.pi ), sin( y/ly * np.pi ) )
+    mymesh = mesh.meshpy_interface.create_mesh( max_volume, points, facets )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
-    print 'Create thickness values...',
-    start = time.time()
-    # add thickness value
-    thickness = np.empty( num_nodes, dtype = float )
-    alpha = 1.0
-    beta = 2.0
-    for k, node in enumerate(nodes):
-        #thickness[k] = alpha + (beta-alpha) * (y/(0.5*ly))**2
-        thickness[k] = 1.0
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
-
-    print 'Create mvp...',
-    start = time.time()
-    # add magnetic vector potential
-    A = np.empty( (num_nodes,3), dtype = float )
-    # exact corner of a cube
-    phi = np.pi/4.0 # azimuth
-    theta = np.arctan( 1.0/np.sqrt(2.0) ) # altitude
-    height0 = 0.1
-    height1 = 1.1
-    radius = 2.
-    for k, node in enumerate(nodes):
-        #A[k,:] = magnetic_vector_potentials.mvp_z( node )
-        A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
-
-    # create the mesh data structure
-    print 'Create mesh data structure...',
-    start = time.time()
-    mymesh = mesh.Mesh( nodes, elems )
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
-
-    # write the mesh with data
-    print 'Write to file...',
-    start = time.time()
-    mymesh.write(args.filename, {'psi': X, 'A': A, 'thickness': thickness})
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
-
-    print '\n%d nodes, %d elements' % (num_nodes, len(mymesh.cells))
-
-    return
+    return mymesh
 # ==============================================================================
 def _parse_options():
     '''Parse input options.'''
@@ -204,14 +242,24 @@ def _parse_options():
                          help    = 'file to be written to'
                        )
 
-    parser.add_argument( '--nx',
+    parser.add_argument( '--canonical', '-c',
                          metavar = 'NX',
                          dest='nx',
                          nargs='?',
                          type=int,
-                         const=10,
-                         default=10,
-                         help    = 'number of discretization points along each axis'
+                         const=0,
+                         default=0,
+                         help='canonical tetrahedrization with NX discretization points along each axis'
+                       )
+
+    parser.add_argument( '--meshpy', '-m',
+                         metavar = 'MAXVOL',
+                         dest='maxvol',
+                         nargs='?',
+                         type=float,
+                         const=0.0,
+                         default=0.0,
+                         help='meshpy tetrahedrization with MAXVOL maximum tetrahedron volume'
                        )
 
     args = parser.parse_args()
