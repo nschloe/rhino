@@ -15,6 +15,8 @@ def _main():
     '''
     filename = _parse_input_arguments()
 
+    #import warnings
+    #warnings.warn('fff')
     # read the mesh
     print "Reading the mesh...",
     pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
@@ -37,10 +39,11 @@ def _main():
                             linear_solver = nm.minres,
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
-                            eta0 = 1.0e-13,
+                            eta0 = 1.0e-12,
                             use_preconditioner = True,
                             deflate_ix = True,
-                            num_deflation_vectors = 0
+                            num_deflation_vectors = 0,
+                            debug=True
                           )
     print " done."
     print newton_out[2]

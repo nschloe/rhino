@@ -159,7 +159,7 @@ def cg( A,
     for k in xrange( maxiter ):
         Ap = _apply(A, p)
 
-        # update current guess and residial
+        # update current guess and residual
         alpha = rho_old / inner_product( p, Ap )
         x += alpha * p
         if explicit_residual:
@@ -245,7 +245,8 @@ def minres( A,
             explicit_residual = False,
             return_lanczos = False,
             full_reortho = False,
-            exact_solution = None
+            exact_solution = None,
+            timer = False
             ):
     # --------------------------------------------------------------------------
     # This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
@@ -261,9 +262,29 @@ def minres( A,
     #
     # Stopping criterion is 
     # ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
-
     info = 0
     N = len(b)
+    if maxiter is None:
+        maxiter = N
+
+    if timer:
+        import time
+        times = {'setup': np.empty(1),
+                 'apply Ml*A*Mr': np.empty(maxiter),
+                 'Lanczos': np.empty(maxiter),
+                 'reortho': np.empty(maxiter),
+                 'apply prec': np.empty(maxiter),
+                 'extend Krylov': np.empty(maxiter),
+                 'construct full basis': np.empty(maxiter),
+                 'implicit QR': np.empty(maxiter),
+                 'update solution': np.empty(maxiter),
+                 'update residual': np.empty(maxiter)
+                 }
+    else:
+        times = None
+
+    if timer:
+        start = time.time()
 
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
     if M:
@@ -272,9 +293,6 @@ def minres( A,
         xtype = upcast( xtype, Ml )
     if Mr:
         xtype = upcast( xtype, Mr )
-
-    if maxiter is None:
-        maxiter = N
 
     # Compute M-norm of M*Ml*b.
     Mlb = _apply(Ml, b)
@@ -290,7 +308,7 @@ def minres( A,
 
     # initial relative residual norm 
     relresvec = [norm_MMlr0 / norm_MMlb]
-    
+
     # compute error?
     if exact_solution is not None:
         errvec = [_norm(exact_solution - x0, inner_product = inner_product)]
@@ -313,12 +331,15 @@ def minres( A,
     G2 = np.eye(2)     # old givens rotation
     G1 = np.eye(2)     # even older givens rotation ;)
     k = 0
-    
+
     def Minner_product(x,y):
         return inner_product(_apply(Minv,x), y)
 
     # resulting approximation is xk = x0 + Mr*yk
     yk = np.zeros((N,1))
+
+    if timer:
+        times['setup'][0] = time.time()-start
 
     # --------------------------------------------------------------------------
     # Lanczos + MINRES iteration
@@ -326,11 +347,17 @@ def minres( A,
     while relresvec[-1] > tol and k < maxiter:
         # ---------------------------------------------------------------------
         # Lanczos
+        if timer:
+            start = time.time()
         tsold = ts
         z  = _apply(Mr, V[:,[1]])
         z  = _apply(A, z)
         z  = _apply(Ml, z)
+        if timer:
+            times['apply Ml*A*Mr'][k] = time.time()-start
 
+        if timer:
+            start = time.time()
         # tsold = inner_product(V[:,[0]], z)[0,0]
         z  = z - tsold * P[:,[0]]
         # Should be real! (diagonal element):
@@ -339,6 +366,8 @@ def minres( A,
             print 'Warning (iter %d): abs(td.imag) = %g > 1e-12' % (k+1, abs(td.imag))
         td = td.real
         z  = z - td * P[:,[1]]
+        if timer:
+            times['Lanczos'][k] = time.time()-start
 
         ## local reorthogonalization
         #tsold2 = inner_product(V[0], z)
@@ -348,6 +377,8 @@ def minres( A,
         #z   = z - td2*P[1]
         #tsold = tsold + tsold2
 
+        if timer:
+            start = time.time()
         # double reortho
         for l in xrange(0,2):
             # full reortho?
@@ -370,12 +401,16 @@ def minres( A,
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip))
                     z = z - ip * deflW[:,[i]]
+        if timer:
+            times['reortho'][k] = time.time()-start
         
         # needed for QR-update:
         R = _apply(G1, [0, tsold])
         R = np.append(R, [0.0, 0.0])
 
         # Apply the preconditioner.
+        if timer:
+            start = time.time()
         v  = _apply(M, z)
         alpha = inner_product(z, v)[0,0]
         if abs(alpha.imag)>1e-12:
@@ -385,16 +420,24 @@ def minres( A,
             print 'Warning (iter %d): alpha = %g < 0' % (k+1, alpha)
             alpha = 0.0
         ts = np.sqrt( alpha )
+        if timer:
+            times['apply prec'][k] = time.time()-start
 
-        if ts>0.0:
+        if timer:
+            start = time.time()
+        if ts > 0.0:
             P  = np.c_[P[:,[1]], z / ts]
             V  = np.c_[V[:,[1]], v / ts]
         else:
             P  = np.c_[P[:,[1]], np.zeros(N)]
             V  = np.c_[V[:,[1]], np.zeros(N)]
+        if timer:
+            times['extend Krylov'][k] = time.time()-start
 
         
         # store new vectors in full basis
+        if timer:
+            start = time.time()
         if return_lanczos or full_reortho:
             if ts>0.0:
                 Vfull[:,[k+1]] = v / ts
@@ -403,9 +446,13 @@ def minres( A,
             Tfull[k+1,k] = ts      # subdiagonal
             if k+1 < maxiter:
                 Tfull[k,k+1] = ts  # superdiagonal
+        if timer:
+            times['construct full basis'][k] = time.time()-start
 
         # ----------------------------------------------------------------------
         # (implicit) update of QR-factorization of Lanczos matrix
+        if timer:
+            start = time.time()
         R[2:4] = [td, ts]
         R[1:3] = _apply(G2, R[1:3])
         G1 = G2
@@ -418,16 +465,24 @@ def minres( A,
         R[2] = gg
         R[3] = 0.0
         y = _apply(G2, y)
+        if timer:
+            times['implicit QR'][k] = time.time()-start
 
         # ----------------------------------------------------------------------
         # update solution
+        if timer:
+            start = time.time()
         z  = (V[:,0:1] - R[0]*W[:,0:1] - R[1]*W[:,1:2]) / R[2]
         W  = np.c_[W[:,1:2], z]
         yk = yk + y[0] * z
         y  = [y[1], 0]
+        if timer:
+            times['update solution'][k] = time.time()-start
 
         # ----------------------------------------------------------------------
         # update residual
+        if timer:
+            start = time.time()
         if exact_solution is not None:
             xk = x0 + _apply(Mr, yk)
             errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
@@ -469,6 +524,9 @@ def minres( A,
                           + 'resup=%g)\n' \
                           ) % (k+1, relresvec[-1], tol, norm_r_upd)
 
+        if timer:
+            times['update residual'][k] = time.time()-start
+
         # limit relative residual to machine precision (an exact 0 is rare but
         # seems to occur with pyamg...).
         relresvec[-1] = max(np.finfo(float).eps, relresvec[-1])
@@ -476,15 +534,22 @@ def minres( A,
     # end MINRES iteration
     # --------------------------------------------------------------------------
 
-    ret = (xk, info, relresvec)
+    ret = { 'xk': xk,
+            'info': info,
+            'relresvec': relresvec
+            }
     if exact_solution is not None:
-        ret = ret + (errvec,)
+        ret['errvec'] = errvec
 
     if return_lanczos:
-        Vfull = Vfull[:,0:k+1]
-        Pfull = Pfull[:,0:k+1]
-        Tfull = Tfull[0:k+1,0:k]
-        ret = ret + (Vfull, Pfull, Tfull)
+        ret['Vfull'] = Vfull[:,0:k+1]
+        ret['Pfull'] = Pfull[:,0:k+1]
+        ret['Tfull'] = Tfull[0:k+1,0:k]
+    if timer:
+        # properly cut down times
+        for key in times.keys():
+            times[key] = times[key][:k]
+        ret['times'] = times
     return ret
 # ==============================================================================
 def _direct_solve(A, rhs):
@@ -1008,14 +1073,14 @@ def newton( x0,
 
         if W.shape[1] > 0:
             AW = jacobian * W
-            P, x0new = get_projection( W, AW, rhs, initial_guess,
-                                       inner_product = model_evaluator.inner_product
-                                     )
+            P, x0new = get_projection(W, AW, rhs, initial_guess,
+                                      inner_product = model_evaluator.inner_product
+                                      )
             if debug:
                 print 'dim of deflation space: %d' % W.shape[1]
                 print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
         else:
-            AW = np.zeros( (len(x),0 ) )
+            AW = np.zeros((len(x), 0))
             P = None
             x0new = initial_guess
         
@@ -1045,18 +1110,18 @@ def newton( x0,
                             )
 
         # make sure the solution is alright
-        if out[1] != 0:
+        if out['info'] != 0:
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
 
         if debug:
-            Vfull = out[3]
-            Pfull = out[4]
-            print '||ip(Vfull,W)|| = %g' % np.linalg.norm(model_evaluator.inner_product(Pfull, W))
-            print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
+            print '||ip(Vfull,W)|| = %g' % \
+                np.linalg.norm(model_evaluator.inner_product(out['Pfull'], W))
+            print '||I-ip(Vfull,Vfull)|| = %g' % \
+                np.linalg.norm(np.eye(out['Vfull'].shape[1]) - Minner_product(out['Vfull'], out['Vfull']))
             #print Minner_product(W,Vfull)
 
         if num_deflation_vectors > 0:
-            ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
+            ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out['Vfull'], out['Tfull'],
                                                        M = Minv, Minv=M,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
@@ -1071,10 +1136,10 @@ def newton( x0,
             W = np.zeros( (len(x),0) )
 
         # save the convergence history
-        linear_relresvecs.append( out[2] )
+        linear_relresvecs.append( out['relresvec'] )
 
         # perform the Newton update
-        x += out[0]
+        x += out['xk']
 
         # do the household
         k += 1
@@ -1173,7 +1238,6 @@ def jacobi_davidson(A,
                          maxiter = num_unknowns,
                          inner_product = inner_product
                          )
-            print out[2]
             assert out[1] == 0, 'MINRES did not converge.'
             t = out[0]
             assert abs(inner_product(t, u)[0,0]) < 1.0e-10, abs(inner_product(t, u))[0,0]

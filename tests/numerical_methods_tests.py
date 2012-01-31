@@ -93,12 +93,12 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-13
-        x, info, relresvec = nm.minres( A, rhs, x0, tol=tol )
+        out = nm.minres( A, rhs, x0, tol=tol )
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - np.dot(A, x)
+        res = rhs - np.dot(A, out['xk'])
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_minres_sparse_hpd(self):
@@ -110,15 +110,15 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec = nm.minres( A, rhs, x0, tol=tol)
+        out = nm.minres( A, rhs, x0, tol=tol)
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A*x
+        res = rhs - A*out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
         # Is last residual in relresvec equal to explicitly computed residual?
-        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), relresvec[-1], delta=tol )
+        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), out['relresvec'][-1], delta=tol )
     # --------------------------------------------------------------------------
     def test_minres_dense_complex(self):
         # Create regular dense problem.
@@ -129,12 +129,12 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-14
-        x, info, relresvec = nm.minres( A, rhs, x0, tol=tol )
+        out = nm.minres( A, rhs, x0, tol=tol )
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - np.dot(A, x)
+        res = rhs - np.dot(A, out['xk'])
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_minres_sparse_indef(self):
@@ -149,15 +149,15 @@ class TestLinearSolvers(unittest.TestCase):
         xexact = np.reshape(xexact, (len(xexact),1))
         # Solve using MINRES.
         tol = 1.0e-10
-        x, info, relresvec, errvec = nm.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, exact_solution=xexact)
+        out = nm.minres( A, rhs, x0, tol=tol, maxiter=4*num_unknowns, explicit_residual=True, exact_solution=xexact)
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A * x
+        res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
         # Check error.
-        self.assertAlmostEqual( np.linalg.norm(xexact - x) - errvec[-1], 0.0, delta=1e-10 )
+        self.assertAlmostEqual( np.linalg.norm(xexact - out['xk']) - out['errvec'][-1], 0.0, delta=1e-10 )
     # --------------------------------------------------------------------------
     def test_minres_lanczos(self):
         # Create sparse symmetric problem.
@@ -175,22 +175,19 @@ class TestLinearSolvers(unittest.TestCase):
                          )
 
         # Make sure the method converged.
-        self.assertEqual(out[1], 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A * out[0]
+        res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0,
                                 delta=tol )
         # Check if Lanczos relation holds
-        Vfull = out[3]
-        Tfull = out[5]
-        res = A*Vfull[:,0:-1] - Vfull*Tfull
+        res = A*out['Vfull'][:,0:-1] - out['Vfull'] * out['Tfull']
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-8 )
         # Check if Lanczos basis is orthonormal w.r.t. inner product
-        max_independent = min([num_unknowns,Vfull.shape[1]])
-        Pfull = out[4]
+        max_independent = min([num_unknowns,out['Vfull'].shape[1]])
         res = np.eye(max_independent) - \
-                np.dot( Pfull[:,0:max_independent].T.conj(),
-                        Vfull[:,0:max_independent] )
+                np.dot( out['Pfull'][:,0:max_independent].T.conj(),
+                        out['Vfull'][:,0:max_independent] )
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-8 )
     # --------------------------------------------------------------------------
     def test_minres_deflation(self):
@@ -215,15 +212,15 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-9
-        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_lanczos=True )
+        out = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_lanczos=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, Vfull, Tfull )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, out['Vfull'], out['Tfull'] )
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A * x
+        res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_get_projection(self):
@@ -267,10 +264,16 @@ class TestLinearSolvers(unittest.TestCase):
         P, x0new = nm.get_projection(W, AW, b, x0)
 
         # Run MINRES (we are only interested in the Lanczos basis and tridiag matrix)
-        x, info, relresvec, Vfull, Pfull, Tfull = nm.minres( A, b, x0new, Mr=P, tol=1e-14, maxiter=11, full_reortho=True, return_lanczos=True )
+        out = nm.minres(A, b, x0new, Mr=P, tol=1e-14, maxiter=11,
+                        full_reortho=True,
+                        return_lanczos=True
+                        )
         
         # Get Ritz pairs
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, Vfull, Tfull )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz(W, AW,
+                                                          out['Vfull'],
+                                                          out['Tfull']
+                                                          )
 
         # Check Ritz pair residuals
         ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))

@@ -112,14 +112,15 @@ def _solve_system( filename, timestep, use_preconditioner ):
 
     #print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     #start_time = time.clock()
-    sol, info, relresvec = nm.minres( ginla_jacobian, rhs,
-                                      phi0,
-                                      tol = 1.0e-12,
-                                      M = keo_prec,
-                                      inner_product = ginla_modelval.inner_product,
-                                      explicit_residual = True,
-                                      #exact_solution = ref_sol
-                                    )
+    out = nm.minres(ginla_jacobian, rhs,
+                    phi0,
+                    tol = 1.0e-12,
+                    M = keo_prec,
+                    inner_product = ginla_modelval.inner_product,
+                    explicit_residual = True,
+                    timer=True
+                    #exact_solution = ref_sol
+                    )
 
     #sol, info, relresvec, errorvec = nm.gmres_wrap( ginla_jacobian, rhs,
                                           #x0 = phi0,
@@ -139,7 +140,13 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #pp.semilogy( relresvec )
     #pp.semilogy( errorvec )
     #pp.show()
-    print "(%d,%d)" % (2*num_unknowns, len(relresvec)-1)
+    print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
+
+    for key, item in out['times'].items():
+        print '\'%s\' sum, mean, min, std dev: %g, %g, %g, %g' \
+            % (key, item.sum(), item.mean(), item.min(), item.std())
+
+    #print out['times']
     return
 # ==============================================================================
 def _create_preconditioner_list( precs, num_unknowns ):

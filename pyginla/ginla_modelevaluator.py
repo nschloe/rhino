@@ -146,12 +146,12 @@ class GinlaModelEvaluator:
             coarse_solver='pinv'
             )
 
-        #return self._keo_amg_solver.aspreconditioner( cycle='V' )
-        num_unknowns = len(psi0)
-        return LinearOperator((num_unknowns, num_unknowns),
-                              _apply_inverse_prec,
-                              dtype = self.dtype
-                              )
+        return self._prec_amg_solver.aspreconditioner( cycle='V' )
+        #num_unknowns = len(psi0)
+        #return LinearOperator((num_unknowns, num_unknowns),
+                              #_apply_inverse_prec,
+                              #dtype = self.dtype
+                              #)
     # ==========================================================================
     def _get_preconditioner_inverse_directsolve(self, psi0):
         '''Use a direct solver for M^{-1}.
