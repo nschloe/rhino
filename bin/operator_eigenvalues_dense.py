@@ -95,8 +95,15 @@ def _main():
                             )
         end_time = time.clock()
         print 'done. (', end_time - start_time, 's).'
+
         X_complex = _build_complex_vector(X)
-        #print X[:,-1].imag
+        for k in xrange(X_complex.shape[1]):
+            # normalize Xk
+            norm_Xk = np.sqrt(ginla_modelval.inner_product(X_complex[:,k], X_complex[:,k]))
+            X_complex[:,k] /= norm_Xk
+            #print np.sqrt(ginla_modelval.inner_product(X_complex[:,k].imag, X_complex[:,k].imag))
+            #print X_complex[:,k].imag
+            #print 1.0 - ginla_modelval.inner_product(X_complex[:,k]**2, psi**2)
 
         # make sure they are real (as they are supposed to be)
         assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
@@ -152,8 +159,8 @@ def _build_stacked_operator(A, B=None):
 def _build_complex_vector(x):
     '''Build the operator
     '''
-    xreal = x[:,0:2:]
-    ximag = x[:,1:2:]
+    xreal = x[0::2,:]
+    ximag = x[1::2,:]
     return xreal + 1j * ximag
 # ==============================================================================
 def _parse_input_arguments():
