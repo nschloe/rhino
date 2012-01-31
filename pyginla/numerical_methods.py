@@ -924,7 +924,7 @@ def newton( x0,
     error_code = 0
     k = 0
 
-    x = x0
+    x = x0.copy()
     Fx = model_evaluator.compute_f( x )
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
@@ -1038,7 +1038,7 @@ def newton( x0,
             #print Minner_product(W,Vfull)
 
         if num_deflation_vectors > 0:
-            ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
+            ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out[3], out[5],
                                                        M = Minv, Minv=M,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
