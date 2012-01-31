@@ -21,7 +21,7 @@ def _main():
     print "done."
 
     # build the model evaluator
-    mu = 8.0e-2
+    mu = 0.5
     ginla_modelval = gm.GinlaModelEvaluator( pyginlamesh, A, mu )
 
     # initial guess

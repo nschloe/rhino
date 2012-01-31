@@ -13,11 +13,11 @@ import matplotlib.pyplot as pp
 def _main():
     '''Main function.
     '''
-    filename = _parse_input_arguments()
+    args = _parse_input_arguments()
 
     # read the mesh
     print "Reading the mesh...",
-    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( args.filename )
     print "done."
 
     # build the model evaluator
@@ -30,7 +30,7 @@ def _main():
                     dtype = complex
                   )
 
-    nums_deflation_vectors = range(10)
+    nums_deflation_vectors = range(50)
     last_resvecs = []
     for num_deflation_vectors in nums_deflation_vectors:
         print 'Performing Newton iteration with %d deflation vectors...' % num_deflation_vectors
@@ -51,7 +51,7 @@ def _main():
         last_resvecs.append(newton_out[3][-1])
 
     multiplot_data_series(last_resvecs)
-    pp.title('Residual curves for the last Newton step. Darker=More deflation vectors.')
+    pp.title('Residual curves for the last Newton step for %s. Darker=More deflation vectors.' % args.filename)
     pp.show()
     #matplotlib2tikz.save('w-defl.tex')
 
@@ -81,7 +81,7 @@ def _parse_input_arguments():
 
     args = parser.parse_args()
 
-    return args.filename
+    return args
 # ==============================================================================
 if __name__ == "__main__":
     _main()
