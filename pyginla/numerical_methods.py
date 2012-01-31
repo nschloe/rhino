@@ -614,18 +614,6 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
                 np.c_[D2.T.conj(), np.zeros((nVfull,nW)), np.eye(nVfull)]
               ]
 
-    #AWVfull = _apply(A, np.c_[W, Vfull[:,0:-1]])
-    #MAWVfull = _apply(M, AWVfull)
-    #CC2 = inner_product( AWVfull, MAWVfull )
-    #from scipy.linalg import norm
-    #print CC.shape
-    #print CC2.shape
-    #print norm( CC - CC2 )
-    #print norm( CC - CC.transpose().conj() )
-    #from scipy.linalg import eigh
-    #values, vectors = eigh( CC2 )
-    #print values
-    #print norm( D2 )
     for i in xrange(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],i]
         v = U[W.shape[1]:,i]
@@ -925,7 +913,8 @@ def newton( x0,
             gamma = 0.9, # only used by forcing_term='type 2'
             use_preconditioner = False,
             deflate_ix = False,
-            num_deflation_vectors = 0
+            num_deflation_vectors = 0,
+            debug = False
           ):
     '''Newton's method with different forcing terms.
     '''
@@ -963,8 +952,7 @@ def newton( x0,
             eta = max( eta, gamma * eta_previous**alpha, eta_min )
             eta = min( eta, eta_max )
         else:
-            print 'Unknown forcing term \'%s\'. Abort.'
-            return
+            raise ValueError('Unknown forcing term \'%s\'. Abort.')
         eta_previous = eta
 
         # Setup linear problem.
@@ -1005,8 +993,9 @@ def newton( x0,
             P, x0new = get_projection( W, AW, rhs, initial_guess,
                                        inner_product = model_evaluator.inner_product
                                      )
-            #print 'dim of deflation space: %d' % W.shape[1]
-            #print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+            if debug:
+                print 'dim of deflation space: %d' % W.shape[1]
+                print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
         else:
             AW = np.zeros( (len(x),0 ) )
             P = None
@@ -1038,14 +1027,15 @@ def newton( x0,
                             )
 
         # make sure the solution is alright
-        if out[1]!=0:
+        if out[1] != 0:
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
 
-        Vfull = out[3]
-        Pfull = out[4]
-        print '||ip(Vfull,W)|| = %g' % np.linalg.norm(model_evaluator.inner_product(Pfull, W))
-        print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
-        #print Minner_product(W,Vfull)
+        if debug:
+            Vfull = out[3]
+            Pfull = out[4]
+            print '||ip(Vfull,W)|| = %g' % np.linalg.norm(model_evaluator.inner_product(Pfull, W))
+            print '||I-ip(Vfull,Vfull)|| = %g' % np.linalg.norm(np.eye(Vfull.shape[1]) - Minner_product(Vfull, Vfull))
+            #print Minner_product(W,Vfull)
 
         if num_deflation_vectors > 0:
             ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, jacobian, out[3], out[5],
@@ -1053,15 +1043,14 @@ def newton( x0,
                                                        inner_product = model_evaluator.inner_product)
             # Ritz vectors are ordered such that the ones with the smallest
             # residuals come first.
-            #print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
+            if debug:
+                print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
             W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
-            #print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
-            #print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
+            if debug:
+                print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+                print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
         else:
             W = np.zeros( (len(x),0) )
-
-
-        # print norm_ritz_res
 
         # save the convergence history
         linear_relresvecs.append( out[2] )
