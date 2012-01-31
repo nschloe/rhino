@@ -58,9 +58,9 @@ def _norm_squared( x, Mx = None, inner_product = _ipstd ):
     rho = rho.real
 
     if rho < 0.0:
-        raise ValueError( '<x,Mx> = %g. M not positive definite?' % norm2 )
+        raise ValueError( '<x,Mx> = %g. M not positive definite?' % rho )
 
-    return rho.real
+    return rho
 # ==============================================================================
 def _norm( x, Mx = None, inner_product = _ipstd ):
     '''Compute the norm w.r.t. to a given scalar product.'''

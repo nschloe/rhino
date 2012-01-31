@@ -135,23 +135,23 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         prec = self.get_preconditioner(psi0)
         self._prec_amg_solver = \
-            pyamg.smoothed_aggregation_solver( prec,
-            strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
-            smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
-            Bimprove=None,
-            aggregate='standard',
-            presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-            postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-            max_levels=25,
-            coarse_solver='pinv'
-            )
+            pyamg.smoothed_aggregation_solver( prec )
+            #strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
+            #smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
+            #Bimprove=None,
+            #aggregate='standard',
+            #presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+            #postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+            #max_levels=25,
+            #coarse_solver='pinv'
+            #)
 
-        return self._prec_amg_solver.aspreconditioner( cycle='V' )
-        #num_unknowns = len(psi0)
-        #return LinearOperator((num_unknowns, num_unknowns),
-                              #_apply_inverse_prec,
-                              #dtype = self.dtype
-                              #)
+        #return self._prec_amg_solver.aspreconditioner( cycle='V' )
+        num_unknowns = len(psi0)
+        return LinearOperator((num_unknowns, num_unknowns),
+                              _apply_inverse_prec,
+                              dtype = self.dtype
+                              )
     # ==========================================================================
     def _get_preconditioner_inverse_directsolve(self, psi0):
         '''Use a direct solver for M^{-1}.

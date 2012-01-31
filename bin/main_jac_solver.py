@@ -74,11 +74,11 @@ def _solve_system( filename, timestep, use_preconditioner ):
     if use_preconditioner:
         #print 'Getting preconditioner...',
         #start_time = time.clock()
-        keo_prec = ginla_modelval.get_preconditioner_inverse( current_psi )
+        prec = ginla_modelval.get_preconditioner_inverse( current_psi )
         #end_time = time.clock()
         #print 'done. (%gs)' % (end_time - start_time)
     else:
-        keo_prec = None
+        prec = None
 
     # --------------------------------------------------------------------------
     # create right hand side and initial guess
@@ -99,7 +99,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
                                           #x0 = phi0,
                                           #tol = 1.0e-14,
-                                          #M = keo_prec,
+                                          #M = prec,
                                           #inner_product = ginla_modelval.inner_product,
                                           #explicit_residual = True
                                         #)
@@ -114,10 +114,10 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #start_time = time.clock()
     out = nm.minres(ginla_jacobian, rhs,
                     phi0,
-                    tol = 1.0e-12,
-                    M = keo_prec,
+                    tol = 1.0e-10,
+                    M = prec,
                     inner_product = ginla_modelval.inner_product,
-                    explicit_residual = True,
+                    #explicit_residual = True,
                     timer=True
                     #exact_solution = ref_sol
                     )
@@ -145,7 +145,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
     # pretty-print timings
     print ' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14)
     for key, item in out['times'].items():
-        print '\'%s\': %12g, %12g, %12g, %12g' \
+        print '\'%s\': %12g  %12g  %12g  %12g' \
             % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
     #print out['times']
