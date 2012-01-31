@@ -349,19 +349,23 @@ def minres( A,
         #tsold = tsold + tsold2
 
         # double reortho
-        for l in range(0,2):
+        for l in xrange(0,2):
             # full reortho?
+            # cost: (k+1)*(IP + AXPY)
             if full_reortho:
                 # here we can (and should) orthogonalize against ALL THE
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
+                # 
                 for i in xrange(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
                     z = z - ip * Pfull[:,[i]]
+            # ortho against additional (deflation) vectors?
+            # cost: ndeflW*(IP + AXPY)
             if deflW is not None:
-                for i in range(0,deflW.shape[1]):
+                for i in xrange(0,deflW.shape[1]):
                     ip = inner_product(deflW[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip))
@@ -514,13 +518,21 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
             does not break down (in exact arithmetics).
         AW: AW=A*W. This is returned in order to reduce the total number of
             matrix-vector multiplications with A.
+    
+    For nW = W.shape[1] = AW.shape[1] the computational cost is
+    cost(get_projection): 2*cost(Pfun) + (nW^2)*IP
+    cost(Pfun): nW*IP + (2/3)*nW^3 + nW*AXPY
     """
     # --------------------------------------------------------------------------
     def Pfun(x):
         '''Computes x - W * E\<AW,x>.'''
         return x - np.dot(W, _direct_solve(E, inner_product(AW, x)))
     # --------------------------------------------------------------------------
+    
+    # cost: (nW^2)*IP
     E = inner_product(W, AW)
+
+    # cost: nW*IP + (2/3)*nW^3
     EWb = _direct_solve(E, inner_product(W, b))
 
     # Define projection operator.
@@ -529,6 +541,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
     P = scipy.sparse.linalg.LinearOperator( [N,N], Pfun, matmat=Pfun,
                                             dtype=dtype)
     # Get updated x0.
+    # cost: nW*AXPY + cost(Pfun)
     x0new = P*x0 +  np.dot(W, EWb)
 
     return P, x0new
@@ -596,8 +609,13 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     # Compute residual norms.
     norm_ritz_res = np.zeros(lam.shape[0])
     if nW>0:
-        Einv = np.linalg.inv(E) # ~
+        Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
+
+        # cost: (nW^2)*AXPY
         AWE = np.dot(AW, Einv)
+        
+        # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
+        # cost: nW*APPLM
         MAWE = _apply(M, AWE)
     else:
         N = W.shape[0]
@@ -605,7 +623,7 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
         AWE = np.zeros( (N,0) )
         MAWE = np.zeros( (N,0) )
 
-    # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
+    # cost: (nW^2)*IP
     D = inner_product(AWE, MAWE)
     D1 = np.eye(nW)
     D2 = np.dot(Einv, B1)
