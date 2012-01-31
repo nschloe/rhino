@@ -142,9 +142,11 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #pp.show()
     print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
 
+    # pretty-print timings
+    print ' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14)
     for key, item in out['times'].items():
-        print '\'%s\' sum, mean, min, std dev: %g, %g, %g, %g' \
-            % (key, item.sum(), item.mean(), item.min(), item.std())
+        print '\'%s\': %12g, %12g, %12g, %12g' \
+            % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
     #print out['times']
     return
