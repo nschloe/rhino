@@ -79,53 +79,14 @@ def _apply( A, x ):
     else:
         raise ValueError( 'Unknown operator type "%s".' % type(A) )
 # ==============================================================================
-def cg_wrap( linear_operator,
-             rhs,
-             x0,
-             tol = 1.0e-5,
-             maxiter = 1000,
-             M = None,
-             explicit_residual = False,
-             exact_solution = None,
-             inner_product = _ipstd
-           ):
-    '''Wrapper around the CG method to get a vector with the relative residuals
-    as return argument.
-    '''
-    # --------------------------------------------------------------------------
-    def _callback( x, relative_residual ):
-        relresvec.append( relative_residual )
-        if exact_solution is not None:
-            error = exact_solution - x
-            errorvec.append( _norm(error, inner_product=inner_product) )
-    # --------------------------------------------------------------------------
-
-    relresvec = []
-    errorvec = []
-
-    sol, info = cg( linear_operator,
-                    rhs,
-                    x0,
-                    tol = tol,
-                    maxiter = maxiter,
-                    M = M,
-                    callback = _callback,
-                    explicit_residual = explicit_residual,
-                    inner_product = inner_product
-                  )
-
-    return sol, info, relresvec, errorvec
-# ==============================================================================
-def cg( A,
-        rhs,
-        x0,
-        tol = 1.0e-5,
-        maxiter = None,
-        M = None,
-        callback = None,
-        explicit_residual = False,
-        inner_product = _ipstd
-      ):
+def cg(A, rhs, x0,
+       tol = 1.0e-5,
+       maxiter = None,
+       M = None,
+       explicit_residual = False,
+       inner_product = _ipstd,
+       exact_solution = None
+       ):
     '''Conjugate gradient method with different inner product.
     '''
     xtype = upcast( A.dtype, rhs.dtype, x0.dtype )
@@ -147,21 +108,34 @@ def cg( A,
     if maxiter is None:
         maxiter = len(rhs)
 
-    info = maxiter
+    out = {}
+    out['info'] = maxiter
 
-    # Store rho0 = ||rhs||_M.
+    # Store rho0 = ||rhs||_M^2.
     Mrhs = _apply(M, rhs)
     rho0 = _norm_squared( rhs, Mrhs, inner_product = inner_product )
 
-    if callback is not None:
-        callback( x, np.sqrt(rho_old / rho0) )
+    out['relresvec'] = np.empty(maxiter+1)
+    out['relresvec'][0] = 1.0
 
-    for k in xrange( maxiter ):
+    if exact_solution is not None:
+        out['errorvec'] = np.empty(maxiter+1)
+        out['errorvec'][0] = _norm_squared(x-exact_solution,
+                                           inner_product = inner_product
+                                           )
+
+    for k in xrange(maxiter):
         Ap = _apply(A, p)
 
         # update current guess and residual
         alpha = rho_old / inner_product( p, Ap )
         x += alpha * p
+
+        if exact_solution is not None:
+            out['errorvec'][k+1] = _norm_squared(x-exact_solution,
+                                                 inner_product = inner_product
+                                                 )
+
         if explicit_residual:
             r = rhs - _apply(A, x)
         else:
@@ -170,84 +144,48 @@ def cg( A,
         Mr = _apply(M, r)
         rho_new = _norm_squared( r, Mr, inner_product = inner_product )
 
-        relative_rho = np.sqrt(rho_new / rho0)
-        if relative_rho < tol:
-            # Compute exact residual
-            r = rhs - _apply(A, x)
-            Mr = _apply(M, r)
-            rho_new = _norm_squared( r, Mr, inner_product = inner_product )
-            relative_rho = np.sqrt(rho_new / rho0)
-            if relative_rho < tol:
-                info = 0
-                if callback is not None:
-                    callback( x, relative_rho )
-                return x, info
-
-        if callback is not None:
-            callback( x, relative_rho )
+        out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
+        if out['relresvec'][k+1] < tol:
+            if explicit_residual:
+                out['info'] = 0
+                break
+            else:
+                # Compute exact residual
+                r = rhs - _apply(A, x)
+                Mr = _apply(M, r)
+                rho_new = _norm_squared( r, Mr, inner_product = inner_product )
+                out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
+                if out['relresvec'][k+1] < tol:
+                    out['info'] = 0
+                    break
 
         # update the search direction
         p = Mr + rho_new/rho_old * p
 
         rho_old = rho_new
 
-    return x, info
+    out['x'] = x
+    out['relresvec'] = out['relresvec'][:k+2]
+    if exact_solution is not None:
+        out['errorvec'] = out['errorvec'][:k+2]
+
+    return out
 # ==============================================================================
-def minres_wrap( linear_operator,
-                 b,
-                 x0,
-                 tol = 1.0e-5,
-                 maxiter = None,
-                 M = None,
-                 inner_product = _ipstd,
-                 explicit_residual = False,
-                 exact_solution = None
-               ):
-    '''
-    Wrapper around the MINRES method to get a vector with the relative residuals
-    as return argument.
-    '''
-    # --------------------------------------------------------------------------
-    def _callback( norm_rel_residual, x ):
-        relresvec.append( norm_rel_residual )
-        if exact_solution is not None:
-            error = exact_solution - x
-            errorvec.append( _norm(error, inner_product=inner_product) )
-    # --------------------------------------------------------------------------
-
-    relresvec = []
-    errorvec = []
-
-    sol, info = minres( linear_operator,
-                        b,
-                        x0,
-                        tol = tol,
-                        maxiter = maxiter,
-                        M = M,
-                        inner_product = inner_product,
-                        callback = _callback,
-                        explicit_residual = explicit_residual
-                      )
-
-    return sol, info, relresvec, errorvec
-# ==============================================================================
-def minres( A,
-            b,
-            x0,
-            tol = 1e-5,
-            maxiter = None,
-            M = None,
-            Minv = None,
-            deflW = None,
-            Ml = None,
-            Mr = None,
-            inner_product = _ipstd,
-            explicit_residual = False,
-            return_lanczos = False,
-            full_reortho = False,
-            exact_solution = None,
-            timer = False
-            ):
+def minres(A, b, x0,
+           tol = 1e-5,
+           maxiter = None,
+           M = None,
+           Minv = None,
+           deflW = None,
+           Ml = None,
+           Mr = None,
+           inner_product = _ipstd,
+           explicit_residual = False,
+           return_lanczos = False,
+           full_reortho = False,
+           exact_solution = None,
+           timer = False
+           ):
     # --------------------------------------------------------------------------
     # This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
     # where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the 
@@ -729,46 +667,6 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     norm_ritz_res  = norm_ritz_res[sorti]
 
     return ritz_vals, ritz_vecs, norm_ritz_res
-
-# ==============================================================================
-def gmres_wrap( linear_operator,
-                b,
-                x0,
-                tol = 1.0e-5,
-                maxiter = None,
-                Mleft = None,
-                Mright = None,
-                inner_product = _ipstd,
-                explicit_residual = False,
-                exact_solution = None
-              ):
-    '''Wrapper around the GMRES method to get a vector with the relative
-    residuals as return argument.
-    '''
-    # --------------------------------------------------------------------------
-    def _callback( norm_rel_residual, x ):
-        relresvec.append( norm_rel_residual )
-        if exact_solution is not None:
-            error = exact_solution - x
-            errorvec.append( _norm(error, inner_product=inner_product) )
-    # --------------------------------------------------------------------------
-
-    relresvec = []
-    errorvec = []
-
-    sol, info = gmres( linear_operator,
-                       b,
-                       x0,
-                       tol = tol,
-                       maxiter = maxiter,
-                       Mleft = Mleft,
-                       Mright = Mright,
-                       inner_product = inner_product,
-                       callback = _callback,
-                       explicit_residual = explicit_residual
-                     )
-
-    return sol, info, relresvec, errorvec
 # ==============================================================================
 def gmres( A,
            b,
@@ -778,28 +676,26 @@ def gmres( A,
            Mleft = None,
            Mright = None,
            inner_product = _ipstd,
-           callback = None,
-           explicit_residual = False
+           explicit_residual = False,
+           exact_solution = None
          ):
     '''Preconditioned GMRES, pretty standard.
 
     memory consumption is about maxiter+1 vectors for the Arnoldi basis.
     Solves   Ml*A*Mr*y = Ml*b,  x=Mr*y. '''
     # --------------------------------------------------------------------------
-    def _compute_explicit_xk():
+    def _compute_explicit_xk(H, V, y):
         '''Compute approximation xk to the solution.'''
-        yy = np.linalg.solve(H[:k+1, :k+1], y[:k+1])
-        u  = _apply(Mright, np.dot(V[:, :k+1], yy))
+        yy = np.linalg.solve(H, y)
+        u  = _apply(Mright, np.dot(V, yy))
         xk = x0 + u
         return xk
     # --------------------------------------------------------------------------
     def _compute_explicit_residual( xk ):
         '''Compute residual explicitly.'''
-        if xk is None:
-            xk = _compute_explicit_xk()
         rk  = b - _apply(A, xk)
         rk  = _apply(Mleft, rk)
-        return rk, xk
+        return rk
     # --------------------------------------------------------------------------
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
     if Mleft:
@@ -811,7 +707,8 @@ def gmres( A,
     if not maxiter:
         maxiter = N
 
-    info = 0
+    out = {}
+    out['info'] = 0
 
     # get memory for working variables
     V = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
@@ -832,22 +729,24 @@ def gmres( A,
         r    = MleftB
         norm_r = norm_MleftB
 
+    out['relresvec'] = np.empty(maxiter+1)
+
     V[:, [0]] = r / norm_r
-    norm_rel_residual  = norm_r / norm_MleftB
+    out['relresvec'][0] = norm_r / norm_MleftB
     # Right hand side of projected system:
     y = np.zeros( (maxiter+1,1), dtype=xtype )
     y[0] = norm_r
     # Givens rotations:
     G = []
-    xk = x0
+
+    if exact_solution is not None:
+        out['errorvec'] = np.empty(maxiter+1)
+        out['errorvec'][0] = _norm(x0-exact_solution,
+                                   inner_product=inner_product
+                                   )
+
     k = 0
-
-    if callback is not None:
-        callback(norm_rel_residual, xk)
-
-    while norm_rel_residual > tol and k < maxiter:
-        xk = None
-        rk = None
+    while out['relresvec'][k] > tol and k < maxiter:
         # Apply operator Ml*A*Mr
         V[:, k+1] = _apply(Mleft, _apply(A, _apply(Mright, V[:, k])))
 
@@ -869,40 +768,39 @@ def gmres( A,
 
         # Update residual norm.
         if explicit_residual:
-            if rk is None:
-                rk, xk = _compute_explicit_residual( xk )
+            xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
+            rk = _compute_explicit_residual( xk )
             norm_r = _norm(rk, inner_product=inner_product)
-            norm_rel_residual = norm_r / norm_MleftB
+            out['relresvec'][k+1] = norm_r / norm_MleftB
         else:
-            norm_rel_residual = abs(y[k+1]) / norm_MleftB
+            out['relresvec'][k+1] = abs(y[k+1]) / norm_MleftB
 
         # convergence of updated residual or maxiter reached?
-        if norm_rel_residual < tol or k+1 == maxiter:
-            norm_ur = norm_rel_residual
-            if rk is None:
-                rk, xk = _compute_explicit_residual( xk )
-            norm_r = _norm(rk, inner_product=inner_product)
-            norm_rel_residual = norm_r / norm_MleftB
+        if out['relresvec'][k+1] < tol or k+1 == maxiter:
+            norm_ur = out['relresvec'][k+1]
+
+            if not explicit_residual:
+                xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
+                rk = _compute_explicit_residual( xk )
+                norm_r = _norm(rk, inner_product=inner_product)
+                out['relresvec'][k+1] = norm_r / norm_MleftB
 
             # No convergence of expl. residual?
-            if norm_rel_residual >= tol:
+            if out['relresvec'][k+1] >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
                     print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' \
-                        % (norm_rel_residual, tol, k, norm_ur)
-                    info = 1
+                        % (out['relresvec'][k+1], tol, k, norm_ur)
+                    out['info'] = 1
                 else:
                     print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' \
-                        % (norm_rel_residual, tol, norm_ur, k)
-
-        if callback is not None:
-            if xk is None:
-                xk = _compute_explicit_xk()
-            callback(norm_rel_residual, xk)
+                        % (out['relresvec'][k+1], tol, norm_ur, k)
 
         k += 1
 
-    return xk, info
+    out['relresvec'] = out['relresvec'][:k+1]
+    out['x'] = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
+    return out
 # ==============================================================================
 def _givens(a, b):
     '''Givens rotation

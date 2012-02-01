@@ -59,12 +59,12 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using CG.
         tol = 1.0e-13
-        x, info = nm.cg( A, rhs, x0, tol=tol )
+        out = nm.cg( A, rhs, x0, tol=tol )
 
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - np.dot(A, x)
+        res = rhs - np.dot(A, out['x'])
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_cg_sparse(self):
@@ -76,12 +76,12 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using CG.
         tol = 1.0e-11
-        x, info, relresvec, _ = nm.cg_wrap( A, rhs, x0, tol=tol)
+        out = nm.cg(A, rhs, x0, tol=tol)
 
         # Make sure the method converged.
         #self.assertEqual(info, 0)
         # Check the residual.
-        res = rhs - A * x
+        res = rhs - A * out['x']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_minres_dense(self):
@@ -321,13 +321,13 @@ class TestLinearSolvers(unittest.TestCase):
         A = scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
         rhs = np.random.rand( num_unknowns,1 )
         x0 = np.zeros( (num_unknowns,1) )
-        # Solve using CG.
+        # Solve using GMRES.
         tol = 1.0e-11
-        x, info = nm.gmres( A, rhs, x0, tol=tol )
+        out = nm.gmres( A, rhs, x0, tol=tol )
         # Make sure the method converged.
-        self.assertEqual(info, 0)
+        self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A * x
+        res = rhs - A * out['x']
         self.assertAlmostEqual( np.linalg.norm(res) / np.linalg.norm(rhs),
                                 0.0,
                                 delta=tol )
