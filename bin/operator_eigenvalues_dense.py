@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ==============================================================================
-from scipy.linalg import norm, eigh
+from scipy.linalg import norm, eig, eigh
 from scipy.sparse import spdiags
 import time
 import matplotlib.pyplot as pp
@@ -23,7 +23,7 @@ def _main():
                                                 )
 
     # build the model evaluator
-    mu = 0.0
+    mu = 0.0 # dummy -- reset later
     ginla_modelval = \
         pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
 
@@ -34,55 +34,44 @@ def _main():
     num_unknowns = len(pyginlamesh.nodes)
 
     # initial guess for the eigenvectors
-    psi = np.random.rand(num_unknowns) + 1j * np.random.rand(num_unknowns)
-    psi *= 100.0
+    #psi = np.random.rand(num_unknowns) + 1j * np.random.rand(num_unknowns)
+    psi = np.ones(num_unknowns) #+ 1j * np.ones(num_unknowns)
+    psi *= 0.5
     #psi = 4.0 * 1.0j * np.ones(num_unknowns)
     print num_unknowns
     eigenvals_list = []
     # --------------------------------------------------------------------------
     for mu in mus:
         ginla_modelval.set_parameter(mu)
-
-        # get scaling matrix
-        if ginla_modelval.control_volumes is None:
-            ginla_modelval._compute_control_volumes()
-        D = spdiags(ginla_modelval.control_volumes.T, [0],
-                    num_unknowns, num_unknowns
-                    )
         
         if args.operator == 'k':
             # build dense KEO
             ginla_modelval._assemble_keo()
-            K = D * ginla_modelval._keo
-            A = K.todense()
+            K = ginla_modelval._keo
+            A = ginla_modelval._keo.todense()
             B = None
         elif args.operator == 'p':
             # build dense preconditioner
-            P = D * ginla_modelval.get_preconditioner(psi)
+            P = ginla_modelval.get_preconditioner(psi)
             A = P.todense()
             B = None
         elif args.operator == 'j':
             # build dense jacobian
             J1, J2 = ginla_modelval.get_jacobian_blocks(psi)
-            J1 = D * J1
-            J2 = D * J2
             A = _build_stacked_operator(J1.todense(), J2.todense())
             B = None
         elif args.operator == 'kj':
             J1, J2 = ginla_modelval.get_jacobian_blocks(psi)
-            J1 = D * J1
-            J2 = D * J2
             A = _build_stacked_operator(J1.todense(), J2.todense())
 
-            K = D * ginla_modelval._keo
+            ginla_modelval._assemble_keo()
+            K = _ginla_modelval._keo
             B = _build_stacked_operator(K.todense())
         elif args.operator == 'pj':
             J1, J2 = ginla_modelval.get_jacobian_blocks(psi)
-            J1 = D * J1
-            J2 = D * J2
             A = _build_stacked_operator(J1.todense(), J2.todense())
 
-            P = D * ginla_modelval.get_preconditioner(psi)
+            P = ginla_modelval.get_preconditioner(psi)
             B = _build_stacked_operator(P.todense())
         else:
             raise ValueError('Unknown operator \'', args.operator, '\'.')
@@ -90,39 +79,60 @@ def _main():
         print 'Compute eigenvalues for mu =', mu, '..'
         # get smallesteigenvalues
         start_time = time.clock()
-        eigenvals, X = eigh(A, b = B,
-                            lower = True,
+        # use eig as the problem is not symmetric (but it is self-adjoint)
+        eigenvals, U = eig(A, b = B,
+                            #lower = True,
                             )
         end_time = time.clock()
         print 'done. (', end_time - start_time, 's).'
 
-        X_complex = _build_complex_vector(X)
-        for k in xrange(X_complex.shape[1]):
-            # normalize Xk
-            norm_Xk = np.sqrt(ginla_modelval.inner_product(X_complex[:,k], X_complex[:,k]))
-            X_complex[:,k] /= norm_Xk
-            #print np.sqrt(ginla_modelval.inner_product(X_complex[:,k].imag, X_complex[:,k].imag))
-            #print X_complex[:,k].imag
-            #print 1.0 - ginla_modelval.inner_product(X_complex[:,k]**2, psi**2)
+        # sort by ascending eigenvalues
+        assert norm(eigenvals.imag, np.inf) < 1.0e-14
+        eigenvals = eigenvals.real
+        sort_indices = np.argsort(eigenvals.real)
+        eigenvals = eigenvals[sort_indices]
+        U = U[:,sort_indices]
 
-        # make sure they are real (as they are supposed to be)
-        assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
-        eigenvals_list.append( eigenvals.real )
-        #small_eigenval, X = my_lobpcg( ginla_modelval._keo,
-                                       #X,
-                                       #tolerance = 1.0e-5,
-                                       #maxiter = len(pyginlamesh.nodes),
-                                       #verbosity = 1
-                                     #)
-        #print 'Calculated values: ', small_eigenval
-        #alpha = ginla_modelval.keo_smallest_eigenvalue_approximation()
-        #print 'Linear approximation: ', alpha
-        #small_eigenvals_approx.append( alpha )
-        #print
+        # rebuild complex-valued U
+        U_complex = _build_complex_vector(U)
+        # normalize
+        for k in xrange(U_complex.shape[1]):
+            norm_Uk = np.sqrt(ginla_modelval.inner_product(U_complex[:,[k]], U_complex[:,[k]]))
+            U_complex[:,[k]] /= norm_Uk
+
+        # Compare the different expressions for the eigenvalues.
+        for k in xrange(len(eigenvals)):
+            JU_complex = J1 * U_complex[:,[k]] + J2 * U_complex[:,[k]].conj()
+            uJu = ginla_modelval.inner_product(U_complex[:,k], JU_complex)[0]
+
+            PU_complex = P * U_complex[:,[k]]
+            uPu = ginla_modelval.inner_product(U_complex[:,k], PU_complex)[0]
+
+            KU_complex = ginla_modelval._keo * U_complex[:,[k]]
+            uKu = ginla_modelval.inner_product(U_complex[:,k], KU_complex)[0]
+
+            # expression 1
+            lambd = uJu / uPu
+            assert abs(eigenvals[k] - lambd) < 1.0e-10, abs(eigenvals[k] - lambd)
+
+            # expression 2
+            alpha = ginla_modelval.inner_product(U_complex[:,k]**2, psi**2)
+            lambd = uJu / (-uJu + 1.0 - alpha)
+            assert abs(eigenvals[k] - lambd) < 1.0e-10
+
+            # expression 3
+            alpha = ginla_modelval.inner_product(U_complex[:,k]**2, psi**2)
+            beta = ginla_modelval.inner_product(abs(U_complex[:,k])**2, abs(psi)**2)
+            lambd = -1.0 + (1.0-alpha) / (uKu + 2*beta)
+            assert abs(eigenvals[k] - lambd) < 1.0e-10
+
+            # overwrite for plotting
+            eigenvals[k] = 1- alpha
+
         eigenvals_list.append( eigenvals )
     # --------------------------------------------------------------------------
 
-    # plot all the eigenvalues as balls
+    # plot the eigenvalues
     #_plot_eigenvalue_series( mus, eigenvals_list )
     for ev in eigenvals_list:
         pp.plot(ev, '.')
@@ -147,21 +157,39 @@ def _main():
     return
 # ==============================================================================
 def _build_stacked_operator(A, B=None):
-    '''Build the operator
+    '''Build the block operator.
+       [ A.real+B.real, -A.imag+B.imag ]
+       [ A.imag+B.imag,  A.real-B.real ]
     '''
-    if B is None:
-        return np.r_[ np.c_[A.real, -A.imag],
-                      np.c_[A.imag,  A.real] ]
-    else:
-        return np.r_[ np.c_[A.real+B.real, -A.imag+B.imag],
-                      np.c_[A.imag+B.imag,  A.real-B.real] ]
+    out = np.empty((2*A.shape[0], 2*A.shape[1]), dtype=float)
+    out[0::2,0::2] = A.real
+    out[0::2,1::2] = -A.imag
+    out[1::2,0::2] = A.imag
+    out[1::2,1::2] = A.real
+
+    if B is not None:
+        assert A.shape == B.shape
+        out[0::2,0::2] += B.real
+        out[0::2,1::2] += B.imag
+        out[1::2,0::2] += B.imag
+        out[1::2,1::2] -= B.real
+
+    return out
 # ==============================================================================
 def _build_complex_vector(x):
-    '''Build the operator
+    '''Build complex vector.
     '''
     xreal = x[0::2,:]
     ximag = x[1::2,:]
     return xreal + 1j * ximag
+# ==============================================================================
+def _build_real_vector(x):
+    '''Build complex vector.
+    '''
+    xx = np.empty((2*len(x) ,1))
+    xx[0::2,:] = x.real
+    xx[1::2,:] = x.imag
+    return xx
 # ==============================================================================
 def _parse_input_arguments():
     '''Parse input arguments.
