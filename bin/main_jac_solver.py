@@ -40,14 +40,14 @@ def _solve_system( filename, timestep, use_preconditioner ):
 
     # build the model evaluator
     mu = 1.0e-1
-    ginla_modelval = pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
+    ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
 
     # initialize the preconditioners
-    #precs = preconditioners.Preconditioners( ginla_modelval )
+    #precs = preconditioners.Preconditioners( ginla_modeleval )
 
     num_unknowns = len( pyginlamesh.nodes )
 
-    #_plot_l2_condition_numbers( ginla_modelval )
+    #_plot_l2_condition_numbers( ginla_modeleval )
 
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
@@ -66,7 +66,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
     # create the linear operator
     #print 'Getting Jacobian...',
     #start_time = time.clock()
-    ginla_jacobian = ginla_modelval.get_jacobian( current_psi )
+    ginla_jacobian = ginla_modeleval.get_jacobian( current_psi )
     #end_time = time.clock()
     #print 'done. (%gs)' % (end_time - start_time)
 
@@ -74,7 +74,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
     if use_preconditioner:
         #print 'Getting preconditioner...',
         #start_time = time.clock()
-        prec = ginla_modelval.get_preconditioner_inverse( current_psi )
+        prec = ginla_modeleval.get_preconditioner_inverse( current_psi )
         #end_time = time.clock()
         #print 'done. (%gs)' % (end_time - start_time)
     else:
@@ -100,7 +100,7 @@ def _solve_system( filename, timestep, use_preconditioner ):
                                           #x0 = phi0,
                                           #tol = 1.0e-14,
                                           #M = prec,
-                                          #inner_product = ginla_modelval.inner_product,
+                                          #inner_product = ginla_modeleval.inner_product,
                                           #explicit_residual = True
                                         #)
     #end_time = time.clock()
@@ -114,22 +114,14 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #start_time = time.clock()
     out = nm.minres(ginla_jacobian, rhs,
                     phi0,
-                    tol = 1.0e-10,
+                    tol = 1.0e-13,
                     M = prec,
-                    inner_product = ginla_modelval.inner_product,
-                    #explicit_residual = True,
+                    inner_product = ginla_modeleval.inner_product,
+                    explicit_residual = True,
                     timer=True
                     #exact_solution = ref_sol
                     )
 
-    #sol, info, relresvec, errorvec = nm.gmres_wrap( ginla_jacobian, rhs,
-                                          #x0 = phi0,
-                                          #tol = 1.0e-12,
-                                          #Mleft = keo_prec,
-                                          #inner_product = ginla_modelval.inner_product,
-                                          #explicit_residual = True,
-                                          ##exact_solution = ref_sol
-                                        #)
     #end_time = time.clock()
     #print 'done. (%gs)' % (end_time - start_time)
     #if info == 0:
@@ -137,10 +129,11 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #else:
         #print "no convergence.",
     #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
-    #pp.semilogy( relresvec )
-    #pp.semilogy( errorvec )
-    #pp.show()
     print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
+
+    # compute actual residual
+    res = rhs - ginla_jacobian * out['xk']
+    print '||b-Ax|| = %g' % np.sqrt(ginla_modeleval.inner_product(res, res))
 
     # pretty-print timings
     print ' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14)
@@ -148,7 +141,10 @@ def _solve_system( filename, timestep, use_preconditioner ):
         print '\'%s\': %12g  %12g  %12g  %12g' \
             % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
-    #print out['times']
+    pp.semilogy( out['relresvec'] )
+    #pp.semilogy( errorvec )
+    pp.show()
+
     return
 # ==============================================================================
 def _create_preconditioner_list( precs, num_unknowns ):
@@ -257,7 +253,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
 
     return test_preconditioners
 # ==============================================================================
-def _run_one_mu( ginla_modelval,
+def _run_one_mu( ginla_modeleval,
                  precs,
                  ginla_jacobian,
                  rhs,
@@ -268,7 +264,7 @@ def _run_one_mu( ginla_modelval,
     # build the kinetic energy operator
     print "Building the KEO..."
     start_time = time.clock()
-    ginla_modelval._assemble_kinetic_energy_operator()
+    ginla_modeleval._assemble_kinetic_energy_operator()
     end_time = time.clock()
     print "done.", end_time - start_time
     # --------------------------------------------------------------------------
@@ -288,7 +284,7 @@ def _run_one_mu( ginla_modelval,
     pp.show()
     return
 # ==============================================================================
-def _run_along_top( ginla_modelval,
+def _run_along_top( ginla_modeleval,
                     precs,
                     ginla_jacobian,
                     rhs,
@@ -314,11 +310,11 @@ def _run_along_top( ginla_modelval,
         print " mu =", mu
         # ----------------------------------------------------------------------
         # build the kinetic energy operator
-        ginla_modelval.set_parameter( mu )
+        ginla_modeleval.set_parameter( mu )
         precs.set_parameter( mu )
         print "Building the KEO..."
         start_time = time.clock()
-        ginla_modelval._assemble_kinetic_energy_operator()
+        ginla_modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print "done. (", end_time - start_time, "s)."
         # ----------------------------------------------------------------------
@@ -357,7 +353,7 @@ def _run_along_top( ginla_modelval,
 
     return
 # ==============================================================================
-def _run_different_meshes( ginla_modelval,
+def _run_different_meshes( ginla_modeleval,
                            precs
                          ):
     mesh_files = [
@@ -384,7 +380,7 @@ def _run_different_meshes( ginla_modelval,
                  ]
 
     mu = 1.0e-0
-    ginla_modelval.set_parameter( mu )
+    ginla_modeleval.set_parameter( mu )
     precs.set_parameter( mu )
 
     # --------------------------------------------------------------------------
@@ -403,7 +399,7 @@ def _run_different_meshes( ginla_modelval,
         except AttributeError:
             raise IOError( "Could not read from file ", mesh_file, "." )
         print " done."
-        ginla_modelval.set_mesh( mesh )
+        ginla_modeleval.set_mesh( mesh )
         precs.set_mesh( mesh )
         # ----------------------------------------------------------------------
         # recreate all the objects necessary to perform the precondictioner run
@@ -413,7 +409,7 @@ def _run_different_meshes( ginla_modelval,
 
         # create the linear operator
         ginla_jacobian = LinearOperator( (num_unknowns, num_unknowns),
-                                         matvec = ginla_modelval.compute_jacobian,
+                                         matvec = ginla_modeleval.compute_jacobian,
                                          dtype = complex
                                        )
 
@@ -426,7 +422,7 @@ def _run_different_meshes( ginla_modelval,
                               )
         for k in range( num_unknowns ):
             current_psi[ k ] = cmath.rect(radius[k], arg[k])
-        ginla_modelval.set_current_psi( current_psi )
+        ginla_modeleval.set_current_psi( current_psi )
 
         # create right hand side and initial guess
         rhs  =  np.random.rand( num_unknowns ) \
@@ -443,7 +439,7 @@ def _run_different_meshes( ginla_modelval,
         # build the kinetic energy operator
         print "Building the KEO..."
         start_time = time.clock()
-        ginla_modelval._assemble_kinetic_energy_operator()
+        ginla_modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print "done. (", end_time - start_time, "s)."
         # ----------------------------------------------------------------------

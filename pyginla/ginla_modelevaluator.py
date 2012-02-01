@@ -128,25 +128,30 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_prec(phi):
             return self._prec_amg_solver.solve(phi,
-                                               tol = 1e-16,
+                                               tol = 1e-15,
                                                accel = 'cg',
                                                cycle = 'V'
                                                )
         # ----------------------------------------------------------------------
         prec = self.get_preconditioner(psi0)
         self._prec_amg_solver = \
-            pyamg.smoothed_aggregation_solver( prec )
-            #strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
-            #smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
-            #Bimprove=None,
-            #aggregate='standard',
-            #presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-            #postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-            #max_levels=25,
-            #coarse_solver='pinv'
-            #)
+            pyamg.smoothed_aggregation_solver( prec,
+            strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
+            smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
+            Bimprove=None,
+            aggregate='standard',
+            presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+            postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+            max_levels=25,
+            coarse_solver='pinv'
+            )
 
+        # Returning just one V-cycle is not enough here.
+        # <cite a paper that said something about the required accuracy here>.
+        # The required accuracy for the preconditioner will depend on the
+        # residual (norm) of the outer iteration.
         #return self._prec_amg_solver.aspreconditioner( cycle='V' )
+
         num_unknowns = len(psi0)
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_inverse_prec,
