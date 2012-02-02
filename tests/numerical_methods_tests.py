@@ -170,7 +170,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Solve using MINRES.
         tol = 1.0e-9
         out = nm.minres( A, rhs, x0, tol=tol, maxiter=num_unknowns,
-                         explicit_residual=False, return_lanczos=True,
+                         explicit_residual=False, return_basis=True,
                          full_reortho=True
                          )
 
@@ -212,7 +212,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Solve using MINRES.
         tol = 1.0e-9
-        out = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_lanczos=True )
+        out = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_basis=True )
 
         # TODO: move to new unit test
         ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, out['Vfull'], out['Tfull'] )
@@ -266,7 +266,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Run MINRES (we are only interested in the Lanczos basis and tridiag matrix)
         out = nm.minres(A, b, x0new, Mr=P, tol=1e-14, maxiter=11,
                         full_reortho=True,
-                        return_lanczos=True
+                        return_basis=True
                         )
         
         # Get Ritz pairs
@@ -319,7 +319,7 @@ class TestLinearSolvers(unittest.TestCase):
                        ])
         diags = np.array([-1,0,1])
         A = scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
-        rhs = np.random.rand( num_unknowns,1 )
+        rhs = np.ones( (num_unknowns,1) )
         x0 = np.zeros( (num_unknowns,1) )
         # Solve using GMRES.
         tol = 1.0e-11

@@ -181,25 +181,27 @@ def minres(A, b, x0,
            Mr = None,
            inner_product = _ipstd,
            explicit_residual = False,
-           return_lanczos = False,
+           return_basis = False,
            full_reortho = False,
            exact_solution = None,
            timer = False
            ):
-    # --------------------------------------------------------------------------
-    # This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
-    # where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the 
-    # inner_product. M has to be self-adjoint and positive-definite w.r.t.
-    # inner_product. 
-    # 
-    # Details:
-    # The Lanczos procedure is used with the operator M*Ml*A*Mr and the 
-    # inner product defined by inner_product(M^{-1}x,y). The initial vector 
-    # for Lanczos is r0 = M*Ml*(b - A*x0) -- note that Mr is not used for
-    # the initial vector!
-    #
-    # Stopping criterion is 
-    # ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
+    '''Preconditioned MINRES
+
+    This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
+    where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the 
+    inner_product. M has to be self-adjoint and positive-definite w.r.t.
+    inner_product. 
+    
+    Details:
+    The Lanczos procedure is used with the operator M*Ml*A*Mr and the 
+    inner product defined by inner_product(M^{-1}x,y). The initial vector 
+    for Lanczos is r0 = M*Ml*(b - A*x0) -- note that Mr is not used for
+    the initial vector!
+    
+    Stopping criterion is 
+    ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
+    '''
     info = 0
     N = len(b)
     if maxiter is None:
@@ -253,7 +255,7 @@ def minres(A, b, x0,
 
     # --------------------------------------------------------------------------
     # Allocate and initialize the 'large' memory blocks.
-    if return_lanczos or full_reortho:
+    if return_basis or full_reortho:
         Vfull = np.c_[MMlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
         Pfull = np.c_[Mlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
         Tfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
@@ -376,7 +378,7 @@ def minres(A, b, x0,
         # store new vectors in full basis
         if timer:
             start = time.time()
-        if return_lanczos or full_reortho:
+        if return_basis or full_reortho:
             if ts>0.0:
                 Vfull[:,[k+1]] = v / ts
                 Pfull[:,[k+1]] = z / ts
@@ -479,7 +481,7 @@ def minres(A, b, x0,
     if exact_solution is not None:
         ret['errvec'] = errvec
 
-    if return_lanczos:
+    if return_basis:
         ret['Vfull'] = Vfull[:,0:k+1]
         ret['Pfull'] = Pfull[:,0:k+1]
         ret['Tfull'] = Tfull[0:k+1,0:k]
@@ -668,40 +670,52 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
 
     return ritz_vals, ritz_vecs, norm_ritz_res
 # ==============================================================================
-def gmres( A,
-           b,
-           x0,
+def gmres( A, b, x0,
            tol = 1e-5,
            maxiter = None,
-           Mleft = None,
-           Mright = None,
+           M = None,
+           Ml = None,
+           Mr = None,
            inner_product = _ipstd,
            explicit_residual = False,
+           return_basis = False,
            exact_solution = None
          ):
-    '''Preconditioned GMRES, pretty standard.
+    '''Preconditioned GMRES
 
-    memory consumption is about maxiter+1 vectors for the Arnoldi basis.
-    Solves   Ml*A*Mr*y = Ml*b,  x=Mr*y. '''
+    Solves   M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y. 
+    M has to be self-adjoint and positive-definite w.r.t. inner_product.
+    
+    Stopping criterion is
+    ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
+    
+    Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
+    If M is used the memory consumption is 2*(maxiter+1).
+    '''
+    # TODO(Andre): errvec for exact_solution!=None
     # --------------------------------------------------------------------------
     def _compute_explicit_xk(H, V, y):
         '''Compute approximation xk to the solution.'''
         yy = np.linalg.solve(H, y)
-        u  = _apply(Mright, np.dot(V, yy))
+        u  = _apply(Mr, np.dot(V, yy))
         xk = x0 + u
         return xk
     # --------------------------------------------------------------------------
     def _compute_explicit_residual( xk ):
         '''Compute residual explicitly.'''
         rk  = b - _apply(A, xk)
-        rk  = _apply(Mleft, rk)
-        return rk
+        rk  = _apply(Ml, rk)
+        Mrk  = _apply(M, rk);
+        norm_Mrk = _norm(rk, Mrk, inner_product=inner_product)
+        return Mrk, norm_Mrk
     # --------------------------------------------------------------------------
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
-    if Mleft:
-        xtype = upcast( xtype, Mleft )
-    if Mright:
-        xtype = upcast( xtype, Mright )
+    if M:
+        xtype = upcast( xtype, Ml )
+    if Ml:
+        xtype = upcast( xtype, Ml )
+    if Mr:
+        xtype = upcast( xtype, Mr )
 
     N = len(b)
     if not maxiter:
@@ -714,28 +728,38 @@ def gmres( A,
     V = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
     H = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
 
+    if M:
+        P = np.zeros([N,maxiter+1], dtype=xtype) # V=M*P 
+    
+    if return_basis:
+        Horig = np.zeros([maxiter+1,maxiter], dtype=xtype)
+
     # initialize working variables
-    MleftB = _apply(Mleft, b)
-    norm_MleftB = _norm(MleftB, inner_product=inner_product)
+    Mlb = _apply(Ml, b)
+    MMlb = _apply(M, Mlb)
+    norm_MMlb = _norm(Mlb, MMlb, inner_product=inner_product)
     # This may only save us the application of Ml to the same vector again if
     # x0 is the zero vector.
     norm_x0 = _norm(x0, inner_product=inner_product)
     if norm_x0 > np.finfo(float).eps:
-        r    = b - _apply(A, x0)
-        r    = _apply(Mleft, r)
-        norm_r = _norm(r, inner_product=inner_product)
+        r0 = b - _apply(A, x0)
+        Mlr0 = _apply(Ml, r0)
+        MMlr0 = _apply(M, Mlr0);
+        norm_MMlr0 = _norm(Mlr0, MMlr0, inner_product=inner_product)
     else:
         x0 = np.zeros( (N,1) )
-        r    = MleftB
-        norm_r = norm_MleftB
+        MMlr0 = MMlb
+        norm_MMlr0 = norm_MMlb
 
     out['relresvec'] = np.empty(maxiter+1)
 
-    V[:, [0]] = r / norm_r
-    out['relresvec'][0] = norm_r / norm_MleftB
+    V[:, [0]] = MMlr0 / norm_MMlr0
+    if M:
+        P[:, [0]] = Mlr0 / norm_MMlr0
+    out['relresvec'][0] = norm_MMlr0 / norm_MMlb
     # Right hand side of projected system:
     y = np.zeros( (maxiter+1,1), dtype=xtype )
-    y[0] = norm_r
+    y[0] = norm_MMlr0
     # Givens rotations:
     G = []
 
@@ -748,15 +772,25 @@ def gmres( A,
     k = 0
     while out['relresvec'][k] > tol and k < maxiter:
         # Apply operator Ml*A*Mr
-        V[:, k+1] = _apply(Mleft, _apply(A, _apply(Mright, V[:, k])))
+        z = _apply(Ml, _apply(A, _apply(Mr, V[:, [k]])))
 
+        print z.shape
         # orthogonalize (MGS)
         for i in xrange(k+1):
-            H[i, k] = inner_product(V[:, i], V[:, k+1])
-            V[:, k+1] = V[:, k+1] - H[i, k] * V[:, i]
-        H[k+1, k] = _norm(V[:, [k+1]], inner_product=inner_product)
-        V[:, k+1] = V[:, k+1] / H[k+1, k]
-
+            if M:
+                H[i, k] = inner_product(P[:, [i]], z)[0,0]
+                z = z - H[i, k] * P[:, i]
+            else:
+                H[i, k] = inner_product(V[:, [i]], z)[0,0]
+                z = z - H[i, k] * V[:, [i]]
+        Mz = _apply(M, z);
+        H[k+1, k] = _norm(z, Mz, inner_product=inner_product)
+        if M:
+            P[:, [k+1]] = z / H[k+1, k]
+        V[:, [k+1]] = Mz / H[k+1, k]
+        if return_basis:
+            Horig[0:k+1, [k]] = H[0:k+1, [k]]
+        
         # Apply previous Givens rotations.
         for i in xrange(k):
             H[i:i+2, k] = _apply(G[i], H[i:i+2, k])
@@ -769,11 +803,10 @@ def gmres( A,
         # Update residual norm.
         if explicit_residual:
             xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
-            rk = _compute_explicit_residual( xk )
-            norm_r = _norm(rk, inner_product=inner_product)
-            out['relresvec'][k+1] = norm_r / norm_MleftB
+            Mrk, norm_Mrk = _compute_explicit_residual( xk )
+            out['relresvec'][k+1] = norm_Mrk / norm_MMlb
         else:
-            out['relresvec'][k+1] = abs(y[k+1]) / norm_MleftB
+            out['relresvec'][k+1] = abs(y[k+1]) / norm_MMlb
 
         # convergence of updated residual or maxiter reached?
         if out['relresvec'][k+1] < tol or k+1 == maxiter:
@@ -781,9 +814,8 @@ def gmres( A,
 
             if not explicit_residual:
                 xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
-                rk = _compute_explicit_residual( xk )
-                norm_r = _norm(rk, inner_product=inner_product)
-                out['relresvec'][k+1] = norm_r / norm_MleftB
+                Mrk, norm_Mrk = _compute_explicit_residual( xk )
+                out['relresvec'][k+1] = norm_Mrk / norm_MMlb
 
             # No convergence of expl. residual?
             if out['relresvec'][k+1] >= tol:
@@ -800,6 +832,11 @@ def gmres( A,
 
     out['relresvec'] = out['relresvec'][:k+1]
     out['x'] = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
+    if return_basis:
+        out['Vfull'] = V[:, :k+1]
+        out['Hfull'] = Horig[:k+1, :k]
+        if M:
+            out['Pfull'] = P[:, :k+1]
     return out
 # ==============================================================================
 def _givens(a, b):
@@ -984,9 +1021,9 @@ def newton( x0,
         
 
         from math import floor
-        return_lanczos = True
+        return_basis = True
         full_reortho = True
-        if return_lanczos or full_reortho:
+        if return_basis or full_reortho:
             # limit to 0.5 GB memory for Vfull/Pfull (together)
             maxmem = 0.5*(2**30) # bytes
             linear_maxiter = min(2*len(x), int(floor(maxmem/(2*16*len(x)))))
@@ -1002,7 +1039,7 @@ def newton( x0,
                             deflW = W,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
-                            return_lanczos = return_lanczos,
+                            return_basis = return_basis,
                             full_reortho = full_reortho,
                             explicit_residual = False
                             )
