@@ -774,7 +774,6 @@ def gmres( A, b, x0,
         # Apply operator Ml*A*Mr
         z = _apply(Ml, _apply(A, _apply(Mr, V[:, [k]])))
 
-        print z.shape
         # orthogonalize (MGS)
         for i in xrange(k+1):
             if M:
