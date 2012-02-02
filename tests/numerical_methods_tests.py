@@ -49,6 +49,14 @@ class TestLinearSolvers(unittest.TestCase):
         # Create block diagonal matrix [A,0; 0,-A] with a HPD block A
         A = self._create_sparse_hpd_matrix( num_unknowns/2 )
         return scipy.sparse.bmat([[A,None],[None,-A]]).tocsr()
+    def _create_sparse_nonherm_matrix(self, num_unknowns, b, c):
+        h = 1.0/(num_unknowns+1)
+        data = np.array([ (-1.0/h**2 - b/(2*h)) * np.ones(num_unknowns),
+                           (2.0/h**2 + c ) * np.ones(num_unknowns),
+                          (-1.0/h**2 + b/(2*h)) * np.ones(num_unknowns)
+                       ])
+        diags = np.array([-1,0,1])
+        return scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
     # --------------------------------------------------------------------------
     def test_cg_dense(self):
         # Create dense problem.
@@ -308,19 +316,11 @@ class TestLinearSolvers(unittest.TestCase):
 #        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
 #    # --------------------------------------------------------------------------
     def test_gmres_sparse(self):
-        # Create sparse symmetric problem.
-        num_unknowns = 100
-        h = 1.0/(num_unknowns+1)
-        b = 5*num_unknowns*(1 + 2j)
-        c = 2
-        data = np.array([ (-1.0/h**2 - b/(2*h)) * np.ones(num_unknowns),
-                           (2.0/h**2 + c ) * np.ones(num_unknowns),
-                          (-1.0/h**2 + b/(2*h)) * np.ones(num_unknowns)
-                       ])
-        diags = np.array([-1,0,1])
-        A = scipy.sparse.spdiags(data, diags, num_unknowns, num_unknowns)
-        rhs = np.ones( (num_unknowns,1) )
-        x0 = np.zeros( (num_unknowns,1) )
+        # Create sparse non-Hermitian problem.
+        N = 100
+        A = self._create_sparse_nonherm_matrix(N, 5*N*(1+2j), 2)
+        rhs = np.ones( (N,1) )
+        x0 = np.zeros( (N,1) )
         # Solve using GMRES.
         tol = 1.0e-11
         out = nm.gmres( A, rhs, x0, tol=tol )
@@ -329,6 +329,26 @@ class TestLinearSolvers(unittest.TestCase):
         # Check the residual.
         res = rhs - A * out['x']
         self.assertAlmostEqual( np.linalg.norm(res) / np.linalg.norm(rhs),
+                                0.0,
+                                delta=tol )
+    # --------------------------------------------------------------------------
+    def test_gmres_sparse_Minner(self):
+        # Create sparse non-Hermitian problem.
+        N = 100
+        A = self._create_sparse_nonherm_matrix(N, 5*N*(1+2j), 2)
+        rhs = np.ones( (N,1) )
+        x0 = np.zeros( (N,1) )
+        M = scipy.sparse.spdiags( range(1,N+1), [0], N, N)
+        # Solve using GMRES.
+        tol = 1.0e-11
+        out = nm.gmres( A, rhs, x0, tol=tol, M=M )
+        # Make sure the method converged.
+        self.assertEqual(out['info'], 0)
+        # Check the residual.
+        res = rhs - A * out['x']
+        Mres = M*res
+        norm_res = np.sqrt(np.dot(res.T.conj(), Mres))
+        self.assertAlmostEqual( norm_res / np.linalg.norm(rhs),
                                 0.0,
                                 delta=tol )
     # --------------------------------------------------------------------------

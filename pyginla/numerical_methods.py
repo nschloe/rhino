@@ -710,11 +710,11 @@ def gmres( A, b, x0,
         return Mrk, norm_Mrk
     # --------------------------------------------------------------------------
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
-    if M:
+    if M is not None:
+        xtype = upcast( xtype, M )
+    if Ml is not None:
         xtype = upcast( xtype, Ml )
-    if Ml:
-        xtype = upcast( xtype, Ml )
-    if Mr:
+    if Mr is not None:
         xtype = upcast( xtype, Mr )
 
     N = len(b)
@@ -728,7 +728,7 @@ def gmres( A, b, x0,
     V = np.zeros([N, maxiter+1], dtype=xtype) # Arnoldi basis
     H = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
 
-    if M:
+    if M is not None:
         P = np.zeros([N,maxiter+1], dtype=xtype) # V=M*P 
     
     if return_basis:
@@ -748,13 +748,14 @@ def gmres( A, b, x0,
         norm_MMlr0 = _norm(Mlr0, MMlr0, inner_product=inner_product)
     else:
         x0 = np.zeros( (N,1) )
+        Mlr0 = Mlb
         MMlr0 = MMlb
         norm_MMlr0 = norm_MMlb
 
     out['relresvec'] = np.empty(maxiter+1)
 
     V[:, [0]] = MMlr0 / norm_MMlr0
-    if M:
+    if M is not None:
         P[:, [0]] = Mlr0 / norm_MMlr0
     out['relresvec'][0] = norm_MMlr0 / norm_MMlb
     # Right hand side of projected system:
@@ -776,15 +777,15 @@ def gmres( A, b, x0,
 
         # orthogonalize (MGS)
         for i in xrange(k+1):
-            if M:
-                H[i, k] = inner_product(P[:, [i]], z)[0,0]
-                z = z - H[i, k] * P[:, i]
+            if M is not None:
+                H[i, k] = inner_product(V[:, [i]], z)[0,0]
+                z = z - H[i, k] * P[:, [i]]
             else:
                 H[i, k] = inner_product(V[:, [i]], z)[0,0]
                 z = z - H[i, k] * V[:, [i]]
         Mz = _apply(M, z);
         H[k+1, k] = _norm(z, Mz, inner_product=inner_product)
-        if M:
+        if M is not None:
             P[:, [k+1]] = z / H[k+1, k]
         V[:, [k+1]] = Mz / H[k+1, k]
         if return_basis:
@@ -820,12 +821,12 @@ def gmres( A, b, x0,
             if out['relresvec'][k+1] >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'No convergence! expl. res = %e >= tol =%e in last it. %d (upd. res = %e)' \
-                        % (out['relresvec'][k+1], tol, k, norm_ur)
+                    print 'Warning (iter %d): No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
+                        % (k+1, out['relresvec'][k+1], tol, norm_ur)
                     out['info'] = 1
                 else:
-                    print 'Expl. res = %e >= tol = %e > upd. res = %e in it. %d' \
-                        % (out['relresvec'][k+1], tol, norm_ur, k)
+                    print 'Warning (iter %d): Expl. res = %e >= tol = %e > upd. res = %e.' \
+                        % (k+1, out['relresvec'][k+1], tol, norm_ur)
 
         k += 1
 
@@ -834,7 +835,7 @@ def gmres( A, b, x0,
     if return_basis:
         out['Vfull'] = V[:, :k+1]
         out['Hfull'] = Horig[:k+1, :k]
-        if M:
+        if M is not None:
             out['Pfull'] = P[:, :k+1]
     return out
 # ==============================================================================
