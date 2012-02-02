@@ -109,7 +109,7 @@ def cg(A, rhs, x0,
         maxiter = len(rhs)
 
     out = {}
-    out['info'] = maxiter
+    out['info'] = 0
 
     # Store rho0 = ||rhs||_M^2.
     Mrhs = _apply(M, rhs)
@@ -124,7 +124,13 @@ def cg(A, rhs, x0,
                                            inner_product = inner_product
                                            )
 
-    for k in xrange(maxiter):
+    k = 0
+    while out['relresvec'][k] > tol and k < maxiter:
+        if k > 0:
+            # update the search direction
+            p = Mr + rho_new/rho_old * p
+            rho_old = rho_new
+
         Ap = _apply(A, p)
 
         # update current guess and residual
@@ -145,29 +151,22 @@ def cg(A, rhs, x0,
         rho_new = _norm_squared( r, Mr, inner_product = inner_product )
 
         out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
-        if out['relresvec'][k+1] < tol:
-            if explicit_residual:
-                out['info'] = 0
-                break
-            else:
-                # Compute exact residual
-                r = rhs - _apply(A, x)
-                Mr = _apply(M, r)
-                rho_new = _norm_squared( r, Mr, inner_product = inner_product )
-                out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
-                if out['relresvec'][k+1] < tol:
-                    out['info'] = 0
-                    break
+        if not explicit_residual and out['relresvec'][k+1] < tol:
+            # Compute exact residual
+            r = rhs - _apply(A, x)
+            Mr = _apply(M, r)
+            rho_new = _norm_squared( r, Mr, inner_product = inner_product )
+            out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
 
-        # update the search direction
-        p = Mr + rho_new/rho_old * p
+        k += 1
 
-        rho_old = rho_new
+    if out['relresvec'][k] > tol:
+        out['info'] = 1
 
     out['x'] = x
-    out['relresvec'] = out['relresvec'][:k+2]
+    out['relresvec'] = out['relresvec'][:k+1]
     if exact_solution is not None:
-        out['errorvec'] = out['errorvec'][:k+2]
+        out['errorvec'] = out['errorvec'][:k+1]
 
     return out
 # ==============================================================================
