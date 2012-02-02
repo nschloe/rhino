@@ -145,6 +145,8 @@ def _solve_system( filename, timestep, use_preconditioner ):
     #pp.semilogy( errorvec )
     pp.show()
 
+    #matplotlib2tikz.save('inf.tex')
+
     return
 # ==============================================================================
 def _create_preconditioner_list( precs, num_unknowns ):

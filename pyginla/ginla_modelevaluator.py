@@ -41,7 +41,6 @@ class GinlaModelEvaluator:
         self.mu = mu
         self._T = 0.0
         self._keo = None
-        self._prec_amg_solver = None
         self.control_volumes = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
@@ -125,16 +124,24 @@ class GinlaModelEvaluator:
         '''Use AMG to invert M approximately.
         '''
         import pyamg
+        import numerical_methods as nm
         # ----------------------------------------------------------------------
         def _apply_inverse_prec(phi):
-            return self._prec_amg_solver.solve(phi,
-                                               tol = 1e-15,
-                                               accel = 'cg',
-                                               cycle = 'V'
-                                               )
+            x0 = np.zeros((num_unknowns, 1), dtype=complex)
+            out = nm.cg(prec, phi, x0,
+                        tol = 1.0e-13,
+                        #maxiter = 10,
+                        M = amg_prec,
+                        #explicit_residual = False,
+                        inner_product = self.inner_product
+                        )
+            assert out['info'] == 0, \
+                'Preconditioner did not converge; last residual: %g' \
+                % out['relresvec'][-1]
+            return out['x']
         # ----------------------------------------------------------------------
         prec = self.get_preconditioner(psi0)
-        self._prec_amg_solver = \
+        prec_amg_solver = \
             pyamg.smoothed_aggregation_solver( prec,
             strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
             smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
@@ -146,11 +153,12 @@ class GinlaModelEvaluator:
             coarse_solver='pinv'
             )
 
-        # Returning just one V-cycle is not enough here.
-        # <cite a paper that said something about the required accuracy here>.
-        # The required accuracy for the preconditioner will depend on the
-        # residual (norm) of the outer iteration.
-        #return self._prec_amg_solver.aspreconditioner( cycle='V' )
+        # Returning just one cycle is not enough here. Possibly related:
+        #   Valeria Simoncini and Daniel B. Szyld,
+        #   Flexible Inner-Outer Krylov Subspace Methods,
+        #   SIAM Journal on Numerical Analysis, vol. 40 (2003), pp. 2219-2239.
+        amg_prec = prec_amg_solver.aspreconditioner( cycle='W' )
+        #return amg_prec
 
         num_unknowns = len(psi0)
         return LinearOperator((num_unknowns, num_unknowns),
