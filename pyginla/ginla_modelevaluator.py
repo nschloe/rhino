@@ -129,7 +129,7 @@ class GinlaModelEvaluator:
         def _apply_inverse_prec(phi):
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             out = nm.cg(prec, phi, x0,
-                        tol = 1.0e-13,
+                        tol = 1.0e-16,
                         #maxiter = 10,
                         M = amg_prec,
                         #explicit_residual = False,

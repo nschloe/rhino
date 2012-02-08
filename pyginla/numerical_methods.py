@@ -174,8 +174,6 @@ def minres(A, b, x0,
            tol = 1e-5,
            maxiter = None,
            M = None,
-           Minv = None,
-           deflW = None,
            Ml = None,
            Mr = None,
            inner_product = _ipstd,
@@ -257,7 +255,7 @@ def minres(A, b, x0,
     if return_basis or full_reortho:
         Vfull = np.c_[MMlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
         Pfull = np.c_[Mlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
-        Tfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
+        Hfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
     # Last and current Lanczos vector:
     V = np.c_[np.zeros(N), MMlr0 / norm_MMlr0]
     # M*v[i] = P[1], M*v[i-1] = P[0]
@@ -270,9 +268,6 @@ def minres(A, b, x0,
     G2 = np.eye(2)     # old givens rotation
     G1 = np.eye(2)     # even older givens rotation ;)
     k = 0
-
-    def Minner_product(x,y):
-        return inner_product(_apply(Minv,x), y)
 
     # resulting approximation is xk = x0 + Mr*yk
     yk = np.zeros((N,1))
@@ -332,14 +327,14 @@ def minres(A, b, x0,
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
                     z = z - ip * Pfull[:,[i]]
-            # ortho against additional (deflation) vectors?
-            # cost: ndeflW*(IP + AXPY)
-            if deflW is not None:
-                for i in xrange(0,deflW.shape[1]):
-                    ip = inner_product(deflW[:,[i]], z)[0,0]
-                    if abs(ip) > 1.0e-9:
-                        print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip))
-                    z = z - ip * deflW[:,[i]]
+            ## ortho against additional (deflation) vectors?
+            ## cost: ndeflW*(IP + AXPY)
+            #if deflW is not None:
+            #    for i in xrange(0,deflW.shape[1]):
+            #        ip = inner_product(deflW[:,[i]], z)[0,0]
+            #        if abs(ip) > 1.0e-9:
+            #            print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip))
+            #        z = z - ip * deflW[:,[i]]
         if timer:
             times['reortho'][k] = time.time()-start
         
@@ -381,10 +376,10 @@ def minres(A, b, x0,
             if ts>0.0:
                 Vfull[:,[k+1]] = v / ts
                 Pfull[:,[k+1]] = z / ts
-            Tfull[k,k] = td        # diagonal
-            Tfull[k+1,k] = ts      # subdiagonal
+            Hfull[k,k] = td        # diagonal
+            Hfull[k+1,k] = ts      # subdiagonal
             if k+1 < maxiter:
-                Tfull[k,k+1] = ts  # superdiagonal
+                Hfull[k,k+1] = ts  # superdiagonal
         if timer:
             times['construct full basis'][k] = time.time()-start
 
@@ -483,7 +478,7 @@ def minres(A, b, x0,
     if return_basis:
         ret['Vfull'] = Vfull[:,0:k+1]
         ret['Pfull'] = Pfull[:,0:k+1]
-        ret['Tfull'] = Tfull[0:k+1,0:k]
+        ret['Hfull'] = Hfull[0:k+1,0:k]
     if timer:
         # properly cut down times
         for key in times.keys():
@@ -550,7 +545,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
+def get_ritz(W, AW, Vfull, Hfull, M=None, Minv=None, inner_product = _ipstd):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -559,18 +554,18 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
         AW: contains the result of A applied to W (passed in order to reduce #
             of matrix-vector multiplications with A).
         Vfull: a Nxn array. Vfull's columns must be orthonormal w.r.t. the
-            M-inner-product. Vfull and Tfull must be created with a (possibly
+            M-inner-product. Vfull and Hfull must be created with a (possibly
             deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
-            and Tfull can be obtained from MINRES applied to a linear system
+            and Hfull can be obtained from MINRES applied to a linear system
             with the operator A, the inner product inner_product, the HPD
             preconditioner M and the right preconditioner Mr set to the
             projection obtained with get_projection(W, AW, ...).
-        Tfull: see Vfull.
+        Hfull: see Vfull.
         M:  The preconditioner used in the Lanczos procedure.
 
         The arguments thus have to fulfill the following equations:
             AW = A*W.
-            M*A*Mr*Vfull[:,0:-1] = Vfull*Tfull,
+            M*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,
                  where Mr=get_projection(W, AW,...,inner_product).
             inner_product( M^{-1} [W,Vfull], [W,Vfull] ) = I_{k+n}.
 
@@ -601,9 +596,9 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
     B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
     B = B1[:, 0:-1]
 
-    # Stack matrices appropriately: [E, B; B', Tfull(1:end-1,:)].
+    # Stack matrices appropriately: [E, B; B', Hfull(1:end-1,:)].
     ritzmat = np.r_[    np.c_[E,B],
-                        np.c_[B.T.conj(), Tfull[0:-1,:].todense()] 
+                        np.c_[B.T.conj(), Hfull[0:-1,:].todense()] 
                    ]
 
     # Compute Ritz values / vectors.
@@ -641,7 +636,7 @@ def get_ritz(W, AW, Vfull, Tfull, M=None, Minv=None, inner_product = _ipstd):
         v = U[W.shape[1]:,i]
         mu = lam[i]
 
-        z = np.r_[mu*w, -mu*w, -np.dot(B.T.conj(), w), Tfull[-1,-1]*v[-1]]
+        z = np.r_[mu*w, -mu*w, -np.dot(B.T.conj(), w), Hfull[-1,-1]*v[-1]]
         z = np.reshape(z, (z.shape[0],1))
         CCz = np.dot(CC, z)
         res_ip = _ipstd(z, CCz)[0,0]
@@ -777,10 +772,10 @@ def gmres( A, b, x0,
         # orthogonalize (MGS)
         for i in xrange(k+1):
             if M is not None:
-                H[i, k] = inner_product(V[:, [i]], z)[0,0]
+                H[i, k] += inner_product(V[:, [i]], z)[0,0]
                 z = z - H[i, k] * P[:, [i]]
             else:
-                H[i, k] = inner_product(V[:, [i]], z)[0,0]
+                H[i, k] += inner_product(V[:, [i]], z)[0,0]
                 z = z - H[i, k] * V[:, [i]]
         Mz = _apply(M, z);
         H[k+1, k] = _norm(z, Mz, inner_product=inner_product)
@@ -830,7 +825,7 @@ def gmres( A, b, x0,
         k += 1
 
     out['relresvec'] = out['relresvec'][:k+1]
-    out['x'] = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
+    out['xk'] = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
     if return_basis:
         out['Vfull'] = V[:, :k+1]
         out['Hfull'] = Horig[:k+1, :k]
@@ -922,6 +917,8 @@ def newton( x0,
             nonlinear_tol = 1.0e-10,
             newton_maxiter = 20,
             linear_solver = minres,
+            linear_maxiter = None,
+            linear_solver_extra_args = {},
             forcing_term = 'constant',
             eta0 = 1.0e-1,
             eta_min = 1.0e-6,
@@ -1018,14 +1015,15 @@ def newton( x0,
             P = None
             x0new = initial_guess
         
+        if num_deflation_vectors > 0:
+            return_basis = True
 
-        from math import floor
-        return_basis = True
-        full_reortho = True
-        if return_basis or full_reortho:
             # limit to 0.5 GB memory for Vfull/Pfull (together)
+            from math import floor
             maxmem = 0.5*(2**30) # bytes
-            linear_maxiter = min(2*len(x), int(floor(maxmem/(2*16*len(x)))))
+            linear_maxiter = min(linear_maxiter, int(floor(maxmem/(2*16*len(x)))))
+        else:
+            return_basis = True
 
         # Solve the linear system.
         out = linear_solver(jacobian,
@@ -1034,38 +1032,39 @@ def newton( x0,
                             maxiter = linear_maxiter,
                             Mr = P,
                             M = Minv,
-                            Minv = M,
-                            deflW = W,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
                             return_basis = return_basis,
-                            full_reortho = full_reortho,
-                            explicit_residual = False
+                            explicit_residual = False,
+                            **linear_solver_extra_args
                             )
 
         # make sure the solution is alright
         if out['info'] != 0:
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
 
-        if debug:
-            print '||ip(Vfull,W)|| = %g' % \
-                np.linalg.norm(model_evaluator.inner_product(out['Pfull'], W))
-            print '||I-ip(Vfull,Vfull)|| = %g' % \
-                np.linalg.norm(np.eye(out['Vfull'].shape[1]) - Minner_product(out['Vfull'], out['Vfull']))
-            #print Minner_product(W,Vfull)
+        if ('Vfull' in out.keys()) and ('Hfull' in out.keys()):
+            if debug:
+                MVfull = out['Pfull'] if ('Pfull' in out.keys()) else out['Vfull']
+                print '||ip(Vfull,W)|| = %g' % \
+                    np.linalg.norm(model_evaluator.inner_product(MVfull, W))
+                print '||I-ip(Vfull,Vfull)|| = %g' % \
+                    np.linalg.norm(np.eye(out['Vfull'].shape[1]) - model_evaluator.inner_product(MVfull, out['Vfull']))
 
-        if num_deflation_vectors > 0:
-            ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out['Vfull'], out['Tfull'],
-                                                       M = Minv, Minv=M,
-                                                       inner_product = model_evaluator.inner_product)
-            # Ritz vectors are ordered such that the ones with the smallest
-            # residuals come first.
-            if debug:
-                print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
-            W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
-            if debug:
-                print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
-                print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
+            if num_deflation_vectors > 0:
+                ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out['Vfull'], out['Hfull'],
+                                                           M = Minv, Minv=M,
+                                                           inner_product = model_evaluator.inner_product)
+                # Ritz vectors are ordered such that the ones with the smallest
+                # residuals come first.
+                if debug:
+                    print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
+                W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
+                if debug:
+                    print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+                    print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
+            else:
+                W = np.zeros( (len(x),0) )
         else:
             W = np.zeros( (len(x),0) )
 

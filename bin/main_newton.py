@@ -36,7 +36,8 @@ def _main():
     # perform newton iteration
     newton_out = nm.newton( psi0,
                             ginla_modelval,
-                            linear_solver = nm.minres,
+                            linear_solver = nm.gmres,
+                            linear_solver_extra_args = { }, 
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
                             eta0 = 1.0e-12,
@@ -47,7 +48,7 @@ def _main():
                           )
     print " done."
     print newton_out[2]
-    assert( newton_out[1] == 0 )
+    #assert( newton_out[1] == 0 )
 
     multiplot_data_series( newton_out[3] )
     pp.show()
