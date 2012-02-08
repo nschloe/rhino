@@ -169,7 +169,10 @@ class Mesh:
             # We're treating simplices so loop over all combinations of
             # local nodes.
             for indices in itertools.combinations(cell.node_indices, 2):
-                # Combinations are emitted in lexicographic sort order.
+                # Combinations are emitted in lexicographic sort order, so
+                # we could probably save more time here using some sort of
+                # bisection sort.
+                # New entries would need to be added in order though.
                 if indices in node_edges.keys():
                     # edge already assigned
                     cell.edge_indices.append(node_edges[indices])
