@@ -410,24 +410,39 @@ class GinlaModelEvaluator:
         def _triangle_circumcenter( x ):
             '''Compute the circumcenter of a triangle.
             '''
-            w = np.cross( x[0]-x[1], x[1]-x[2] )
-            omega = 2.0 * np.dot( w, w )
+            a = x[0] - x[1]
+            b = x[1] - x[2]
+            c = x[2] - x[0]
+            w = np.cross(a, b)
+            omega = 2.0 * np.dot(w, w)
 
             if abs(omega) < 1.0e-10:
                 raise ZeroDivisionError( 'The nodes don''t seem to form '
                                        + 'a proper triangle.' )
 
-            alpha = np.dot( x[1]-x[2], x[1]-x[2] ) \
-                  * np.dot( x[0]-x[1], x[0]-x[2] ) \
-                  / omega
-            beta  = np.dot( x[2]-x[0], x[2]-x[0] ) \
-                  * np.dot( x[1]-x[2], x[1]-x[0] ) \
-                  / omega
-            gamma = np.dot( x[0]-x[1], x[0]-x[1] ) \
-                  * np.dot( x[2]-x[0], x[2]-x[1] ) \
-                  / omega
+            alpha = -np.dot(b, b) * np.dot(a, c) / omega
+            beta  = -np.dot(c, c) * np.dot(b, a) / omega
+            gamma = -np.dot(a, a) * np.dot(c, b) / omega
 
-            return alpha * x[0] + beta * x[1] + gamma * x[2]
+            m = alpha * x[0] + beta * x[1] + gamma * x[2]
+
+            ## Alternative implementation from
+            ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
+            #a = x[1] - x[0]
+            #b = x[2] - x[0]
+            #alpha = np.dot(a, a)
+            #beta = np.dot(b, b)
+            #w = np.cross(a, b)
+            #omega = 2.0 * np.dot(w, w)
+            #m = np.empty(3)
+            #m[0] = x[0][0] + ((alpha * b[1] - beta * a[1]) * w[2]
+                             #-(alpha * b[2] - beta * a[2]) * w[1]) / omega
+            #m[1] = x[0][1] + ((alpha * b[2] - beta * a[2]) * w[0]
+                             #-(alpha * b[0] - beta * a[0]) * w[2]) / omega
+            #m[2] = x[0][2] + ((alpha * b[0] - beta * a[0]) * w[1]
+                             #-(alpha * b[1] - beta * a[1]) * w[0]) / omega
+
+            return m
         # ----------------------------------------------------------------------
         def _tetrahedron_circumcenter( x ):
             '''Computes the center of the circumsphere of a tetrahedron.

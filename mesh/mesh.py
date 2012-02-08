@@ -154,28 +154,32 @@ class Mesh:
         if self.edges is not None:
             return
 
-        # Create cache matrix that stores the node-edge relations.
-        # If the nodes i, j are connected by the edge k, A[i,j] = A[j,i] = k+1.
-        # Adding 1 is necessary to permit for edge index 0.
-        num_nodes = len( self.nodes )
-        from scipy.sparse import lil_matrix
+        self.edges = []
+
         import itertools
-        node_edges = lil_matrix((num_nodes, num_nodes), dtype = int)
+        # The (sorted) dictionary node_edges keeps track of how nodes and edges
+        # are connected.
+        # If  node_edges[(3,4)] == 17  is true, then the nodes (3,4) are
+        # connected  by edge 17.
+        node_edges = {}
 
         # Loop over all elements.
-        self.edges = []
         for cell_index, cell in enumerate( self.cells ):
             cell.edge_indices = []
-            for index0, index1 in itertools.combinations(cell.node_indices, 2):
-                if node_edges[index0, index1] == 0:
-                    new_edge_index = len(self.edges)
-                    self.edges.append([index0, index1])
-                    cell.edge_indices.append( new_edge_index )
-                    node_edges[index0, index1] = new_edge_index + 1
-                    node_edges[index1, index0] = new_edge_index + 1
-                else:
+            # We're treating simplices so loop over all combinations of
+            # local nodes.
+            for indices in itertools.combinations(cell.node_indices, 2):
+                # Combinations are emitted in lexicographic sort order.
+                if indices in node_edges.keys():
                     # edge already assigned
-                    cell.edge_indices.append(node_edges[index0,index1] - 1)
+                    cell.edge_indices.append(node_edges[indices])
+                else:
+                    # add edge
+                    new_edge_index = len(self.edges)
+                    self.edges.append(indices)
+                    node_edges[indices] = new_edge_index
+                    cell.edge_indices.append(new_edge_index)
+
         return
     # --------------------------------------------------------------------------
     def refine( self ):
