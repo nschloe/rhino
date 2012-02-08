@@ -112,13 +112,14 @@ def _solve_system( filename, timestep, use_preconditioner ):
 
     #print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     #start_time = time.clock()
+    timer = False
     out = nm.minres(ginla_jacobian, rhs,
                     phi0,
                     tol = 1.0e-13,
                     M = prec,
                     inner_product = ginla_modeleval.inner_product,
                     explicit_residual = True,
-                    timer=True
+                    timer=timer
                     #exact_solution = ref_sol
                     )
 
@@ -132,18 +133,18 @@ def _solve_system( filename, timestep, use_preconditioner ):
     print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
 
     # compute actual residual
-    res = rhs - ginla_jacobian * out['xk']
-    print '||b-Ax|| = %g' % np.sqrt(ginla_modeleval.inner_product(res, res))
+    #res = rhs - ginla_jacobian * out['xk']
+    #print '||b-Ax|| = %g' % np.sqrt(ginla_modeleval.inner_product(res, res))
 
-    # pretty-print timings
-    print ' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14)
-    for key, item in out['times'].items():
-        print '\'%s\': %12g  %12g  %12g  %12g' \
-            % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
+    if timer:
+        # pretty-print timings
+        print ' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14)
+        for key, item in out['times'].items():
+            print '\'%s\': %12g  %12g  %12g  %12g' \
+                % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
-    pp.semilogy( out['relresvec'] )
-    #pp.semilogy( errorvec )
-    pp.show()
+    #pp.semilogy( out['relresvec'] )
+    #pp.show()
 
     #matplotlib2tikz.save('inf.tex')
 

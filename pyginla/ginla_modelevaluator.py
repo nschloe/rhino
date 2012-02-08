@@ -135,9 +135,9 @@ class GinlaModelEvaluator:
                         #explicit_residual = False,
                         inner_product = self.inner_product
                         )
-            assert out['info'] == 0, \
-                'Preconditioner did not converge; last residual: %g' \
-                % out['relresvec'][-1]
+            if out['info'] != 0:
+                print 'Preconditioner did not converge; last residual: %g' \
+                      % out['relresvec'][-1]
             return out['x']
         # ----------------------------------------------------------------------
         prec = self.get_preconditioner(psi0)
@@ -157,7 +157,7 @@ class GinlaModelEvaluator:
         #   Valeria Simoncini and Daniel B. Szyld,
         #   Flexible Inner-Outer Krylov Subspace Methods,
         #   SIAM Journal on Numerical Analysis, vol. 40 (2003), pp. 2219-2239.
-        amg_prec = prec_amg_solver.aspreconditioner( cycle='W' )
+        amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
         #return amg_prec
 
         num_unknowns = len(psi0)
