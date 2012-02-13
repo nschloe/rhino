@@ -4,7 +4,7 @@
 Solve the linearized Ginzburg--Landau problem.
 '''
 # ==============================================================================
-from scipy.sparse.linalg import LinearOperator, arpack
+from scipy.sparse.linalg import LinearOperator
 import time
 import numpy as np
 import cmath
@@ -17,7 +17,7 @@ import matplotlib2tikz
 
 import mesh.mesh_io
 import pyginla.ginla_modelevaluator
-import pyginla.preconditioners
+#import pyginla.preconditioners
 import pyginla.numerical_methods as nm
 # ==============================================================================
 def _main():
@@ -555,7 +555,7 @@ def _plot_l2_condition_numbers( model_evaluator ):
 
         print 'Smallest..'
         # get smallest and largest eigenvalues
-        small_eigenval = arpack.eigen( model_evaluator._keo,
+        small_eigenval = eigs( model_evaluator._keo,
                                        k = 1,
                                        sigma = None,
                                        which = 'SM',

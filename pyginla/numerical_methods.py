@@ -4,24 +4,25 @@
 Collection of numerical algorithms.
 '''
 # ==============================================================================
-from scipy.sparse.linalg import LinearOperator, arpack
+from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.sputils import upcast
 import numpy as np
 import scipy
 # ==============================================================================
 def l2_condition_number( linear_operator ):
-    small_eigenval = arpack.eigen( linear_operator,
-                                   k = 1,
-                                   sigma = None,
-                                   which = 'SM',
-                                   return_eigenvectors = False
-                                 )
-    large_eigenval = arpack.eigen( linear_operator,
-                                   k = 1,
-                                   sigma = None,
-                                   which = 'LM',
-                                   return_eigenvectors = False
-                                 )
+    from scipy.sparse.linalg import eigs
+    small_eigenval = eigs(linear_operator,
+                          k = 1,
+                          sigma = None,
+                          which = 'SM',
+                          return_eigenvectors = False
+                          )
+    large_eigenval = eigs(linear_operator,
+                          k = 1,
+                          sigma = None,
+                          which = 'LM',
+                          return_eigenvectors = False
+                          )
 
     return large_eigenval[0] / small_eigenval[0]
 # ==============================================================================
