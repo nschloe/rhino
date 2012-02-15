@@ -1042,7 +1042,7 @@ def newton( x0,
 
         # make sure the solution is alright
         if out['info'] != 0:
-            print 'Warning (newton): solution from linear solver has info = %d != 0' % out[1]
+            print 'Warning (newton): solution from linear solver has info = %d != 0' % out['info']
 
         if ('Vfull' in out.keys()) and ('Hfull' in out.keys()):
             if debug:
