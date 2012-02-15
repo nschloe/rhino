@@ -128,9 +128,9 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_prec(phi):
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
-            out = nm.cg(prec, phi, x0,
-                        tol = 1.0e-16,
-                        #maxiter = 10,
+            out = nm.gmres(prec, phi, x0,
+                        tol = 1.0e-13,
+                        maxiter = 100,
                         M = amg_prec,
                         #explicit_residual = False,
                         inner_product = self.inner_product
@@ -138,7 +138,7 @@ class GinlaModelEvaluator:
             if out['info'] != 0:
                 print 'Preconditioner did not converge; last residual: %g' \
                       % out['relresvec'][-1]
-            return out['x']
+            return out['xk']
         # ----------------------------------------------------------------------
         prec = self.get_preconditioner(psi0)
         prec_amg_solver = \

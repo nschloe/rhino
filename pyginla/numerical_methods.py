@@ -918,7 +918,7 @@ def newton( x0,
             nonlinear_tol = 1.0e-10,
             newton_maxiter = 20,
             linear_solver = minres,
-            linear_maxiter = None,
+            linear_solver_maxiter = None,
             linear_solver_extra_args = {},
             forcing_term = 'constant',
             eta0 = 1.0e-1,
@@ -1022,7 +1022,7 @@ def newton( x0,
             # limit to 0.5 GB memory for Vfull/Pfull (together)
             from math import floor
             maxmem = 0.5*(2**30) # bytes
-            linear_maxiter = min(linear_maxiter, int(floor(maxmem/(2*16*len(x)))))
+            linear_solver_maxiter = min(linear_solver_maxiter, int(floor(maxmem/(2*16*len(x)))))
         else:
             return_basis = True
 
@@ -1030,7 +1030,7 @@ def newton( x0,
         out = linear_solver(jacobian,
                             rhs,
                             x0new,
-                            maxiter = linear_maxiter,
+                            maxiter = linear_solver_maxiter,
                             Mr = P,
                             M = Minv,
                             tol = eta,
