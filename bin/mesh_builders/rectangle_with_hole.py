@@ -13,7 +13,7 @@ def _main():
     args = _parse_options()
 
     # dimensions of the rectangle
-    cc_radius = 5.0 # circumcircle radius
+    cc_radius = 15.0 # circumcircle radius
     lx = np.sqrt(2.0) * cc_radius
     l = [lx, lx]
 

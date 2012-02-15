@@ -32,7 +32,7 @@ def _main():
     print 'done. (%gs)' % elapsed
 
     num_nodes = len(mymesh.nodes)
-    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cells))
+    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cellsNodes))
 
     print 'Create values...',
     start = time.time()
@@ -59,7 +59,7 @@ def _main():
     print 'Create mvp...',
     start = time.time()
     # add magnetic vector potential
-    A = np.empty( (num_nodes,3), dtype = float )
+    A = np.empty(num_nodes, dtype = np.dtype((float,3)))
     # exact corner of a cube
     phi = np.pi/4.0 # azimuth
     theta = np.arctan( 1.0/np.sqrt(2.0) ) # altitude
@@ -67,8 +67,8 @@ def _main():
     height1 = 1.1
     radius = 2.
     for k, node in enumerate(mymesh.nodes):
-        A[k,:] = magnetic_vector_potentials.mvp_z( node )
-        #A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
+        A[k] = magnetic_vector_potentials.mvp_z( node )
+        #A[k] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -94,103 +94,84 @@ def _canonical(l, N):
     z_range = np.linspace( -0.5*l[2], 0.5*l[2], N[2] )
 
     # Create the vertices.
-    nodes = []
+    num_nodes = len(x_range) * len(y_range) * len(z_range)
+    nodes = np.empty(num_nodes, dtype=np.dtype((float, 3)))
+    k = 0
     for x in x_range:
         for y in y_range:
             for z in z_range:
-                nodes.append(np.array([x, y, z]))
+                nodes[k] = np.array([x, y, z])
 
     # Create the elements (cells).
     # There is 1 way to split a cube into 5 tetrahedra,
     # and 12 ways to split it into 6 tetrahedra.
     # See <http://private.mcnet.ch/baumann/Splitting%20a%20cube%20in%20tetrahedras2.htm>.
     # Also interesting: <http://en.wikipedia.org/wiki/Marching_tetrahedrons>.
-    num_cubes = (N[0]-1) * (N[1]-1) * (N[2]-1)
-    num_cells = 5 * num_cubes
-    #dt = np.dtype( [ (int, 4), (int) ] )
-    elems = []
+    num_cells = 5 * (N[0]-1) * (N[1]-1) * (N[2]-1)
+    cellNodes = np.empty(num_cells, dtype=np.dtype((int,4)))
+    l = 0
     for i in range(N[0] - 1):
         for j in range(N[1] - 1):
             for k in range(N[2] - 1):
                 # Switch the element styles to make sure the edges match at
                 # the faces of the cubes.
                 if ( i+j+k ) % 2 == 0:
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j   ) + k,
-                                               N[2] * ( N[1]*i     + j+1 ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k+1
-                                             ]
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j+1 ) + k,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k+1
-                                             ]
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j+1 ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k+1,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k+1
-                                             ]
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j+1 ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k+1,
-                                               N[2] * ( N[1]*i     + j+1 ) + k+1,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k+1
-                                             ],
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j   ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k+1,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k+1,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k+1
-                                             ]
-                                           )
-                                )
+                    cellNodes[l] = np.array([N[2] * ( N[1]*i     + j   ) + k,
+                                             N[2] * ( N[1]*i     + j+1 ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*i     + j+1 ) + k,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*i     + j+1 ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k+1,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*i     + j+1 ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k+1,
+                                             N[2] * ( N[1]*i     + j+1 ) + k+1,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*(i+1) + j   ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k+1,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k+1,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k+1])
+                    l += 1
                 else:
                     # Like the previous one, but flipped along the first
                     # coordinate: i+1 -> i, i -> i+1.
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j   ) + k,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k+1
-                                            ]
-                                          )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j+1 ) + k,
-                                               N[2] * ( N[1]*i     + j+1 ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k,
-                                               N[2] * ( N[1]*i     + j+1 ) + k+1
-                                             ]
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j+1 ) + k,
-                                               N[2] * ( N[1]*i     + j   ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k+1,
-                                               N[2] * ( N[1]*i     + j+1 ) + k+1
-                                             ]
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*(i+1) + j+1 ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k+1,
-                                               N[2] * ( N[1]*(i+1) + j+1 ) + k+1,
-                                               N[2] * ( N[1]*i     + j+1 ) + k+1
-                                             ]
-                                           )
-                                )
-                    elems.append( mesh.Cell( [ N[2] * ( N[1]*i     + j   ) + k,
-                                               N[2] * ( N[1]*(i+1) + j   ) + k+1,
-                                               N[2] * ( N[1]*i     + j+1 ) + k+1,
-                                               N[2] * ( N[1]*i     + j   ) + k+1
-                                             ]
-                                           )
-                                )
+                    cellNodes[l] = np.array([N[2] * ( N[1]*(i+1) + j   ) + k,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*(i+1) + j+1 ) + k,
+                                             N[2] * ( N[1]*i     + j+1 ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k,
+                                             N[2] * ( N[1]*i     + j+1 ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*(i+1) + j+1 ) + k,
+                                             N[2] * ( N[1]*i     + j   ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k+1,
+                                             N[2] * ( N[1]*i     + j+1 ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*(i+1) + j+1 ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k+1,
+                                             N[2] * ( N[1]*(i+1) + j+1 ) + k+1,
+                                             N[2] * ( N[1]*i     + j+1 ) + k+1])
+                    l += 1
+                    cellNodes[l] = np.array([N[2] * ( N[1]*i     + j   ) + k,
+                                             N[2] * ( N[1]*(i+1) + j   ) + k+1,
+                                             N[2] * ( N[1]*i     + j+1 ) + k+1,
+                                             N[2] * ( N[1]*i     + j   ) + k+1])
+                    l += 1
 
 
-    mymesh = mesh.Mesh(nodes, elems)
+    mymesh = mesh.Mesh(nodes, cellNodes)
 
     return mymesh
 # ==============================================================================

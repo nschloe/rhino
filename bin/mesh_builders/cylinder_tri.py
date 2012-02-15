@@ -28,11 +28,11 @@ if __name__ == "__main__":
     # of the M\"obius strip as given in
     # <http://en.wikipedia.org/wiki/M%C3%B6bius_strip#Geometry_and_topology>
     numpoints = nl * nw
-    points = np.zeros( [numpoints, 3] )
+    nodes = np.empty(num_nodes, dtype=np.dtype((float, 3)))
     k = 0
     for u in u_range:
         for v in v_range:
-            points[k] = [ cos(u), sin(u), v ]
+            nodes[k] = np.array([ cos(u), sin(u), v ])
             k += 1
 
     # create the elements (cells)
@@ -57,5 +57,5 @@ if __name__ == "__main__":
         k += 2
 
     # write the mesh
-    mesh_io.write_mesh( "cylinder.vtu", points, elems, elem_types )
+    mesh_io.write_mesh( "cylinder.vtu", nodes, elems, elem_types )
 # ------------------------------------------------------------------------------

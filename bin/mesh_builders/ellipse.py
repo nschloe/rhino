@@ -22,13 +22,12 @@ def _main():
     max_area = a_boundary**2 * sqrt(3) / 4
 
     # generate points on the circle
-    Phi = np.linspace( 0, 2*pi, n_phi, endpoint = False )
-    points = []
+    Phi = np.linspace(0, 2*pi, n_phi, endpoint = False)
     for phi in Phi:
-        points.append( ( a * cos(phi), b * sin(phi) ) )
+        points.append((a * cos(phi), b * sin(phi)))
 
     # create the mesh
-    mymesh = meshpy_interface.create_mesh( max_area, points )
+    mymesh = meshpy_interface.create_mesh(max_area, points)
 
     # create values
     X = np.empty( len( mymesh.nodes ), dtype = complex )
@@ -42,11 +41,6 @@ def _main():
     t = (beta-alpha) / b**2
     for k, x in enumerate( mymesh.nodes ):
         thickness[k] = alpha + t * x.coords[1]**2
-
-    # add parameters
-    params = { "mu": 0.0,
-               "scaling": 1.0
-             }
 
     mesh_io.write_mesh( file_name,
                         mymesh,

@@ -13,12 +13,9 @@ def _main():
     args = _parse_options()
 
     # dimensions of the rectangle
-    cc_radius = 5.0 # circumcircle radius
+    cc_radius = 15.0 # circumcircle radius
     lx = np.sqrt(2.0) * cc_radius
     l = [lx, lx]
-
-    # Mesh parameters
-    # Number of nodes along the length of the strip
 
     # create the mesh data structure
     print 'Create mesh...',
@@ -35,7 +32,7 @@ def _main():
     print 'done. (%gs)' % elapsed
 
     num_nodes = len(mymesh.nodes)
-    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cells))
+    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cellsNodes))
 
     # create values
     print 'Create values...',
@@ -50,13 +47,13 @@ def _main():
     # Add magnetic vector potential.
     print 'Create mvp...',
     start = time.time()
-    A = np.empty( (num_nodes,3), dtype = float )
+    A = np.empty(num_nodes, dtype = np.dtype((float,3)))
     height0 = 0.1
     height1 = 1.1
     radius = 2.0
     for k, node in enumerate(mymesh.nodes):
-        A[k,:] = magnetic_vector_potentials.mvp_z( node )
-        #A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
+        A[k] = magnetic_vector_potentials.mvp_z( node )
+        #A[k] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -73,39 +70,56 @@ def _canonical(l, N):
     # Create the vertices.
     x_range = np.linspace( -0.5*l[0], 0.5*l[0], N[0] )
     y_range = np.linspace( -0.5*l[1], 0.5*l[1], N[1] )
-    nodes = []
+    num_nodes = len(x_range) * len(y_range)
+    nodes = np.empty(num_nodes, dtype=np.dtype((float, 3)))
+    k = 0
     for x in x_range:
         for y in y_range:
-            nodes.append( np.array([x, y, 0.0]) )
+            nodes[k] = np.array([x, y, 0.0])
+            k += 1
 
     # create the elements (cells)
-    elems = []
+    num_elems = 2 * (N[0]-1) * (N[1]-1)
+    elems = np.empty(num_elems, dtype=np.dtype((int,3)))
+    k = 0
     for i in xrange(N[0] - 1):
         for j in xrange(N[1] - 1):
-            elems.append(mesh.Cell([i*N[1] + j, (i + 1)*N[1] + j + 1,  i     *N[1] + j + 1]))
-            elems.append(mesh.Cell([i*N[1] + j, (i + 1)*N[1] + j    , (i + 1)*N[1] + j + 1]))
+            elems[k] = np.array([i*N[1] + j, (i + 1)*N[1] + j + 1,  i     *N[1] + j + 1])
+            k += 1
+            elems[k] = np.array([i*N[1] + j, (i + 1)*N[1] + j    , (i + 1)*N[1] + j + 1])
+            k += 1
 
     return mesh.Mesh(nodes, elems)
 # ==============================================================================
 def _zigzag(l, N):
     # Create the vertices.
-    x_range = np.linspace( -0.5*l[0], 0.5*l[0], N[0] )
-    y_range = np.linspace( -0.5*l[1], 0.5*l[1], N[1] )
-    nodes = []
+    x_range = np.linspace(-0.5*l[0], 0.5*l[0], N[0])
+    y_range = np.linspace(-0.5*l[1], 0.5*l[1], N[1])
+
+    num_nodes = len(x_range) * len(y_range)
+    nodes = np.empty(num_nodes, dtype=np.dtype((float, 3)))
+    k = 0
     for x in x_range:
         for y in y_range:
-            nodes.append( np.array([x, y, 0.0]) )
+            nodes[k] = np.array([x, y, 0.0])
+            k += 1
 
     # create the elements (cells)
-    elems = []
+    num_elems = 2 * (N[0]-1) * (N[1]-1)
+    elems = np.empty(num_elems, dtype=np.dtype((int,3)))
+    k = 0
     for i in xrange(N[0] - 1):
         for j in xrange(N[1] - 1):
-            if (i+j)%2==0:
-                elems.append(mesh.Cell([i*N[1] + j, (i + 1)*N[1] + j + 1,  i     *N[1] + j + 1]))
-                elems.append(mesh.Cell([i*N[1] + j, (i + 1)*N[1] + j    , (i + 1)*N[1] + j + 1]))
+            if (i+j)%2 == 0:
+                elems[k] = np.array([i*N[1] + j, (i + 1)*N[1] + j + 1,  i     *N[1] + j + 1])
+                k += 1
+                elems[k] = np.array([i*N[1] + j, (i + 1)*N[1] + j    , (i + 1)*N[1] + j + 1])
+                k += 1
             else:
-                elems.append(mesh.Cell([ i    *N[1] + j, (i+1)*N[1] + j  , i*N[1] + j+1]))
-                elems.append(mesh.Cell([ (i+1)*N[1] + j, (i+1)*N[1] + j+1, i*N[1] + j+1]))
+                elems[k] = np.array([i    *N[1] + j, (i+1)*N[1] + j  , i*N[1] + j+1])
+                k += 1
+                elems[k] = np.array([(i+1)*N[1] + j, (i+1)*N[1] + j+1, i*N[1] + j+1])
+                k += 1
 
     return mesh.Mesh(nodes, elems)
 # ==============================================================================
