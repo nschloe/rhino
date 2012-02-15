@@ -1,27 +1,26 @@
 # -*- coding: utf-8 -*-
 # ==============================================================================
-import os
 import numpy as np
-import vtk
-# ==============================================================================
-class Cell:
-    # --------------------------------------------------------------------------
-    def __init__( self,
-                  node_indices,
-                  edge_indices = None ):
-        self.node_indices = node_indices
-        self.edge_indices = edge_indices
-    # --------------------------------------------------------------------------
 # ==============================================================================
 class Mesh:
     # --------------------------------------------------------------------------
     def __init__( self,
                   nodes,
-                  cells,
-                  edges = None ):
+                  cellsNodes,
+                  cellsEdges = None,
+                  edgesNodes = None ):
+        if not isinstance(nodes,np.ndarray):
+           raise TypeError('For performace reasons, build nodes as np.empty(num_nodes, dtype=np.dtype((float, 3)))')
+        if not isinstance(cellsNodes,np.ndarray):
+           raise TypeError('For performace reasons, build cellsNodes as np.empty(num_nodes, dtype=np.dtype((int, 3)))')
+        if cellsEdges is not None and not isinstance(cellsEdges,np.ndarray):
+           raise TypeError('For performace reasons, build cellsEdges as np.empty(num_nodes, dtype=np.dtype((int, 3)))')
+        if edgesNodes is not None and  not isinstance(edgesNodes,np.ndarray):
+           raise TypeError('For performace reasons, build edgesNodes as np.empty(num_nodes, dtype=np.dtype((int, 2)))')
         self.nodes = nodes
-        self.edges = edges
-        self.cells = cells
+        self.cellsEdges = cellsEdges
+        self.edgesNodes = edgesNodes
+        self.cellsNodes = cellsNodes
         self.vtk_mesh = None
     # --------------------------------------------------------------------------
     def write( self,
@@ -30,9 +29,11 @@ class Mesh:
              ):
         '''Writes data together with the mesh to a file.
         '''
+        import os
+        import vtk
 
         if self.vtk_mesh is None:
-            self.vtk_mesh = self._generate_vtk_mesh( self.nodes, self.cells )
+            self.vtk_mesh = self._generate_vtk_mesh(self.nodes, self.cellsNodes)
 
         # add arrays
         if extra_arrays:
@@ -64,7 +65,8 @@ class Mesh:
 
         return
     # --------------------------------------------------------------------------
-    def _generate_vtk_mesh(self, points, elems, X = None, name = None):
+    def _generate_vtk_mesh(self, points, cellsNodes, X = None, name = None):
+        import vtk
         mesh = vtk.vtkUnstructuredGrid()
 
         # set points
@@ -74,14 +76,15 @@ class Mesh:
         mesh.SetPoints( vtk_points )
 
         # set cells
-        for elem in elems:
+        for cellNodes in cellsNodes:
             pts = vtk.vtkIdList()
-            num_local_nodes = len(elem.node_indices)
-            pts.SetNumberOfIds( num_local_nodes )
+            num_local_nodes = len(cellNodes)
+            pts.SetNumberOfIds(num_local_nodes)
             # get the connectivity for this element
             k = 0
-            for node_index in elem.node_indices:
-                pts.InsertId( k, node_index )
+            # TODO insert the whole thing at once?
+            for node_index in cellNodes:
+                pts.InsertId(k, node_index)
                 k += 1
             if num_local_nodes == 3:
                 element_type = vtk.VTK_TRIANGLE
@@ -89,7 +92,7 @@ class Mesh:
                 element_type = vtk.VTK_TETRA
             else:
                 raise ValueError('Unknown element.')
-            mesh.InsertNextCell( element_type, pts )
+            mesh.InsertNextCell(element_type, pts)
 
         # set values
         if X is not None:
@@ -98,9 +101,10 @@ class Mesh:
         return mesh
     # --------------------------------------------------------------------------
     def _create_vtkdoublearray(self, X, name ):
+        import vtk
 
         scalars0 = vtk.vtkDoubleArray()
-        scalars0.SetName ( name )
+        scalars0.SetName(name)
 
         if isinstance( X, float ):
             scalars0.SetNumberOfComponents( 1 )
@@ -151,132 +155,165 @@ class Mesh:
         return scalars0
     # --------------------------------------------------------------------------
     def create_edges( self ):
-        if self.edges is not None:
+        if self.edgesNodes is not None:
             return
 
-        self.edges = []
+        # Take cell #0 as representative.
+        num_local_nodes = len(self.cellsNodes[0])
+        num_local_edges = num_local_nodes * (num_local_nodes-1) / 2
+        num_cells = len(self.cellsNodes)
+
+        # Get upper bound for number of edges; trim later.
+        max_num_edges = num_local_nodes * num_cells
+        self.edgesNodes = np.empty(max_num_edges, dtype=np.dtype((int,2)))
+
+        self.cellsEdges = np.empty(num_cells, dtype=np.dtype((int,num_local_edges)))
 
         import itertools
         # The (sorted) dictionary node_edges keeps track of how nodes and edges
         # are connected.
         # If  node_edges[(3,4)] == 17  is true, then the nodes (3,4) are
         # connected  by edge 17.
-        node_edges = {}
+        num_nodes = len(self.nodes)
+        node_neighbors = [set() for k in xrange(num_nodes)]
 
+        new_edge_gid = 0
         # Loop over all elements.
-        for cell_index, cell in enumerate( self.cells ):
-            cell.edge_indices = []
+        for cellNodes, cellEdges in zip(self.cellsNodes, self.cellsEdges):
             # We're treating simplices so loop over all combinations of
             # local nodes.
-            for indices in itertools.combinations(cell.node_indices, 2):
+            for k, indices in enumerate(itertools.combinations(cellNodes, 2)):
                 # Combinations are emitted in lexicographic sort order, so
                 # we could probably save more time here using some sort of
                 # bisection sort.
                 # New entries would need to be added in order though.
-                if indices in node_edges.keys():
+                if indices[1] is in node_neighbors[indices[0]]:
                     # edge already assigned
-                    cell.edge_indices.append(node_edges[indices])
+                    cellsEdges[k] = node_edges[indices]
                 else:
                     # add edge
-                    new_edge_index = len(self.edges)
-                    self.edges.append(indices)
-                    node_edges[indices] = new_edge_index
-                    cell.edge_indices.append(new_edge_index)
+                    self.edgesNodes[new_edge_gid] = indices
+                    cellsEdges[k] = new_edge_gid
+                    node_neighbors[indices[0]].add(indices[1])
+                    new_edge_gid += 1
 
+        # trim edgesNodes
+        self.edgesNodes = self.edgesNodes[:new_edge_gid]
         return
     # --------------------------------------------------------------------------
     def refine( self ):
-        '''Canonically refine a mesh by inserting nodes at all edge midpoints and
-        make four triangular elements where there was one.'''
-        if self.edges is None:
+        '''Canonically refine a mesh by inserting nodes at all edge midpoints
+        and make four triangular elements where there was one.'''
+        if self.edgesNodes is None:
             raise RuntimeError("Edges must be defined to do refinement.")
-        new_nodes = self.nodes
-        new_elements = []
-        new_edges = []
-        is_edge_divided = np.zeros(len(self.edges), dtype=bool)
-        edge_midpoint_gids = np.empty(len(self.edges), dtype=int)
+
+        # Record the newly added nodes.
+        num_new_nodes = len(self.edgesNodes)
+        new_nodes = np.empty(num_new_nodes, dtype=np.dtype((float,3)))
+        new_node_gid = len(self.nodes)
+
+        # After the refinement step, all previous edge-node associations will
+        # be obsolete, so record *all* the new edges.
+        num_new_edges = 2 * len(self.edgesNodes) + 3 * len(self.cellsNodes)
+        new_edgesNodes = np.empty(num_new_edges, dtype=np.dtype((int,2)))
+        new_edge_gid = 0
+
+        # After the refinement step, all previous cell-node associations will
+        # be obsolete, so record *all* the new cells.
+        num_new_cells = 4 * len(self.cellsNodes)
+        new_cellsNodes = np.empty(num_new_cells, dtype=np.dtype((int,3)))
+        new_cellsEdges = np.empty(num_new_cells, dtype=np.dtype((int,3)))
+        new_cell_gid = 0
+
+        num_edges = len(self.edgesNodes)
+        is_edge_divided = np.zeros(num_edges, dtype=bool)
+        edge_midpoint_gids = np.empty(num_edges, dtype=int)
         dt = np.dtype((int,2))
-        edge_newedges_gids = np.empty(len(self.edges), dtype=dt)
+        edge_newedges_gids = np.empty(num_edges, dtype=dt)
         # Loop over all elements.
-        for element in self.cells:
-            if element.edge_indices is None:
-                raise RuntimeError("Edges must be defined for each element.")
+        if self.cellsEdges is None or len(self.cellsEdges) != len(self.cellsNodes):
+            raise RuntimeError("Edges must be defined for each cell.")
+        for cellNodes, cellEdges in zip(self.cellsNodes,self.cellsEdges):
             # Divide edges.
-            num_local_edges = len(element.edge_indices)
+            num_local_edges = len(cellEdges)
             local_edge_midpoint_gids = np.empty(num_local_edges, dtype=int)
-            local_edge_newedges_gids = np.empty(num_local_edges, dtype=dt)
+            local_edge_newedges = np.empty(num_local_edges, dtype=dt)
             local_neighbor_midpoints = [ [], [], [] ]
             local_neighbor_newedges = [ [], [], [] ]
-            for k, local_edge_gid in enumerate(element.edge_indices):
-                edgenodes_gids = self.edges[local_edge_gid]
+            for k, local_edge_gid in enumerate(cellEdges):
+                edgenodes_gids = self.edgesNodes[local_edge_gid]
                 if is_edge_divided[local_edge_gid]:
-                    # Just keep records for the element creation.
+                    # Edge is already divided. Just keep records
+                    # for the cell creation.
                     local_edge_midpoint_gids[k] = \
                         edge_midpoint_gids[local_edge_gid]
-                    local_edge_newedges_gids[k] = \
-                        edge_newedges_gids[local_edge_gid]
+                    local_edge_newedges[k] = edge_newedges[local_edge_gid]
                 else:
-                    # Create new node.
-                    new_nodes.append(0.5 *
-                 (self.nodes[edgenodes_gids[0]] + self.nodes[edgenodes_gids[1]])
-                                    )
-                    local_edge_midpoint_gids[k] = len(new_nodes) - 1
-                    edge_midpoint_gids[local_edge_gid] = local_edge_midpoint_gids[k]
+                    # Create new node at the edge midpoint.
+                    print new_nodes[new_node_gid]
+                    new_nodes[new_node_gid] = \
+                        0.5 * (self.nodes[edgenodes_gids[0]] \
+                              +self.nodes[edgenodes_gids[1]])
+                    local_edge_midpoint_gids[k] = new_node_gid
+                    new_node_gid += 1
+                    edge_midpoint_gids[local_edge_gid] = \
+                        local_edge_midpoint_gids[k]
+
                     # Divide edge into two.
-                    new_edges.append([edgenodes_gids[0],
-                                      local_edge_midpoint_gids[k]]
-                                    )
-                    new_edges.append([local_edge_midpoint_gids[k],
-                                      edgenodes_gids[1]]
-                                    )
-                    local_edge_newedges_gids[k] = \
-                        [len(new_edges)-2, len(new_edges)-1]
+                    new_edgesNodes[new_edge_gid] = \
+                        np.array([edgenodes_gids[0], local_edge_midpoint_gids[k]])
+                    new_edge_gid += 1
+                    new_edgesNodes[new_edge_gid] = \
+                        np.array([local_edge_midpoint_gids[k], edgenodes_gids[1]])
+                    new_edge_gid += 1
+
+                    local_edge_newedges[k] = \
+                        np.array([new_edge_gid-2, new_edge_gid-1])
                     edge_newedges_gids[local_edge_gid] = \
-                        local_edge_newedges_gids[k]
+                        local_edge_newedges[k]
                     # Do the household.
                     is_edge_divided[local_edge_gid] = True
                 # Keep a record of the new neighbors of the old nodes.
                 # Get local node IDs.
-                edgenodes_lids = np.empty(2, dtype=int)
-                edgenodes_lids[0] = element.node_indices \
-                     .index( edgenodes_gids[0] )
-                edgenodes_lids[1] = element.node_indices \
-                     .index( edgenodes_gids[1] )
+                edgenodes_lids = [cellNodes.index(edgenodes_gids[0]),
+                                  cellNodes.index(edgenodes_gids[1])]
                 local_neighbor_midpoints[edgenodes_lids[0]] \
                     .append( local_edge_midpoint_gids[k] )
                 local_neighbor_midpoints[edgenodes_lids[1]]\
                     .append( local_edge_midpoint_gids[k] )
                 local_neighbor_newedges[edgenodes_lids[0]] \
-                    .append( local_edge_newedges_gids[k][0] )
+                    .append( local_edge_newedges[k][0] )
                 local_neighbor_newedges[edgenodes_lids[1]] \
-                    .append( local_edge_newedges_gids[k][1] )
+                    .append( local_edge_newedges[k][1] )
 
             new_edge_opposite_of_local_node = np.empty(3, dtype=int)
             # New edges: Connect the three midpoints.
             for k in xrange(3):
-                new_edges.append( local_neighbor_midpoints[k] )
-                new_edge_opposite_of_local_node[k] = len(new_edges) - 1
+                new_edgesNodes[new_edge_gid] = local_neighbor_midpoints[k]
+                new_edge_opposite_of_local_node[k] = new_edge_gid
+                new_edge_gid += 1
 
             # Create new elements.
-            # Center element:
-            new_elements.append( Cell(list(local_edge_midpoint_gids),
-                                     list(new_edge_opposite_of_local_node)
-                                     )
-                               )
+            # Center cell:
+            new_cellsNodes[new_cell_gid] = local_edge_midpoint_gids
+            new_cellsEdges[new_cell_gid] = new_edge_opposite_of_local_node
+            new_cell_gid += 1
             # The three corner elements:
             for k in xrange(3):
-                new_elements.append( Cell( [element.node_indices[k],
-                                           local_neighbor_midpoints[k][0],
-                                           local_neighbor_midpoints[k][1]],
-                                           [ new_edge_opposite_of_local_node[k],
-                                             local_neighbor_newedges[k][0],
-                                             local_neighbor_newedges[k][1] ]
-                                         )
-                                  )
+                new_cellsNodes[new_cell_gid] = \
+                    np.array([cell.node_indices[k],
+                              local_neighbor_midpoints[k][0],
+                              local_neighbor_midpoints[k][1]])
+                new_cellsEdges[new_cell_gid] = \
+                    np.array([new_edge_opposite_of_local_node[k],
+                              local_neighbor_newedges[k][0],
+                              local_neighbor_newedges[k][1]])
+                new_cell_gid += 1
 
-        self.nodes = new_nodes
-        self.cells = new_elements
-        self.edges = new_edges
+        np.append(self.nodes, new_nodes)
+        self.edgesNodes = new_edgesNodes
+        self.cellsNodes = new_cellsNodes
+        self.cellsEdges = new_cellsEdges
         return
     # --------------------------------------------------------------------------
 # ==============================================================================
