@@ -144,22 +144,38 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_prec(phi):
             rhs = self.control_volumes * phi
-            x0 = np.zeros((num_unknowns, 1), dtype=complex)
-            out = nm.cg(prec, rhs, x0,
-                        tol = 1.0e-13,
-                        #maxiter = 100,
-                        M = amg_prec,
-                        #explicit_residual = False
-                        )
-            if out['info'] != 0:
-                print 'Preconditioner did not converge; last residual: %g' \
-                      % out['relresvec'][-1]
-            print len(out['relresvec'])
-            return out['xk']
-            #for k in xrange(1):
-               #rhs = amg_prec * rhs
-            #return rhs
+
+            precon_type = 'one cycle'
+            if precon_type == 'custom cg':
+                x0 = np.zeros((num_unknowns, 1), dtype=complex)
+                out = nm.cg(prec, rhs, x0,
+                            tol = 1.0e-13,
+                            M = amg_prec,
+                            #explicit_residual = False
+                            )
+                if out['info'] != 0:
+                    print 'Preconditioner did not converge; last residual: %g' \
+                          % out['relresvec'][-1]
+                print len(out['relresvec'])
+                return out['xk']
+            elif precon_type == 'pyamg solve':
+                x0 = np.zeros((num_unknowns, 1), dtype=complex)
+                x = np.empty((num_nodes,1), dtype=complex)
+                x[:,0] = prec_amg_solver.solve(rhs,
+                                               x0 = x0,
+                                               maxiter = 1,
+                                               tol = 0.0,
+                                               accel = None
+                                               )
+            elif precon_type == 'one cycle':
+                x = amg_prec * rhs
+            else:
+                raise ValueError('Unknown preconditioner type \'%s\'.' % precon_type)
+
+            return x
         # ----------------------------------------------------------------------
+        if self._keo is None:
+            self._assemble_keo()
         if self.control_volumes is None:
             self._compute_control_volumes()
 
@@ -187,7 +203,6 @@ class GinlaModelEvaluator:
         #   Flexible Inner-Outer Krylov Subspace Methods,
         #   SIAM Journal on Numerical Analysis, vol. 40 (2003), pp. 2219-2239.
         amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
-        #return amg_prec
 
         num_unknowns = len(psi0)
         return LinearOperator((num_unknowns, num_unknowns),
