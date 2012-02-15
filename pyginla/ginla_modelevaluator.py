@@ -41,6 +41,7 @@ class GinlaModelEvaluator:
         self.mu = mu
         self._T = 0.0
         self._keo = None
+        self._D = None
         self.control_volumes = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
@@ -52,8 +53,10 @@ class GinlaModelEvaluator:
         '''
         if self._keo is None:
             self._assemble_keo()
+        if self.control_volumes is None:
+            self._compute_control_volumes()
 
-        res = - self._keo * psi \
+        res = (- self._keo * psi) / self.control_volumes  \
               + psi * ( 1.0-self._T - abs( psi )**2 )
 
         return res
@@ -72,14 +75,18 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
             absPsi0Squared = psi0.real**2 + psi0.imag**2
-            return - self._keo * phi \
+            return (- self._keo * phi) / self.control_volumes \
                 + ( 1.0-self._T - 2.0*absPsi0Squared ) * phi \
                 - psi0**2 * phi.conj()
         # ----------------------------------------------------------------------
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.nodes)
+
         if self._keo is None:
             self._assemble_keo()
+        if self.control_volumes is None:
+            self._compute_control_volumes()
+
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_jacobian,
                                dtype = self.dtype
@@ -90,26 +97,35 @@ class GinlaModelEvaluator:
             A = - K + I * ( 1-T - 2*|psi|^2 ),
             B = - diag( psi^2 ).
         '''
-        assert( psi0 is not None )
-        num_unknowns = len(psi0)
-        if self._keo is None:
-            self._assemble_keo()
-        absPsi0Squared = psi0.real**2 + psi0.imag**2
-        A = -self._keo + spdiags(1.0 - self._T - 2.0*absPsi0Squared.T,
-                                 [0], num_unknowns, num_unknowns
-                                 )
-        B = spdiags(-psi0**2, [0], num_unknowns, num_unknowns)
+        raise RuntimeError('Not implemented.')
+        #assert( psi0 is not None )
+        #num_unknowns = len(psi0)
+        #if self._keo is None:
+            #self._assemble_keo()
+        #absPsi0Squared = psi0.real**2 + psi0.imag**2
+        #A = -self._keo + spdiags(1.0 - self._T - 2.0*absPsi0Squared.T,
+                                 #[0], num_unknowns, num_unknowns
+                                 #)
+        #B = spdiags(-psi0**2, [0], num_unknowns, num_unknowns)
         return A, B
     # ==========================================================================
     def get_preconditioner(self, psi0):
         '''Return the preconditioner.
         '''
+        # ----------------------------------------------------------------------
+        def _apply_precon(x):
+            return (self._keo * x) / self.control_volumes \
+                + 2.0 * absPsi0Squared * x
+        # ----------------------------------------------------------------------
         if self._keo is None:
             self._assemble_keo()
+
         absPsi0Squared = psi0.real**2 + psi0.imag**2
-        return self._keo + spdiags(2.0*absPsi0Squared.T,
-                                   [0], len(psi0), len(psi0)
-                                   )
+        num_unknowns = len(psi0)
+        return LinearOperator((num_unknowns, num_unknowns),
+                              _apply_precon,
+                              dtype = self.dtype
+                              )
     # ==========================================================================
     def get_preconditioner_inverse(self, psi0):
         if self._prec_type == 'amg':
@@ -127,22 +143,35 @@ class GinlaModelEvaluator:
         import numerical_methods as nm
         # ----------------------------------------------------------------------
         def _apply_inverse_prec(phi):
+            rhs = self.control_volumes * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
-            out = nm.gmres(prec, phi, x0,
+            out = nm.cg(prec, rhs, x0,
                         tol = 1.0e-13,
-                        maxiter = 100,
+                        #maxiter = 100,
                         M = amg_prec,
-                        #explicit_residual = False,
-                        inner_product = self.inner_product
+                        #explicit_residual = False
                         )
             if out['info'] != 0:
                 print 'Preconditioner did not converge; last residual: %g' \
                       % out['relresvec'][-1]
+            print len(out['relresvec'])
             return out['xk']
+            #for k in xrange(1):
+               #rhs = amg_prec * rhs
+            #return rhs
         # ----------------------------------------------------------------------
-        prec = self.get_preconditioner(psi0)
+        if self.control_volumes is None:
+            self._compute_control_volumes()
+
+        num_nodes = len(self.control_volumes)
+        absPsi0Squared = psi0.real**2 + psi0.imag**2
+        D = spdiags(2 * absPsi0Squared.T * self.control_volumes.T, [0],
+                    num_nodes, num_nodes)
+
+        prec = self._keo + D
+
         prec_amg_solver = \
-            pyamg.smoothed_aggregation_solver( prec,
+            pyamg.smoothed_aggregation_solver(prec,
             strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
             smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
             Bimprove=None,
@@ -245,10 +274,10 @@ class GinlaModelEvaluator:
         # This is *much* faster than individually accessing
         # self.control_volumes in each step of the iteration above.
         # (Bad random access performance of np.array?)
-        if self.control_volumes is None:
-            self._compute_control_volumes()
-        D = spdiags(1.0/self.control_volumes.T, [0], num_nodes, num_nodes)
-        self._keo = D * self._keo
+        #if self.control_volumes is None:
+            #self._compute_control_volumes()
+        #D = spdiags(1.0/self.control_volumes.T, [0], num_nodes, num_nodes)
+        #self._keo = D * self._keo
 
         # transform the matrix into the more efficient CSR format
         self._keo = self._keo.tocsr()

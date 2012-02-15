@@ -31,7 +31,12 @@ def _main():
 
     # check the preconditioner
     P = ginla_modeleval.get_preconditioner(current_psi)
-    print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P, ginla_modeleval.inner_product)
+    print np.linalg.norm( (P - P.T.conj()).todense() )
+    print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P)
+
+    ## check the preconditioner
+    #Pinv = ginla_modeleval._get_preconditioner_inverse_amg(current_psi)
+    #print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv)
 
     return
 # ==============================================================================

@@ -164,7 +164,7 @@ def cg(A, rhs, x0,
     if out['relresvec'][k] > tol:
         out['info'] = 1
 
-    out['x'] = x
+    out['xk'] = x
     out['relresvec'] = out['relresvec'][:k+1]
     if exact_solution is not None:
         out['errorvec'] = out['errorvec'][:k+1]

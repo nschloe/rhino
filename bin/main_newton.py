@@ -36,12 +36,12 @@ def _main():
     # perform newton iteration
     newton_out = nm.newton( psi0,
                             ginla_modelval,
-                            linear_solver = nm.gmres,
+                            linear_solver = nm.minres,
                             linear_solver_maxiter = 100,
                             linear_solver_extra_args = { }, 
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
-                            eta0 = 1.0e-10,
+                            eta0 = 1.0e-12,
                             use_preconditioner = True,
                             deflate_ix = True,
                             num_deflation_vectors = 0,
