@@ -73,18 +73,25 @@ def _construct_mymesh( meshpy_mesh ):
     import vtk
 
     # Create the vertices.
-    nodes = []
-    for point in meshpy_mesh.points:
+    num_nodes = len(meshpy_mesh.points)
+    nodes = np.empty(num_nodes, dtype=np.dtype((float, 3)))
+    for k, point in enumerate(meshpy_mesh.points):
         if len(point) == 2:
-            nodes.append(np.append(point, 0.0))
+            nodes[k][:2] = point
+            nodes[k][2] = 0.0
         elif len(point) == 3:
-            nodes.append(point)
+            nodes[k] = point
         else:
             raise ValueError('Unknown point.')
+          
     # Create the elements (cells).
-    elems = []
-    for element in meshpy_mesh.elements:
-        elems.append(mesh.Cell(element))
+    num_elems = len(meshpy_mesh.elements)
+    # Take the dimension of the first cell to be the dimension of all cells.
+    dim_elems = len(meshpy_mesh.elements[0])
+    elems = np.empty(num_elems, dtype=np.dtype((int,dim_elems)))
+    for k, element in enumerate(meshpy_mesh.elements):
+        elems[k] = element
+    
     # create the mesh data structure
     return mesh.Mesh( nodes, elems )
 # ==============================================================================
