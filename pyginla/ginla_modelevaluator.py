@@ -237,7 +237,7 @@ class GinlaModelEvaluator:
             scaledPhi0 = self.control_volumes * phi0
 
         # np.vdot only works for vectors, so use np.dot(....T.conj()) here.
-        return np.dot( scaledPhi0.T.conj(), phi1).real
+        return np.dot(scaledPhi0.T.conj(), phi1).real
     # ==========================================================================
     def energy( self, psi ):
         '''Compute the Gibbs free energy.

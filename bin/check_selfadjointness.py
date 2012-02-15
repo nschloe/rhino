@@ -29,14 +29,27 @@ def _main():
     J = ginla_modeleval.get_jacobian(current_psi)
     print 'max(|<v,Ju> - <Jv,u>|) = %g' % _check_selfadjointness(J, ginla_modeleval.inner_product)
 
+    # --------------------------------------------------------------------------
+    def inner_product(phi0, phi1):
+        if ginla_modeleval.control_volumes is None:
+            ginla_modeleval._compute_control_volumes()
+
+        if len(phi0.shape) == 1:
+            scaledPhi0 = ginla_modeleval.control_volumes[:,0] * phi0
+        elif len(phi0.shape) == 2:
+            scaledPhi0 = ginla_modeleval.control_volumes * phi0
+        return np.dot(scaledPhi0.T.conj(), phi1)
+    # --------------------------------------------------------------------------
     # check the preconditioner
     P = ginla_modeleval.get_preconditioner(current_psi)
-    print np.linalg.norm( (P - P.T.conj()).todense() )
-    print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P)
+    print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P, inner_product)
 
-    ## check the preconditioner
-    #Pinv = ginla_modeleval._get_preconditioner_inverse_amg(current_psi)
-    #print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv)
+    # check the preconditioner
+    Pinv = ginla_modeleval._get_preconditioner_inverse_amg(current_psi)
+    print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv, inner_product)
+
+    # check positive definiteness of P^{-1}
+    print 'min(<u,P^{-1}u>) = %g' % _check_positivedefiniteness(Pinv, inner_product)
 
     return
 # ==============================================================================
@@ -52,6 +65,19 @@ def _check_selfadjointness( operator, inner_product ):
         max_discrepancy = max(max_discrepancy, abs(alpha-beta))
 
     return max_discrepancy
+# ==============================================================================
+def _check_positivedefiniteness( operator, inner_product ):
+    N = operator.shape[0]
+    num_samples = 1000
+    min_val = np.inf
+    for k in xrange(num_samples):
+        u = np.random.rand(N,1) + 1j * np.random.rand(N,1)
+        alpha = inner_product(u, operator*u)[0,0]
+        if abs(alpha.imag) > 1.0e-13:
+           raise ValueError('Operator not self-adjoint? <u,Lu> =', repr(alpha))
+        min_val = min(min_val, alpha.real)
+
+    return min_val
 # ==============================================================================
 def _parse_input_arguments():
     '''Parse input arguments.
