@@ -110,7 +110,7 @@ def read_mesh ( filename, timestep=None ):
 
     # extract points, elems, elemtypes
     points = _extract_points( vtk_mesh )
-    cells  = _extract_cells ( vtk_mesh )
+    cellsNodes = _extract_cellsNodes ( vtk_mesh )
     psi, A = _extract_values( vtk_mesh )
 
     num_points = len( points )
@@ -121,7 +121,7 @@ def read_mesh ( filename, timestep=None ):
     # gather the field data
     field_data = _read_field_data( vtk_mesh )
 
-    return mesh.Mesh( points, cells ), psi, A, field_data
+    return mesh.Mesh( points, cellsNodes ), psi, A, field_data
 # ==============================================================================
 def _extract_points( vtk_mesh ):
 
@@ -155,43 +155,28 @@ def _extract_points( vtk_mesh ):
         #is_on_boundary[ ptId ] = True
     # --------------------------------------------------------------------------
     # construct the points list
-    points = np.zeros( [num_points, 3] )
-    points = []
+    points = np.empty( num_points, np.dtype((float, 3)))
     for k in range(num_points):
-        point = np.array( vtk_mesh.GetPoint( k ) )
-        points.append( point )
+        points[k] = np.array( vtk_mesh.GetPoint( k ) )
     # --------------------------------------------------------------------------
 
     return points
 # ==============================================================================
-def _extract_cells( vtk_mesh ):
+def _extract_cellsNodes( vtk_mesh ):
 
-    elems = []
+    num_cells = vtk_mesh.GetNumberOfCells()
+    num_local_nodes = vtk_mesh.GetCell(0).GetNumberOfPoints()
+    cellsNodes = np.empty(num_cells, dtype = np.dtype((int,num_local_nodes)))
 
     for k in xrange( vtk_mesh.GetNumberOfCells() ):
         cell = vtk_mesh.GetCell( k )
 
         # gather up the points
         num_points = cell.GetNumberOfPoints()
-        nodes = np.empty( num_points, dtype = int )
         for l in xrange( num_points ):
-            nodes[l] = cell.GetPointId( l )
+            cellsNodes[k][l] = cell.GetPointId( l )
 
-        ## gather the edges
-        #num_edges = cell.GetNumberOfEdges()
-        #edges = []
-        #l = 0
-        #for l in xrange( num_edges ):
-            ##edges.append( np.array( [cell.GetEdge(l)] ) )
-            #pts = []
-            #for ll in xrange( cell.GetEdge(l).GetNumberOfPoints() ):
-                #pts.append( cell.GetEdge(l).GetPointId(ll) )
-            #edges.append( pts )
-
-        # create element
-        elems.append(mesh.Cell(nodes))
-
-    return elems
+    return cellsNodes
 # ==============================================================================
 def _extract_values( vtk_data ):
     '''Extract a complex-valued vector out of a VTK data set.

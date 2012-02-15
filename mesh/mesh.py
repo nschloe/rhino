@@ -175,7 +175,7 @@ class Mesh:
         # If  node_edges[(3,4)] == 17  is true, then the nodes (3,4) are
         # connected  by edge 17.
         num_nodes = len(self.nodes)
-        node_neighbors = [set() for k in xrange(num_nodes)]
+        node_neighbors = [{} for k in xrange(num_nodes)]
 
         new_edge_gid = 0
         # Loop over all elements.
@@ -187,14 +187,14 @@ class Mesh:
                 # we could probably save more time here using some sort of
                 # bisection sort.
                 # New entries would need to be added in order though.
-                if indices[1] is in node_neighbors[indices[0]]:
+                if indices[1] in node_neighbors[indices[0]].keys():
                     # edge already assigned
-                    cellsEdges[k] = node_edges[indices]
+                    cellEdges[k] = node_neighbors[indices[0]][indices[1]]
                 else:
                     # add edge
                     self.edgesNodes[new_edge_gid] = indices
-                    cellsEdges[k] = new_edge_gid
-                    node_neighbors[indices[0]].add(indices[1])
+                    cellEdges[k] = new_edge_gid
+                    node_neighbors[indices[0]][indices[1]] = new_edge_gid
                     new_edge_gid += 1
 
         # trim edgesNodes

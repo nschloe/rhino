@@ -189,7 +189,7 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0,
                                 delta=tol )
         # Check if Lanczos relation holds
-        res = A*out['Vfull'][:,0:-1] - out['Vfull'] * out['Tfull']
+        res = A*out['Vfull'][:,0:-1] - out['Vfull'] * out['Hfull']
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-8 )
         # Check if Lanczos basis is orthonormal w.r.t. inner product
         max_independent = min([num_unknowns,out['Vfull'].shape[1]])
@@ -223,7 +223,7 @@ class TestLinearSolvers(unittest.TestCase):
         out = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_basis=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, out['Vfull'], out['Tfull'] )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, out['Vfull'], out['Hfull'] )
 
         # Make sure the method converged.
         self.assertEqual(out['info'], 0)
@@ -280,7 +280,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Get Ritz pairs
         ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz(W, AW,
                                                           out['Vfull'],
-                                                          out['Tfull']
+                                                          out['Hfull']
                                                           )
 
         # Check Ritz pair residuals
@@ -327,7 +327,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Make sure the method converged.
         self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A * out['x']
+        res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res) / np.linalg.norm(rhs),
                                 0.0,
                                 delta=tol )
@@ -345,7 +345,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Make sure the method converged.
         self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - A * out['x']
+        res = rhs - A * out['xk']
         Mres = M*res
         norm_res = np.sqrt(np.dot(res.T.conj(), Mres))
         self.assertAlmostEqual( norm_res / np.linalg.norm(rhs),
