@@ -156,7 +156,6 @@ class GinlaModelEvaluator:
                 if out['info'] != 0:
                     print 'Preconditioner did not converge; last residual: %g' \
                           % out['relresvec'][-1]
-                print len(out['relresvec'])
                 return out['xk']
             elif precon_type == 'pyamg solve':
                 x0 = np.zeros((num_unknowns, 1), dtype=complex)

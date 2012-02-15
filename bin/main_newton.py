@@ -37,7 +37,7 @@ def _main():
     newton_out = nm.newton( psi0,
                             ginla_modelval,
                             linear_solver = nm.minres,
-                            linear_solver_maxiter = 100,
+                            linear_solver_maxiter = None,
                             linear_solver_extra_args = { }, 
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'constant', #'type 2'
