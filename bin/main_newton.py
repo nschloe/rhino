@@ -51,8 +51,8 @@ def _main():
     print newton_out[2]
     #assert( newton_out[1] == 0 )
 
-    multiplot_data_series( newton_out[3] )
-    pp.show()
+    #multiplot_data_series( newton_out[3] )
+    #pp.show()
     #matplotlib2tikz.save('w-defl.tex')
 
     # energy of the state

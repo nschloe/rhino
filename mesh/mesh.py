@@ -9,14 +9,32 @@ class Mesh:
                   cellsNodes,
                   cellsEdges = None,
                   edgesNodes = None ):
+        # It would be sweet if we could handle cells and the rest as arrays
+        # with fancy dtypes such as
+        #
+        #     np.dtype([('nodes', (int, num_local_nodes)),
+        #               ('edges', (int, num_local_edges))]),
+        #
+        # but right now there's no (no easy?) way to extend nodes properly
+        # for the case that 'edges' aren't given. A simple recreate-and-copy
+        #
+        #     for k in xrange(num_cells):
+        #         new_cells[k]['nodes'] = self.cells[k]['nodes']
+        #
+        # does not seem to work for whatever reason.
+        # Hence, handle cells and friends of dictionaries of np.arrays.
         if not isinstance(nodes,np.ndarray):
            raise TypeError('For performace reasons, build nodes as np.empty(num_nodes, dtype=np.dtype((float, 3)))')
+
         if not isinstance(cellsNodes,np.ndarray):
            raise TypeError('For performace reasons, build cellsNodes as np.empty(num_nodes, dtype=np.dtype((int, 3)))')
+
         if cellsEdges is not None and not isinstance(cellsEdges,np.ndarray):
            raise TypeError('For performace reasons, build cellsEdges as np.empty(num_nodes, dtype=np.dtype((int, 3)))')
+
         if edgesNodes is not None and  not isinstance(edgesNodes,np.ndarray):
            raise TypeError('For performace reasons, build edgesNodes as np.empty(num_nodes, dtype=np.dtype((int, 2)))')
+
         self.nodes = nodes
         self.cellsEdges = cellsEdges
         self.edgesNodes = edgesNodes

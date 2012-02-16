@@ -22,10 +22,7 @@ class TestKeo(unittest.TestCase):
         tol = 1.0e-14
 
         # Check that the matrix is Hermitian.
-        n = len( ginla_modeleval.control_volumes )
-        D = spdiags(ginla_modeleval.control_volumes.T, [0], n, n)
-        K = D * ginla_modeleval._keo
-        KK = K  - K.H
+        KK = ginla_modeleval._keo  - ginla_modeleval._keo.H
         self.assertAlmostEqual( 0.0,
                                 KK.sum(),
                                 delta=tol )
@@ -38,19 +35,19 @@ class TestKeo(unittest.TestCase):
     def test_rectanglesmall(self):
         filename = 'rectanglesmall.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.002524868492322252
+        actual_control_sum_real = 0.0063121712308067401
         self._run_test(filename, mu, actual_control_sum_real)
     # --------------------------------------------------------------------------
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.52975932763121936-0.070728618206931257j
+        actual_control_sum_real = 0.37044264471562194
         self._run_test(filename, mu, actual_control_sum_real)
     # --------------------------------------------------------------------------
     def test_cubesmall(self):
         filename = 'cubesmall.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.0033777140167483566
+        actual_control_sum_real = 0.0042221425209372221
         self._run_test(filename, mu, actual_control_sum_real)
 # ==============================================================================
 class TestJacobian(unittest.TestCase):
@@ -74,18 +71,19 @@ class TestJacobian(unittest.TestCase):
         D = spdiags(ginla_modeleval.control_volumes.T, [0], n, n)
 
         # [1+i, 1+i, 1+i, ... ]
-        phi = (1+1j) * np.ones( len(psi), dtype=complex )
+        phi = (1+1j) * np.ones((len(psi),1), dtype=complex)
 
+        J * phi
         val = np.vdot( phi, D*(J*phi) ).real
         self.assertAlmostEqual( actual_values[0], val, delta=tol )
 
         # [1, 1, 1, ... ]
-        phi = np.ones( len(psi), dtype=complex )
+        phi = np.ones((len(psi),1), dtype=complex)
         val = np.vdot( phi, D*(J*phi) ).real
         self.assertAlmostEqual( actual_values[1], val, delta=tol )
 
         # [i, i, i, ... ]
-        phi = 1j * np.ones( len(psi), dtype=complex )
+        phi = 1j * np.ones((len(psi),1), dtype=complex)
         val = np.vdot( phi, D*(J*phi) ).real
         self.assertAlmostEqual( actual_values[2], val, delta=tol )
     # --------------------------------------------------------------------------

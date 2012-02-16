@@ -72,7 +72,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Make sure the method converged.
         self.assertEqual(out['info'], 0)
         # Check the residual.
-        res = rhs - np.dot(A, out['x'])
+        res = rhs - np.dot(A, out['xk'])
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_cg_sparse(self):
@@ -89,7 +89,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Make sure the method converged.
         #self.assertEqual(info, 0)
         # Check the residual.
-        res = rhs - A * out['x']
+        res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
     def test_minres_dense(self):

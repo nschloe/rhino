@@ -102,7 +102,7 @@ def _read_exodusii_grid( reader, file_name, timestep=None ):
 
     return vtk_mesh[0]
 # ==============================================================================
-def read_mesh ( filename, timestep=None ):
+def read_mesh(filename, timestep=None):
     '''
     Reads an FEM mesh from a VTK file
     '''
@@ -194,7 +194,7 @@ def _extract_values( vtk_data ):
             assert array.GetNumberOfComponents() == 2
             num_entries = array.GetNumberOfTuples()
             # Create the complex array.
-            z = np.empty( num_entries, dtype = complex )
+            z = np.empty( (num_entries,1), dtype = complex )
             for k in xrange( num_entries ):
                 z[k] = complex( array.GetComponent( k, 0 ),
                                 array.GetComponent( k, 1 )
@@ -203,7 +203,7 @@ def _extract_values( vtk_data ):
             assert array.GetNumberOfComponents() == 3
             num_entries = array.GetNumberOfTuples()
             # Create the complex array.
-            A = np.empty( (num_entries,3), dtype = float )
+            A = np.empty(num_entries, dtype=np.dtype((float,3)) )
             for k in xrange( num_entries ):
                 A[k] = [ array.GetComponent( k, 0 ),
                          array.GetComponent( k, 1 ),
