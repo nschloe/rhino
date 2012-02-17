@@ -11,30 +11,36 @@ import math, cmath
 import itertools
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 # ==============================================================================
-def get_triangle_area( edge0, edge1 ):
+def get_triangle_area(node0, node1, node2):
     '''Returns the area of triangle spanned by the two given edges.'''
-    return 0.5 * np.linalg.norm( np.cross( edge0, edge1 ) )
+    #edge0 = node0 - node1
+    #edge1 = node1 - node2
+    #return 0.5 * np.linalg.norm( np.cross( edge0, edge1 ) )
+    import vtk
+    return abs(vtk.vtkTriangle.TriangleArea(node0, node1, node2))
 # ==============================================================================
 def get_tetrahedron_volume(node0, node1, node2, node3):
     '''Returns the volume of a tetrahedron given by the nodes.
     '''
-    edge0 = node0 - node1
-    edge1 = node1 - node2
-    edge2 = node2 - node3
-    edge3 = node3 - node0
+    #edge0 = node0 - node1
+    #edge1 = node1 - node2
+    #edge2 = node2 - node3
+    #edge3 = node3 - node0
 
-    alpha = np.vdot( edge0, np.cross(edge1, edge2) )
-    norm_prod = np.linalg.norm(edge0) \
-              * np.linalg.norm(edge1) \
-              * np.linalg.norm(edge2)
-    if abs(alpha) / norm_prod < 1.0e-5:
-        # Edges probably conplanar. Take a different set.
-        alpha = np.vdot( edge0, np.cross(edge1, edge3) )
-        norm_prod = np.linalg.norm(edge0) \
-                  * np.linalg.norm(edge1) \
-                  * np.linalg.norm(edge3)
+    #alpha = np.vdot( edge0, np.cross(edge1, edge2) )
+    #norm_prod = np.linalg.norm(edge0) \
+              #* np.linalg.norm(edge1) \
+              #* np.linalg.norm(edge2)
+    #if abs(alpha) / norm_prod < 1.0e-5:
+        ## Edges probably conplanar. Take a different set.
+        #alpha = np.vdot( edge0, np.cross(edge1, edge3) )
+        #norm_prod = np.linalg.norm(edge0) \
+                  #* np.linalg.norm(edge1) \
+                  #* np.linalg.norm(edge3)
 
-    return abs( alpha ) / 6.0
+    #return abs( alpha ) / 6.0
+    import vtk
+    return abs(vtk.vtkTetra.ComputeVolume(node0, node1, node2, node3))
 # ==============================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class GinlaModelEvaluator:
@@ -334,18 +340,14 @@ class GinlaModelEvaluator:
 
             # Compute the volume of the simplex.
             if num_local_edges == 3:
-                vol = get_triangle_area( local_edge[0],
-                                         local_edge[1] )
+                vol = get_triangle_area(self.mesh.nodes[cellNodes[0]],
+                                        self.mesh.nodes[cellNodes[1]],
+                                        self.mesh.nodes[cellNodes[2]])
             elif num_local_edges == 6:
-                #vol = get_tetrahedron_volume(self.mesh.nodes[cellNodes[0]],
-                                             #self.mesh.nodes[cellNodes[1]],
-                                             #self.mesh.nodes[cellNodes[2]],
-                                             #self.mesh.nodes[cellNodes[3]])
-                import vtk
-                vol = abs(vtk.vtkTetra.ComputeVolume(self.mesh.nodes[cellNodes[0]],
-                                                     self.mesh.nodes[cellNodes[1]],
-                                                     self.mesh.nodes[cellNodes[2]],
-                                                     self.mesh.nodes[cellNodes[3]]))
+                vol = get_tetrahedron_volume(self.mesh.nodes[cellNodes[0]],
+                                             self.mesh.nodes[cellNodes[1]],
+                                             self.mesh.nodes[cellNodes[2]],
+                                             self.mesh.nodes[cellNodes[3]])
             else:
                 raise RuntimeError( 'Unknown geometry with %d edges.'
                                     % num_local_edges )
@@ -530,21 +532,30 @@ class GinlaModelEvaluator:
     def _triangle_circumcenter(self, x):
         '''Compute the circumcenter of a triangle.
         '''
-        a = x[0] - x[1]
-        b = x[1] - x[2]
-        c = x[2] - x[0]
-        w = np.cross(a, b)
-        omega = 2.0 * np.dot(w, w)
+        import vtk
+        # Project triangle to 2D.
+        v = np.empty(3, dtype=np.dtype((float,2)))
+        vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2], v[0], v[1], v[2])
+        # Get the circumcenter in 2D.
+        cc_2d = np.empty(2,dtype=float)
+        vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2], cc_2d)
+        # Project back to 3D by using barycentric coordinates.
+        bcoords = np.empty(3,dtype=float)
+        vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
+        m = bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
 
-        if abs(omega) < 1.0e-10:
-            raise ZeroDivisionError( 'The nodes don''t seem to form '
-                                    + 'a proper triangle.' )
-
-        alpha = -np.dot(b, b) * np.dot(a, c) / omega
-        beta  = -np.dot(c, c) * np.dot(b, a) / omega
-        gamma = -np.dot(a, a) * np.dot(c, b) / omega
-
-        m = alpha * x[0] + beta * x[1] + gamma * x[2]
+        #a = x[0] - x[1]
+        #b = x[1] - x[2]
+        #c = x[2] - x[0]
+        #w = np.cross(a, b)
+        #omega = 2.0 * np.dot(w, w)
+        #if abs(omega) < 1.0e-10:
+            #raise ZeroDivisionError( 'The nodes don''t seem to form '
+                                    #+ 'a proper triangle.' )
+        #alpha = -np.dot(b, b) * np.dot(a, c) / omega
+        #beta  = -np.dot(c, c) * np.dot(b, a) / omega
+        #gamma = -np.dot(a, a) * np.dot(c, b) / omega
+        #m = alpha * x[0] + beta * x[1] + gamma * x[2]
 
         ## Alternative implementation from
         ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
