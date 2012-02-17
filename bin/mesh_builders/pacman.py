@@ -4,8 +4,9 @@
 Creates a mesh for a circle with a cut.
 '''
 import numpy as np
-import mesh, mesh_io, meshpy_interface
 import time
+
+from mesh import mesh, meshpy_interface, magnetic_vector_potentials
 # ==============================================================================
 def _main():
 
@@ -15,8 +16,8 @@ def _main():
     radius = 5.0
 
     # set those to 0.0 for perfect circle
-    cut_angle = 0.0 * 2*np.pi
-    cut_deepness = 0.0 * radius
+    cut_angle = 0.1 * 2*np.pi
+    cut_deepness = 0.5 * radius
 
     # Choose the maximum area of a triangle equal to the area of
     # an equilateral triangle on the boundary.
@@ -58,25 +59,24 @@ def _main():
     # Add magnetic vector potential.
     print 'Create mvp...',
     start = time.time()
-    A = np.empty( (num_nodes,3), dtype = float )
-    import magnetic_vector_potentials
+    A = np.empty(num_nodes, dtype=np.dtype((float,3)))
     height0 = 0.1
     height1 = 1.1
     radius = 2.0
     for k, node in enumerate(mymesh.nodes):
-        #A[k,:] = magnetic_vector_potentials.mvp_z( node )
-        A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
+        A[k] = magnetic_vector_potentials.mvp_z( node )
+        #A[k,:] = magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
     # write the mesh
     print 'Write mesh...',
     start = time.time()
-    mesh_io.write( args.filename, mymesh, {'psi':X, 'A':A, 'thickness':thickness} )
+    mymesh.write( args.filename, {'psi':X, 'A':A, 'thickness':thickness} )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
-    print '\n%d nodes, %d elements' % (len(mymesh.nodes), len(mymesh.cells))
+    print '\n%d nodes, %d elements' % (len(mymesh.nodes), len(mymesh.cellsNodes))
 
     return
 # ==============================================================================

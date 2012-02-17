@@ -477,7 +477,7 @@ class GinlaModelEvaluator:
             # is of the same orientation as (x0, other0, edge_midpoint).
             a = other0 - x0
             c = edge_midpoint - x0
-            b = cc - x0
+            b = circumcenter - x0
             #cell_normal = np.cross(a, c)
             #cc_normal = np.cross(b, c)
             #alpha0 = np.dot( cc_normal, cell_normal )
@@ -488,22 +488,51 @@ class GinlaModelEvaluator:
             return math.copysign( coedge_length, alpha )
         # ----------------------------------------------------------------------
         num_nodes = len(self.mesh.nodes)
-        self.control_volumes = np.zeros((num_nodes,1), dtype = float )
-        for cellNodes in self.mesh.cellsNodes:
+        self.control_volumes2 = np.zeros((num_nodes,1), dtype = float)
 
-            num_local_nodes = len(cellNodes)
-            local_nodes = np.empty(num_local_nodes, dtype=((float,3)))
-            for k, node_index in enumerate(cellNodes):
-                local_nodes[k] = self.mesh.nodes[node_index]
+        # compute cell circumcenters
+        num_cells = len(self.mesh.cellsNodes)
+        circumcenters = np.empty(num_cells, dtype=np.dtype((float,3)))
+        for k, cellNodes in enumerate(self.mesh.cellsNodes):
+            circumcenters[k] = self._triangle_circumcenter(self.mesh.nodes[cellNodes])
 
-            # Compute the circumcenter of the cell.
-            cc = self._triangle_circumcenter(local_nodes)
-            ## Compute the cell normal.
-            #cell_normal = np.cross(local_nodes[1]-local_nodes[0],
-                                   #local_nodes[2]-local_nodes[0])
-            #cell_normal /= np.linalg.norm(cell_normal)
+        #if self.mesh.edgesNodes is None:
+            #self.mesh.create_edges()
+        #k = 0
+        #for edgeNodes, edgeCells in zip(self.mesh.edgesNodes, self.mesh.edgesCells):
+            #edge = self.mesh.nodes[edgeNodes[1]] \
+                 #- self.mesh.nodes[edgeNodes[0]]
+            #if len(edgeCells) == 1: # boundary edge
+                ## Even for Delaunay triangulations, the circumcenter of
+                ## boundary elements can sit outside of the domain. In this case,
+                ## the corresponding contribution from the boundary edge has to
+                ## be taken negative.
+                ## TODO find a good way for figuring this out
+                #edge_midpoint = 0.5 * ( self.mesh.nodes[edgeNodes[1]]
+                                      #+ self.mesh.nodes[edgeNodes[0]] )
+                #coedge = edge_midpoint - circumcenters[edgeCells[0]]
+            #if len(edgeCells) == 2: # interior edge
+                #coedge = circumcenters[edgeCells[1]] \
+                       #- circumcenters[edgeCells[0]]
+            ## Here, implicitly, the covolume is assumed positive. This is true
+            ## if and only if the two circumcenters of the adjacent cells do not
+            ## "intersect", i.e., the left cell's circumcenter is left of the
+            ## right cells circumcenter. This is true exactly for Delaunay
+            ## triangulations.
+            #pyramid_volume = 0.5 * np.sqrt(np.dot(edge,edge) * np.dot(coedge,coedge)) / 2
+            #if 0 in edgeNodes:
+                #print k, edgeCells
+                #print pyramid_volume
+            ## control volume contributions
+            #self.control_volumes2[edgeNodes[0]] += pyramid_volume
+            #self.control_volumes2[edgeNodes[1]] += pyramid_volume
+            #k += 1
 
+        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
+        for k, cellNodes in enumerate(self.mesh.cellsNodes):
+            local_nodes = self.mesh.nodes[cellNodes]
             # Iterate over pairs of nodes aka local edges.
+            num_local_nodes = len(cellNodes)
             for e0 in xrange( num_local_nodes ):
                 index0 = cellNodes[e0]
                 for e1 in xrange( e0+1, num_local_nodes ):
@@ -514,15 +543,20 @@ class GinlaModelEvaluator:
                     other_indices = self._get_other_indices( e0, e1 )
                     covolume = _compute_covolume(local_nodes[e0],
                                                  local_nodes[e1],
-                                                 cc,
+                                                 circumcenters[k],
                                                  local_nodes[other_indices[0]]
                                                  )
 
                     pyramid_volume = 0.5 * edge_length * covolume / 2
-
-                    # control volume contributions
                     self.control_volumes[ index0 ] += pyramid_volume
                     self.control_volumes[ index1 ] += pyramid_volume
+
+        #print self.control_volumes[0], self.control_volumes2[0]
+
+        #diff = self.control_volumes - self.control_volumes2
+        #for k, d in enumerate(diff):
+            #if abs(d) > 1.0e-15:
+                #print k, d
         return
     # ==========================================================================
     def _triangle_circumcenter(self, x):
