@@ -51,7 +51,7 @@ def _main():
     print 'done. (%gs)' % elapsed
 
     num_nodes = len(mymesh.nodes)
-    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cells))
+    print '\n%d nodes, %d elements\n' % (num_nodes, len(mymesh.cellsNodes))
 
     print 'Create values...',
     start = time.time()

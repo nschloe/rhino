@@ -44,7 +44,13 @@ def _main():
     # create the mesh
     print 'Create mesh...',
     start = time.time()
-    mymesh = mesh.meshpy_interface.create_mesh( max_volume, points, facets )
+    mymesh = mesh.meshpy_interface.create_mesh(max_volume, points, facets)
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
+    print 'Recreate cells to make sure the mesh is Delaunay...',
+    start = time.time()
+    mymesh.recreate_cells_with_qhull()
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -64,19 +70,19 @@ def _main():
     # Add magnetic vector potential.
     print 'Create mvp...',
     start = time.time()
-    A = np.empty( (num_nodes,3), dtype = float )
+    A = np.empty(num_nodes, dtype=np.dtype((float,3)))
     height0 = 0.1
     height1 = 1.1
     radius = 2.0
     for k, node in enumerate(mymesh.nodes):
-        #A[k,:] = mesh.magnetic_vector_potentials.mvp_z( node )
-        A[k,:] = mesh.magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
+        A[k] = mesh.magnetic_vector_potentials.mvp_z( node )
+        #A[k] = mesh.magnetic_vector_potentials.mvp_magnetic_dot( node, radius, height0, height1 )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
     mymesh.write(args.filename, {'psi': X, 'A': A})
 
-    print '\n%d nodes, %d elements' % (num_nodes, len(mymesh.cells))
+    print '\n%d nodes, %d elements' % (num_nodes, len(mymesh.cellsNodes))
 
     return
 # ==============================================================================

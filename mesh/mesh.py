@@ -333,5 +333,16 @@ class Mesh:
         self.cellsNodes = new_cellsNodes
         self.cellsEdges = new_cellsEdges
         return
+
+    # --------------------------------------------------------------------------
+    def recreate_cells_with_qhull(self):
+        import scipy.spatial
+
+        # Create a Delaunay triangulation of the given points.
+        delaunay = scipy.spatial.Delaunay(self.nodes)
+        # Use the new cells.
+        self.cellsNodes = delaunay.vertices
+
+        return
     # --------------------------------------------------------------------------
 # ==============================================================================

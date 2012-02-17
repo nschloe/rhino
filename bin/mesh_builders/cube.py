@@ -101,6 +101,7 @@ def _canonical(l, N):
         for y in y_range:
             for z in z_range:
                 nodes[k] = np.array([x, y, z])
+                k += 1
 
     # Create the elements (cells).
     # There is 1 way to split a cube into 5 tetrahedra,
@@ -170,7 +171,6 @@ def _canonical(l, N):
                                              N[2] * ( N[1]*i     + j   ) + k+1])
                     l += 1
 
-
     mymesh = mesh.Mesh(nodes, cellNodes)
 
     return mymesh
@@ -198,6 +198,12 @@ def _meshpy(l, max_volume):
     print 'Create mesh...',
     start = time.time()
     mymesh = mesh.meshpy_interface.create_mesh( max_volume, points, facets )
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
+    print 'Recreate cells to make sure the mesh is Delaunay...',
+    start = time.time()
+    mymesh.recreate_cells_with_qhull()
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
