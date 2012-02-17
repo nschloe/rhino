@@ -8,7 +8,6 @@ from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import spdiags
 import math, cmath
-import itertools
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 # ==============================================================================
 def get_triangle_area(node0, node1, node2):
@@ -327,16 +326,13 @@ class GinlaModelEvaluator:
 
         # Calculate the edge contributions cell by cell.
         for cellNodes, cellEdges in zip(self.mesh.cellsNodes,self.mesh.cellsEdges):
-            # Get the edge coordinates.
-            num_local_nodes = len( cellNodes )
             # We only deal with simplices.
-            num_local_edges = num_local_nodes*(num_local_nodes-1) / 2
-            local_edge = []
-            # Loop over all pairs of (local) nodes.
-            for index0, index1 in itertools.combinations(cellNodes, 2):
-                node0 = self.mesh.nodes[index0]
-                node1 = self.mesh.nodes[index1]
-                local_edge.append( node1 - node0 )
+            num_local_edges = len(cellEdges)
+            # Build local edge coordinates.
+            local_edges = np.empty(num_local_edges, dtype=np.dtype((float,3)))
+            for k, edgeNodes in enumerate(self.mesh.edgesNodes[cellEdges]):
+                local_edges[k] = self.mesh.nodes[edgeNodes[1]] \
+                               - self.mesh.nodes[edgeNodes[0]]
 
             # Compute the volume of the simplex.
             if num_local_edges == 3:
@@ -362,10 +358,10 @@ class GinlaModelEvaluator:
             A   = np.zeros( (num_local_edges, num_local_edges), dtype = float )
             rhs = np.empty( num_local_edges, dtype = float )
             for i in xrange( num_local_edges ):
-                rhs[i] = vol * np.dot(local_edge[i], local_edge[i])
+                rhs[i] = vol * np.dot(local_edges[i], local_edges[i])
                 # Fill the upper triangle of the symmetric matrix A.
                 for j in xrange(i, num_local_edges):
-                    alpha = np.dot(local_edge[i], local_edge[j])
+                    alpha = np.dot(local_edges[i], local_edges[j])
                     A[i, j] = alpha**2
 
             # Append the the resulting coefficients to the coefficient cache.

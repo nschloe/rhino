@@ -45,6 +45,7 @@ def create_tetrahedron_mesh( roundtrip_points, facets ):
 
     # Set the geometry and build the mesh.
     info = meshpy.tet.MeshInfo()
+    print info
     info.set_points( roundtrip_points )
     info.set_facets( facets )
 

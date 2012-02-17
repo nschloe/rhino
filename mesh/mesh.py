@@ -8,7 +8,8 @@ class Mesh:
                   nodes,
                   cellsNodes,
                   cellsEdges = None,
-                  edgesNodes = None ):
+                  edgesNodes = None,
+                  edgesCells = None):
         # It would be sweet if we could handle cells and the rest as arrays
         # with fancy dtypes such as
         #
@@ -38,6 +39,7 @@ class Mesh:
         self.nodes = nodes
         self.cellsEdges = cellsEdges
         self.edgesNodes = edgesNodes
+        self.edgesCells = edgesCells
         self.cellsNodes = cellsNodes
         self.vtk_mesh = None
     # --------------------------------------------------------------------------
@@ -184,6 +186,7 @@ class Mesh:
         # Get upper bound for number of edges; trim later.
         max_num_edges = num_local_nodes * num_cells
         self.edgesNodes = np.empty(max_num_edges, dtype=np.dtype((int,2)))
+        self.edgesCells = [[] for k in xrange(max_num_edges)]
 
         self.cellsEdges = np.empty(num_cells, dtype=np.dtype((int,num_local_edges)))
 
@@ -196,27 +199,32 @@ class Mesh:
         node_neighbors = [{} for k in xrange(num_nodes)]
 
         new_edge_gid = 0
+        cell_id = 0
         # Loop over all elements.
         for cellNodes, cellEdges in zip(self.cellsNodes, self.cellsEdges):
             # We're treating simplices so loop over all combinations of
             # local nodes.
+            # Make sure cellNodes are sorted.
+            cellNodes = np.sort(cellNodes)
             for k, indices in enumerate(itertools.combinations(cellNodes, 2)):
-                # Combinations are emitted in lexicographic sort order, so
-                # we could probably save more time here using some sort of
-                # bisection sort.
-                # New entries would need to be added in order though.
                 if indices[1] in node_neighbors[indices[0]].keys():
                     # edge already assigned
-                    cellEdges[k] = node_neighbors[indices[0]][indices[1]]
+                    edge_gid = node_neighbors[indices[0]][indices[1]]
+                    self.edgesCells[edge_gid].append( cell_id )
+                    cellEdges[k] = edge_gid
                 else:
                     # add edge
                     self.edgesNodes[new_edge_gid] = indices
+                    self.edgesCells[new_edge_gid].append( cell_id )
                     cellEdges[k] = new_edge_gid
                     node_neighbors[indices[0]][indices[1]] = new_edge_gid
                     new_edge_gid += 1
+            cell_id += 1
 
-        # trim edgesNodes
+        # trim edges
         self.edgesNodes = self.edgesNodes[:new_edge_gid]
+        self.edgesCells = self.edgesCells[:new_edge_gid]
+
         return
     # --------------------------------------------------------------------------
     def refine( self ):

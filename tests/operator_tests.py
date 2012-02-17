@@ -73,7 +73,6 @@ class TestJacobian(unittest.TestCase):
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones((len(psi),1), dtype=complex)
 
-        J * phi
         val = np.vdot( phi, D*(J*phi) ).real
         self.assertAlmostEqual( actual_values[0], val, delta=tol )
 
