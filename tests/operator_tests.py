@@ -19,7 +19,7 @@ class TestKeo(unittest.TestCase):
         # Assemble the KEO.
         ginla_modeleval._assemble_keo()
 
-        tol = 1.0e-14
+        tol = 1.0e-13
 
         # Check that the matrix is Hermitian.
         KK = ginla_modeleval._keo  - ginla_modeleval._keo.H

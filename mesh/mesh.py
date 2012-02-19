@@ -200,26 +200,57 @@ class Mesh:
 
         new_edge_gid = 0
         cell_id = 0
-        # Loop over all elements.
-        for cellNodes, cellEdges in zip(self.cellsNodes, self.cellsEdges):
-            # We're treating simplices so loop over all combinations of
-            # local nodes.
-            # Make sure cellNodes are sorted.
-            cellNodes = np.sort(cellNodes)
-            for k, indices in enumerate(itertools.combinations(cellNodes, 2)):
-                if indices[1] in node_neighbors[indices[0]].keys():
-                    # edge already assigned
-                    edge_gid = node_neighbors[indices[0]][indices[1]]
-                    self.edgesCells[edge_gid].append( cell_id )
-                    cellEdges[k] = edge_gid
-                else:
-                    # add edge
-                    self.edgesNodes[new_edge_gid] = indices
-                    self.edgesCells[new_edge_gid].append( cell_id )
-                    cellEdges[k] = new_edge_gid
-                    node_neighbors[indices[0]][indices[1]] = new_edge_gid
-                    new_edge_gid += 1
-            cell_id += 1
+        # check if we have a 2d or a 3d mesh
+        if len(self.cellsNodes[0]) == 3: # 2d
+            # Loop over all elements.
+            for i in xrange(num_cells):
+                # We're treating simplices so loop over all combinations of
+                # local nodes.
+                # Make sure cellNodes are sorted.
+                self.cellsNodes[i] = np.sort(self.cellsNodes[i])
+                for k in xrange(len(self.cellsNodes[i])):
+                    # Remove the k-th element. This makes sure that the k-th
+                    # edge is opposite of the k-th node. Useful later in
+                    # in construction of edge (face) normals.
+                    indices = np.delete(self.cellsNodes[i], k)
+                    if indices[1] in node_neighbors[indices[0]].keys():
+                        # edge already assigned
+                        edge_gid = node_neighbors[indices[0]][indices[1]]
+                        self.edgesCells[edge_gid].append( cell_id )
+                        self.cellsEdges[i][k] = edge_gid
+                    else:
+                        # add edge
+                        self.edgesNodes[new_edge_gid] = indices
+                        # edgesCells is also always ordered.
+                        self.edgesCells[new_edge_gid].append( cell_id )
+                        self.cellsEdges[i][k] = new_edge_gid
+                        node_neighbors[indices[0]][indices[1]] = new_edge_gid
+                        new_edge_gid += 1
+                cell_id += 1
+
+        elif len(self.cellsNodes[0]) == 4: # 3d
+            # Loop over all elements.
+            for i in xrange(num_cells):
+                # We're treating simplices so loop over all combinations of
+                # local nodes.
+                # Make sure cellNodes are sorted.
+                self.cellsNodes[i] = np.sort(self.cellsNodes[i])
+                for k, indices in enumerate(itertools.combinations(self.cellsNodes[i], 2)):
+                    if indices[1] in node_neighbors[indices[0]].keys():
+                        # edge already assigned
+                        edge_gid = node_neighbors[indices[0]][indices[1]]
+                        self.edgesCells[edge_gid].append( cell_id )
+                        self.cellsEdges[i][k] = edge_gid
+                    else:
+                        # add edge
+                        self.edgesNodes[new_edge_gid] = indices
+                        self.edgesCells[new_edge_gid].append( cell_id )
+                        self.cellsEdges[i][k] = new_edge_gid
+                        node_neighbors[indices[0]][indices[1]] = new_edge_gid
+                        new_edge_gid += 1
+                cell_id += 1
+        else:
+            raise RuntimeError('Only 2D and 3D supported.')
 
         # trim edges
         self.edgesNodes = self.edgesNodes[:new_edge_gid]

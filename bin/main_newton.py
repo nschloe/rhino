@@ -45,7 +45,8 @@ def _main():
                             use_preconditioner = True,
                             deflate_ix = True,
                             num_deflation_vectors = 0,
-                            debug=True
+                            debug=True,
+                            newton_maxiter = 1
                           )
     print " done."
     print newton_out[2]

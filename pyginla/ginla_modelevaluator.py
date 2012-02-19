@@ -466,29 +466,8 @@ class GinlaModelEvaluator:
         return
     # ==========================================================================
     def _compute_control_volumes_2d( self ):
-        # ----------------------------------------------------------------------
-        def _compute_covolume( x0, x1, circumcenter, other0 ):
-            edge_midpoint = 0.5 * ( x0 + x1 )
-            coedge_length = np.linalg.norm( edge_midpoint - circumcenter )
-
-            # The only difficulty here is to determine whether the length of
-            # coedge is to be taken positive or negative.
-            # To this end, make sure that the order (x0, cc, edge_midpoint)
-            # is of the same orientation as (x0, other0, edge_midpoint).
-            a = other0 - x0
-            c = edge_midpoint - x0
-            b = circumcenter - x0
-            #cell_normal = np.cross(a, c)
-            #cc_normal = np.cross(b, c)
-            #alpha0 = np.dot( cc_normal, cell_normal )
-            alpha = np.dot(b, a) * np.dot(c, c) - np.dot(b, c) * np.dot(a, c)
-
-            # math.copysign() takes the absolute value of the first argument
-            # and the sign of the second.
-            return math.copysign( coedge_length, alpha )
-        # ----------------------------------------------------------------------
         num_nodes = len(self.mesh.nodes)
-        self.control_volumes2 = np.zeros((num_nodes,1), dtype = float)
+        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
 
         # compute cell circumcenters
         num_cells = len(self.mesh.cellsNodes)
@@ -496,67 +475,77 @@ class GinlaModelEvaluator:
         for k, cellNodes in enumerate(self.mesh.cellsNodes):
             circumcenters[k] = self._triangle_circumcenter(self.mesh.nodes[cellNodes])
 
-        #if self.mesh.edgesNodes is None:
-            #self.mesh.create_edges()
-        #k = 0
-        #for edgeNodes, edgeCells in zip(self.mesh.edgesNodes, self.mesh.edgesCells):
-            #edge = self.mesh.nodes[edgeNodes[1]] \
-                 #- self.mesh.nodes[edgeNodes[0]]
-            #if len(edgeCells) == 1: # boundary edge
-                ## Even for Delaunay triangulations, the circumcenter of
-                ## boundary elements can sit outside of the domain. In this case,
-                ## the corresponding contribution from the boundary edge has to
-                ## be taken negative.
-                ## TODO find a good way for figuring this out
-                #edge_midpoint = 0.5 * ( self.mesh.nodes[edgeNodes[1]]
-                                      #+ self.mesh.nodes[edgeNodes[0]] )
-                #coedge = edge_midpoint - circumcenters[edgeCells[0]]
-            #if len(edgeCells) == 2: # interior edge
-                #coedge = circumcenters[edgeCells[1]] \
-                       #- circumcenters[edgeCells[0]]
-            ## Here, implicitly, the covolume is assumed positive. This is true
-            ## if and only if the two circumcenters of the adjacent cells do not
-            ## "intersect", i.e., the left cell's circumcenter is left of the
-            ## right cells circumcenter. This is true exactly for Delaunay
-            ## triangulations.
-            #pyramid_volume = 0.5 * np.sqrt(np.dot(edge,edge) * np.dot(coedge,coedge)) / 2
-            #if 0 in edgeNodes:
-                #print k, edgeCells
-                #print pyramid_volume
-            ## control volume contributions
-            #self.control_volumes2[edgeNodes[0]] += pyramid_volume
-            #self.control_volumes2[edgeNodes[1]] += pyramid_volume
-            #k += 1
+        if self.mesh.edgesNodes is None:
+            self.mesh.create_edges()
 
-        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
-        for k, cellNodes in enumerate(self.mesh.cellsNodes):
-            local_nodes = self.mesh.nodes[cellNodes]
-            # Iterate over pairs of nodes aka local edges.
-            num_local_nodes = len(cellNodes)
-            for e0 in xrange( num_local_nodes ):
-                index0 = cellNodes[e0]
-                for e1 in xrange( e0+1, num_local_nodes ):
-                    index1 = cellNodes[e1]
-                    edge_length = np.linalg.norm( local_nodes[e0]
-                                                - local_nodes[e1] )
+        # Precompute edge lengths.
+        num_edges = len(self.mesh.edgesNodes)
+        edge_lengths = np.empty(num_edges, dtype=float)
+        for k in xrange(num_edges):
+            nodes = self.mesh.nodes[self.mesh.edgesNodes[k]]
+            edge_lengths[k] = np.linalg.norm(nodes[1] - nodes[0])
 
-                    other_indices = self._get_other_indices( e0, e1 )
-                    covolume = _compute_covolume(local_nodes[e0],
-                                                 local_nodes[e1],
-                                                 circumcenters[k],
-                                                 local_nodes[other_indices[0]]
-                                                 )
+        # Precompute edge ("face") normals. Do that in such a way that the
+        # face normals points in the direction of the cell with the higher
+        # cell ID.
+        normals = np.zeros(num_edges, dtype=np.dtype((float,3)))
+        for cell_id, cellEdges in enumerate(self.mesh.cellsEdges):
+            # Loop over the local faces.
+            for k in xrange(3):
+                edge_id = cellEdges[k]
+                # Compute the normal in the direction of the higher cell ID,
+                # or if this is a boundary face, to the outside of the domain.
+                neighbor_cell_ids = self.mesh.edgesCells[edge_id]
+                if cell_id == neighbor_cell_ids[0]:
+                    face_nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+                    # The current cell is the one with the lower ID.
+                    # Get "other" node (aka the one which is not in the current
+                    # "face").
+                    other_node_id = self.mesh.cellsNodes[cell_id][k]
+                    # Get any direction other_node -> face.
+                    # As reference, any point in face can be taken, e.g.,
+                    # the first face corner point
+                    # self.mesh.edgesNodes[edge_id][0].
+                    normals[edge_id] = face_nodes[0] \
+                                     - self.mesh.nodes[other_node_id]
+                    # Make it orthogonal to the face.
+                    nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+                    # TODO Don't compute two norms here?
+                    edge = nodes[1] - nodes[0]
 
-                    pyramid_volume = 0.5 * edge_length * covolume / 2
-                    self.control_volumes[ index0 ] += pyramid_volume
-                    self.control_volumes[ index1 ] += pyramid_volume
+                    edge /= edge_lengths[edge_id]
+                    normals[edge_id] -= np.dot(normals[edge_id], edge) * edge
+                    # Normalization.
+                    normals[edge_id] /= np.linalg.norm(normals[edge_id])
 
-        #print self.control_volumes[0], self.control_volumes2[0]
+                    #A = np.vstack((edge, normals[edge_id])).T
+                    #q, r = np.linalg.qr(A)
+                    #normals[edge_id] = q[:,-1]
 
-        #diff = self.control_volumes - self.control_volumes2
-        #for k, d in enumerate(diff):
-            #if abs(d) > 1.0e-15:
-                #print k, d
+
+        # Compute covolumes and control volumes.
+        for k in xrange(num_edges):
+            # Get the circumcenters of the adjacent cells.
+            cc = circumcenters[self.mesh.edgesCells[k]]
+            node_ids = self.mesh.edgesNodes[k]
+            if len(cc) == 2: # interior cell
+                # TODO check out if this holds true for bent surfaces too
+                coedge = cc[1] - cc[0]
+            elif len(cc) == 1: # boundary cell
+                node_coords = self.mesh.nodes[node_ids]
+                # TODO Shorten using by np.sum().
+                edge_midpoint = 0.5 * (node_coords[0] + node_coords[1])
+                coedge = edge_midpoint - cc[0]
+            else:
+                raise RuntimeError('A face should have either 1 or two adjacent cells.')
+
+            # Project the coedge onto the outer normal. The two vectors should
+            # be parallel, it's just the sign of the coedge length that is to
+            # be determined here.
+            covolume = np.dot(coedge, normals[k])
+            pyramid_volume = 0.5 * edge_lengths[k] * covolume / 2
+            self.control_volumes[node_ids] += pyramid_volume
+
         return
     # ==========================================================================
     def _triangle_circumcenter(self, x):
