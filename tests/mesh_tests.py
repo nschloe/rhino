@@ -50,6 +50,13 @@ class TestMesh(unittest.TestCase):
                           3.53553390593274,
                           1.25 ]
         self._run_test(filename, actual_values)
+    # --------------------------------------------------------------------------
+    def test_brick(self):
+        filename = 'brick-w-hole.e'
+        actual_values = [ 388.68629169464117,
+                          16.661401941985677,
+                          1.4684734547497671 ]
+        self._run_test(filename, actual_values)
 # ==============================================================================
 if __name__ == '__main__':
     unittest.main()

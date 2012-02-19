@@ -49,6 +49,12 @@ class TestKeo(unittest.TestCase):
         mu = 1.0e-2
         actual_control_sum_real = 0.0042221425209372221
         self._run_test(filename, mu, actual_control_sum_real)
+    # --------------------------------------------------------------------------
+    def test_brick(self):
+        filename = 'brick-w-hole.e'
+        mu = 1.0e-2
+        actual_control_sum_real = 0.16763276011469475
+        self._run_test(filename, mu, actual_control_sum_real)
 # ==============================================================================
 class TestJacobian(unittest.TestCase):
     # --------------------------------------------------------------------------
@@ -108,6 +114,14 @@ class TestJacobian(unittest.TestCase):
         actual_values = [ -20.0084442850419,
                           -20.0042221425209,
                           -0.00422214252093753 ]
+        self._run_test(filename, mu, actual_values)
+    # --------------------------------------------------------------------------
+    def test_brick(self):
+        filename = 'brick-w-hole.e'
+        mu = 1.0e-2
+        actual_values = [ -777.70784890951165,
+                          -777.54021614939688,
+                          -0.16763276011468597 ]
         self._run_test(filename, mu, actual_values)
 # ==============================================================================
 if __name__ == '__main__':
