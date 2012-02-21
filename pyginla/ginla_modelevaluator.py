@@ -254,7 +254,6 @@ class GinlaModelEvaluator:
             self.mesh.create_adjacent_entities()
 
         # loop over all edges
-        self.mesh.create_adjacent_entities()
         for k, node_indices in enumerate(self.mesh.edgesNodes):
             # Fetch the cached values.
             alpha = self._edgecoeff_cache[k]
@@ -284,7 +283,8 @@ class GinlaModelEvaluator:
         (in 2D: coedge-edge ratios).'''
 
         # make sure the mesh has edges
-        self.mesh.create_adjacent_entities()
+        if self.mesh.cellsEdges is None:
+            self.mesh.create_adjacent_entities()
 
         num_edges = len(self.mesh.edgesNodes)
         self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
@@ -293,10 +293,17 @@ class GinlaModelEvaluator:
             self.mesh.create_cells_volume()
         vols = self.mesh.cellsVolume
 
+        # Precompute edges.
+        edges = np.empty(num_edges, dtype=np.dtype((float,3)))
+        for edge_id, edge_nodes in enumerate(self.mesh.edgesNodes):
+            edges[edge_id] = self.mesh.nodes[edge_nodes[1]] \
+                           - self.mesh.nodes[edge_nodes[0]]
+
         # Calculate the edge contributions cell by cell.
+        num_local_edges = len(self.mesh.cellsEdges[0])
+        A   = np.empty( (num_local_edges, num_local_edges), dtype = float )
+        rhs = np.empty( num_local_edges, dtype = float )
         for cell_id, cellEdges in enumerate(self.mesh.cellsEdges):
-            # We only deal with simplices.
-            num_local_edges = len(cellEdges)
             # Build local edge coordinates.
             local_edges = np.empty(num_local_edges, dtype=np.dtype((float,3)))
             for k, edgeNodes in enumerate(self.mesh.edgesNodes[cellEdges]):
@@ -310,19 +317,16 @@ class GinlaModelEvaluator:
             #
             # has to hold for all vectors u in the plane spanned by the edges,
             # particularly by the edges themselves.
-            A   = np.zeros( (num_local_edges, num_local_edges), dtype = float )
-            rhs = np.empty( num_local_edges, dtype = float )
             for i in xrange( num_local_edges ):
-                rhs[i] = vols[cell_id] * np.dot(local_edges[i], local_edges[i])
+                rhs[i] = vols[cell_id] * np.dot(edges[cellEdges[i]], edges[cellEdges[i]])
                 # Fill the upper triangle of the symmetric matrix A.
                 for j in xrange(i, num_local_edges):
-                    A[i, j] = np.dot(local_edges[i], local_edges[j])**2
+                    A[i, j] = np.dot(edges[cellEdges[i]], edges[cellEdges[j]])**2
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
-            coeffs = linalg.solve( A, rhs, sym_pos=True )
-            for k, coeff in enumerate(coeffs):
-                self._edgecoeff_cache[cellEdges[k]] += coeff
+            coeffs = linalg.solve(A, rhs, sym_pos=True)
+            self._edgecoeff_cache[cellEdges] += coeffs
 
         return
     # ==========================================================================
@@ -334,7 +338,7 @@ class GinlaModelEvaluator:
             self.mesh.create_adjacent_entities()
 
         num_edges = len(self.mesh.edgesNodes)
-        self._mvp_edge_cache = np.zeros(num_edges, dtype=float)
+        self._mvp_edge_cache = np.empty(num_edges, dtype=float)
 
         # Loop over the all local edges of all cells.
         for edge_id, node_indices in enumerate(self.mesh.edgesNodes):
