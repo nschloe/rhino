@@ -213,10 +213,6 @@ class GinlaModelEvaluator:
             coarse_solver='pinv'
             )
 
-        # Returning just one cycle is not enough here. Possibly related:
-        #   Valeria Simoncini and Daniel B. Szyld,
-        #   Flexible Inner-Outer Krylov Subspace Methods,
-        #   SIAM Journal on Numerical Analysis, vol. 40 (2003), pp. 2219-2239.
         amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
 
         num_unknowns = len(psi0)
@@ -289,7 +285,7 @@ class GinlaModelEvaluator:
             self._build_mvp_edge_cache()
 
         # loop over all edges
-        self.mesh.create_edges()
+        self.mesh.create_adjacent_entities()
         for k, node_indices in enumerate(self.mesh.edgesNodes):
             # Fetch the cached values.
             alpha = self._edgecoeff_cache[k]
@@ -319,7 +315,7 @@ class GinlaModelEvaluator:
         (in 2D: coedge-edge ratios).'''
 
         # make sure the mesh has edges
-        self.mesh.create_edges()
+        self.mesh.create_adjacent_entities()
 
         num_edges = len(self.mesh.edgesNodes)
         self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
@@ -376,7 +372,7 @@ class GinlaModelEvaluator:
         '''Builds the cache for the magnetic vector potential.'''
 
         # make sure the mesh has edges
-        self.mesh.create_edges()
+        self.mesh.create_adjacent_entities()
 
         num_edges = len(self.mesh.edgesNodes)
         self._mvp_edge_cache = np.zeros(num_edges, dtype=float)
@@ -458,7 +454,18 @@ class GinlaModelEvaluator:
         if num_local_nodes == 3:
             self._compute_control_volumes_2d()
         elif num_local_nodes == 4:
-            self._compute_control_volumes_3d()
+            #self._compute_control_volumes_3d()
+            #cv = self.control_volumes.copy()
+            #ec = self.edge_contribs
+            #print
+            self._compute_control_volumes_3d_old()
+            #print ec - self.edge_contribs
+            #self._show_covolume(54)
+            #print cv[2], self.control_volumes[2]
+            #print cv[2] - self.control_volumes[2]
+            #for edge_id, node_ids in enumerate(self.mesh.edgesNodes):
+                #if 2 in node_ids:
+                    #print edge_id
         else:
             raise ValueError('Control volumes can only be constructed ' +
                              'for triangles and tetrahedra.')
@@ -476,7 +483,7 @@ class GinlaModelEvaluator:
             circumcenters[k] = self._triangle_circumcenter(self.mesh.nodes[cellNodes])
 
         if self.mesh.edgesNodes is None:
-            self.mesh.create_edges()
+            self.mesh.create_adjacent_entities()
 
         # Precompute edge lengths.
         num_edges = len(self.mesh.edgesNodes)
@@ -497,7 +504,7 @@ class GinlaModelEvaluator:
                 # or if this is a boundary face, to the outside of the domain.
                 neighbor_cell_ids = self.mesh.edgesCells[edge_id]
                 if cell_id == neighbor_cell_ids[0]:
-                    face_nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+                    edge_nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
                     # The current cell is the one with the lower ID.
                     # Get "other" node (aka the one which is not in the current
                     # "face").
@@ -506,22 +513,13 @@ class GinlaModelEvaluator:
                     # As reference, any point in face can be taken, e.g.,
                     # the first face corner point
                     # self.mesh.edgesNodes[edge_id][0].
-                    normals[edge_id] = face_nodes[0] \
+                    normals[edge_id] = edge_nodes[0] \
                                      - self.mesh.nodes[other_node_id]
                     # Make it orthogonal to the face.
-                    nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
-                    # TODO Don't compute two norms here?
-                    edge = nodes[1] - nodes[0]
-
-                    edge /= edge_lengths[edge_id]
-                    normals[edge_id] -= np.dot(normals[edge_id], edge) * edge
+                    edge_dir = (edge_nodes[1] - edge_nodes[0]) / edge_lengths[edge_id]
+                    normals[edge_id] -= np.dot(normals[edge_id], edge_dir) * edge_dir
                     # Normalization.
                     normals[edge_id] /= np.linalg.norm(normals[edge_id])
-
-                    #A = np.vstack((edge, normals[edge_id])).T
-                    #q, r = np.linalg.qr(A)
-                    #normals[edge_id] = q[:,-1]
-
 
         # Compute covolumes and control volumes.
         for k in xrange(num_edges):
@@ -533,7 +531,6 @@ class GinlaModelEvaluator:
                 coedge = cc[1] - cc[0]
             elif len(cc) == 1: # boundary cell
                 node_coords = self.mesh.nodes[node_ids]
-                # TODO Shorten using by np.sum().
                 edge_midpoint = 0.5 * (node_coords[0] + node_coords[1])
                 coedge = edge_midpoint - cc[0]
             else:
@@ -594,17 +591,170 @@ class GinlaModelEvaluator:
 
         return m
     # ==========================================================================
-    def _get_other_indices(self, e0, e1):
-        '''Given to indices between 0 and 3, return the other two out of
-        [0, 1, 2, 3].'''
-        other_indices = []
-        for k in xrange(4):
-            if k != e0 and k != e1:
-                other_indices.append( k )
+    def _show_covolume(self, edge_id):
+        '''For debugging.'''
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        import vtk
 
-        return other_indices
+        # get cell circumcenters
+        if self.mesh.cell_circumcenters is None:
+            self.mesh.create_cell_circumcenters()
+        cell_ccs = self.mesh.cell_circumcenters
+
+        # get face circumcenters
+        if self.mesh.face_circumcenters is None:
+            self.mesh.create_face_circumcenters()
+        face_ccs = self.mesh.face_circumcenters
+
+        edge_nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+        edge_midpoint = 0.5 * ( edge_nodes[0] + edge_nodes[1] )
+
+        import matplotlib as mpl
+        from mpl_toolkits.mplot3d import Axes3D
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+
+        # plot all adjacent cells
+        col = 'k'
+        for cell_id in self.mesh.edgesCells[edge_id]:
+            for edge in self.mesh.cellsEdges[cell_id]:
+                x = self.mesh.nodes[self.mesh.edgesNodes[edge]]
+                ax.plot(x[:,0], x[:,1], x[:,2], col)
+
+        # make clear which is the edge
+        ax.plot(edge_nodes[:,0], edge_nodes[:,1], edge_nodes[:,2], color=col, linewidth=3.0 )
+
+        # plot covolume        
+        for face_id in self.mesh.edgesFaces[edge_id]:
+            ccs = cell_ccs[ self.mesh.facesCells[face_id] ]
+            v = np.empty(3, dtype=np.dtype((float,2)))
+            #col = '0.5'
+            col = 'g'
+            if len(ccs) == 2:
+                ax.plot(ccs[:,0], ccs[:,1], ccs[:,2], color=col)
+            elif len(ccs) == 1:
+                face_cc = face_ccs[face_id]
+                ax.plot([ccs[0][0],face_cc[0]], [ccs[0][1],face_cc[1]], [ccs[0][2],face_cc[2]], color=col)
+            else:
+                raise RuntimeError('???')
+        #ax.plot([edge_midpoint[0]], [edge_midpoint[1]], [edge_midpoint[2]], 'ro')
+
+        # highlight cells
+        print self.mesh.edgesCells[edge_id]
+        highlight_cells = [3]
+        col = 'r'
+        for k in highlight_cells:
+            cell_id = self.mesh.edgesCells[edge_id][k]
+            ax.plot([cell_ccs[cell_id,0]], [cell_ccs[cell_id,1]], [cell_ccs[cell_id,2]],
+                    color = col, marker='o')
+            for edge in self.mesh.cellsEdges[cell_id]:
+                x = self.mesh.nodes[self.mesh.edgesNodes[edge]]
+                ax.plot(x[:,0], x[:,1], x[:,2], col, linestyle='dashed')
+
+        plt.show()
+        return
     # ==========================================================================
     def _compute_control_volumes_3d(self):
+
+        if self.mesh.edgesNodes is None:
+            self.mesh.create_adjacent_entities()
+          
+        # get cell circumcenters
+        if self.mesh.cell_circumcenters is None:
+            self.mesh.create_cell_circumcenters()
+        cell_ccs = self.mesh.cell_circumcenters
+
+        # get face circumcenters
+        if self.mesh.face_circumcenters is None:
+            self.mesh.create_face_circumcenters()
+        face_ccs = self.mesh.face_circumcenters
+
+        # Precompute edge lengths.
+        num_edges = len(self.mesh.edgesNodes)
+        edge_lengths = np.empty(num_edges, dtype=float)
+        for edge_id in xrange(num_edges):
+            nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+            edge_lengths[edge_id] = np.linalg.norm(nodes[1] - nodes[0])
+
+        # Precompute face normals. Do that in such a way that the
+        # face normals points in the direction of the cell with the higher
+        # cell ID.
+        num_faces = len(self.mesh.facesNodes)
+        normals = np.zeros(num_faces, dtype=np.dtype((float,3)))
+        for cell_id, cellFaces in enumerate(self.mesh.cellsFaces):
+            # Loop over the local faces.
+            for k in xrange(4):
+                face_id = cellFaces[k]
+                # Compute the normal in the direction of the higher cell ID,
+                # or if this is a boundary face, to the outside of the domain.
+                neighbor_cell_ids = self.mesh.facesCells[face_id]
+                if cell_id == neighbor_cell_ids[0]:
+                    # The current cell is the one with the lower ID.
+                    face_nodes = self.mesh.nodes[self.mesh.facesNodes[face_id]]
+                    # Get "other" node (aka the one which is not in the current
+                    # face).
+                    other_node_id = self.mesh.cellsNodes[cell_id][k]
+                    # Get any direction other_node -> face.
+                    # As reference, any point in face can be taken, e.g.,
+                    # the face circumcenter.
+                    normals[face_id] = face_ccs[face_id] \
+                                     - self.mesh.nodes[other_node_id]
+                    if face_id == 2:
+                        tmp = normals[face_id]
+                    # Make it orthogonal to the face by doing Gram-Schmidt
+                    # with the two edges of the face.
+                    edge_id = self.mesh.facesEdges[face_id][0]
+                    nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+                    # No need to compute the norm of the first edge -- it's
+                    # already here!
+                    v0 = (nodes[1] - nodes[0]) / edge_lengths[edge_id]
+                    edge_id = self.mesh.facesEdges[face_id][1]
+                    nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+                    v1 = nodes[1] - nodes[0]
+                    v1 -= np.dot(v1, v0) * v0
+                    v1 /= np.linalg.norm(v1)
+                    normals[face_id] -= np.dot(normals[face_id], v0) * v0
+                    normals[face_id] -= np.dot(normals[face_id], v1) * v1
+                    # Normalization.
+                    normals[face_id] /= np.linalg.norm(normals[face_id])
+
+        # Compute covolumes and control volumes.
+        num_nodes = len(self.mesh.nodes)
+        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
+
+        self.edge_contribs = np.zeros((num_edges,1), dtype = float)
+        for edge_id in xrange(num_edges):
+            covolume = 0.0
+            edge_node_ids = self.mesh.edgesNodes[edge_id]
+            edge_midpoint = 0.5 * ( self.mesh.nodes[edge_node_ids[0]]
+                                  + self.mesh.nodes[edge_node_ids[1]])
+            for face_id in self.mesh.edgesFaces[edge_id]:
+                face_cc = face_ccs[face_id]
+                # Get the circumcenters of the adjacent cells.
+                cc = cell_ccs[self.mesh.facesCells[face_id]]
+                if len(cc) == 2: # interior face
+                    coedge = cc[1] - cc[0]
+                elif len(cc) == 1: # boundary face
+                    coedge = face_cc - cc[0]
+                else:
+                    raise RuntimeError('A face should have either 1 or 2 adjacent cells.')
+                # Project the coedge onto the outer normal. The two vectors
+                # should be parallel, it's just the sign of the coedge length
+                # that is to be determined here.
+                h = np.dot(coedge, normals[face_id])
+                alpha = np.linalg.norm(face_cc - edge_midpoint)                    
+                covolume += 0.5 * alpha * h
+
+            pyramid_volume = 0.5 * edge_lengths[edge_id] * covolume / 3
+
+            if edge_id == 54:
+                self.control_volumes[edge_node_ids] += pyramid_volume
+
+        return
+    # ==========================================================================
+    def _compute_control_volumes_3d_old(self):
         # ----------------------------------------------------------------------
         def _tetrahedron_circumcenter( x ):
             '''Computes the center of the circumsphere of a tetrahedron.
@@ -629,92 +779,102 @@ class GinlaModelEvaluator:
 
             return m
         # ----------------------------------------------------------------------
-        def _compute_covolume( x0, x1, cc, other0, other1 ):
+        def _compute_covolume(edge_node_ids, cc, other_node_ids, verbose=False):
             covolume = 0.0
-            edge_midpoint = 0.5 * ( x0 + x1 )
+            edge_nodes = self.mesh.nodes[edge_node_ids]
+            edge_midpoint = 0.5 * (edge_nodes[0] + edge_nodes[1])
 
-            # Compute the circumcenters of the adjacent faces.
-            ccFace0 = self._triangle_circumcenter( [x0, x1, other0] )
-            ccFace1 = self._triangle_circumcenter( [x0, x1, other1] )
+            other_nodes = self.mesh.nodes[other_node_ids]
+
+            # Use the triangle (MP, other_nodes[0], other_nodes[1]] )
+            # (in this order) to gauge the orientation of the two triangles that
+            # compose the quadrilateral.
+            gauge = np.cross(other_nodes[0] - edge_midpoint,
+                             other_nodes[1] - edge_midpoint)
 
             # Compute the area of the quadrilateral.
             # There are some really tricky degenerate cases here, i.e.,
             # combinations of when ccFace{0,1}, cc, sit outside of the
             # tetrahedron.
 
-            # Use the triangle (MP, localNodes[other[0]], localNodes[other[1]] )
-            # (in this order) to gauge the orientation of the two triangles that
-            # compose the quadrilateral.
-            gauge = np.cross(other0 - edge_midpoint, other1 - edge_midpoint)
+            # Compute the circumcenters of the adjacent faces.
+            ccFace0 = self._triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[0]])
 
             # Add the area of the first triangle (MP,ccFace0,cc).
             # This makes use of the right angles.
-            triangleHeight0 = np.linalg.norm(edge_midpoint - ccFace0)
             triangleArea0 = 0.5 \
-                          * triangleHeight0 \
+                          * np.linalg.norm(edge_midpoint - ccFace0) \
                           * np.linalg.norm(ccFace0 - cc)
 
             # Check if the orientation of the triangle (MP,ccFace0,cc)
             # coincides with the orientation of the gauge triangle. If yes, add
             # the area, subtract otherwise.
             triangleNormal0 = np.cross(ccFace0 - edge_midpoint,
-                                        cc - edge_midpoint)
+                                       cc - edge_midpoint)
             # copysign takes the absolute value of the first argument and the
             # sign of the second.
             covolume += math.copysign(triangleArea0,
                                       np.dot(triangleNormal0, gauge))
 
+            ccFace1 = self._triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[1]])
+
             # Add the area of the second triangle (MP,cc,ccFace1).
             # This makes use of the right angles.
-            triangleHeight1 = np.linalg.norm(edge_midpoint - ccFace1)
             triangleArea1 = 0.5 \
-                          * triangleHeight1 \
+                          * np.linalg.norm(edge_midpoint - ccFace1) \
                           * np.linalg.norm(ccFace1 - cc)
 
             # Check if the orientation of the triangle (MP,cc,ccFace1)
             # coincides with the orientation of the gauge triangle. If yes, add
             # the area, subtract otherwise.
             triangleNormal1 = np.cross(cc - edge_midpoint,
-                                        ccFace1 - edge_midpoint)
+                                       ccFace1 - edge_midpoint)
             # copysign takes the absolute value of the first argument and the
             # sign of the second.
             covolume += math.copysign(triangleArea1,
                                       np.dot(triangleNormal1, gauge))
             return covolume
         # ----------------------------------------------------------------------
+        def _without(myset, e):
+            other_indices = []
+            for k in myset:
+                if k not in e:
+                    other_indices.append( k )
+            return other_indices
+        # ----------------------------------------------------------------------
+        # Precompute edge lengths.
+        if self.mesh.edgesNodes is None:
+            self.mesh.create_adjacent_entities()
+
+        num_edges = len(self.mesh.edgesNodes)
+        edge_lengths = np.empty(num_edges, dtype=float)
+        for edge_id in xrange(num_edges):
+            nodes = self.mesh.nodes[self.mesh.edgesNodes[edge_id]]
+            edge_lengths[edge_id] = np.linalg.norm(nodes[1] - nodes[0])
+
         num_nodes = len(self.mesh.nodes)
         self.control_volumes = np.zeros((num_nodes,1), dtype = float )
-        for cellNodes in self.mesh.cellsNodes:
 
-            num_local_nodes = len(cellNodes)
-            local_nodes = np.empty(num_local_nodes, dtype=((float,3)))
-            for k, node_index in enumerate(cellNodes):
-                local_nodes[k] = self.mesh.nodes[node_index]
-
+        self.edge_contribs = np.zeros((num_edges,1), dtype = float )
+        for cell_id, cellNodes in enumerate(self.mesh.cellsNodes):
             # Compute the circumcenter of the cell.
-            cc = _tetrahedron_circumcenter( local_nodes )
+            cc = _tetrahedron_circumcenter( self.mesh.nodes[cellNodes] )
 
             # Iterate over pairs of nodes aka local edges.
-            for e0 in xrange( num_local_nodes ):
-                index0 = cellNodes[e0]
-                for e1 in xrange( e0+1, num_local_nodes ):
-                    index1 = cellNodes[e1]
-                    edge_length = np.linalg.norm( local_nodes[e0]
-                                                - local_nodes[e1] )
+            for edge_id in self.mesh.cellsEdges[cell_id]:
+                indices = self.mesh.edgesNodes[edge_id]
 
-                    other_indices = self._get_other_indices( e0, e1 )
-                    covolume = _compute_covolume(local_nodes[e0],
-                                                 local_nodes[e1],
-                                                 cc,
-                                                 local_nodes[other_indices[0]],
-                                                 local_nodes[other_indices[1]]
-                                                 )
+                other_indices = _without(cellNodes, indices)
+                covolume = _compute_covolume(indices,
+                                             cc,
+                                             other_indices,
+                                             verbose = 0 in indices and edge_id == 0 and cell_id == 0
+                                             )
 
-                    pyramid_volume = 0.5*edge_length * covolume / 3
+                pyramid_volume = 0.5 * edge_lengths[edge_id] * covolume / 3
+                # control volume contributions
+                self.control_volumes[indices] += pyramid_volume
 
-                    # control volume contributions
-                    self.control_volumes[ index0 ] += pyramid_volume
-                    self.control_volumes[ index1 ] += pyramid_volume
         return
     # ==========================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=

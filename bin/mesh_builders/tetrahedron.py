@@ -14,7 +14,8 @@ def _main():
 
     # circumcircle radius
     r = 5.0
-    max_volume = 1.0 / args.n**3
+    #max_volume = 1.0 / args.n**3
+    max_volume = 8.0
 
     # boundary points
     points = []
@@ -48,11 +49,11 @@ def _main():
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
-    print 'Recreate cells to make sure the mesh is Delaunay...',
-    start = time.time()
-    mymesh.recreate_cells_with_qhull()
-    elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
+    #print 'Recreate cells to make sure the mesh is Delaunay...',
+    #start = time.time()
+    #mymesh.recreate_cells_with_qhull()
+    #elapsed = time.time()-start
+    #print 'done. (%gs)' % elapsed
 
     num_nodes = len(mymesh.nodes)
 
