@@ -7,7 +7,7 @@ import numpy as np
 from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import spdiags
-import math, cmath
+import cmath
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class GinlaModelEvaluator:
     '''Ginzburg--Landau model evaluator class.
@@ -413,31 +413,6 @@ class GinlaModelEvaluator:
             #k += 1
 
         #return sum / len( self.mesh.nodes )
-    # ==========================================================================
-    def _compute_control_volumes( self ):
-        '''Computes the area of the control volumes.
-        '''
-        num_local_nodes = len(self.mesh.cellsNodes[0])
-        if num_local_nodes == 3:
-            self._compute_control_volumes_2d()
-        elif num_local_nodes == 4:
-            #self._compute_control_volumes_3d()
-            #cv = self.control_volumes.copy()
-            #ec = self.edge_contribs
-            #print
-            self._compute_control_volumes_3d_old()
-            #print ec - self.edge_contribs
-            #self._show_covolume(54)
-            #print cv[2], self.control_volumes[2]
-            #print cv[2] - self.control_volumes[2]
-            #for edge_id, node_ids in enumerate(self.mesh.edgesNodes):
-                #if 2 in node_ids:
-                    #print edge_id
-        else:
-            raise ValueError('Control volumes can only be constructed ' +
-                             'for triangles and tetrahedra.')
-
-        return
     # ==========================================================================
     def _show_covolume(self, edge_id):
         '''For debugging.'''

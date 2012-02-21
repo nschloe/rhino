@@ -348,7 +348,7 @@ class Mesh2D( Mesh ):
                 edge_midpoint = 0.5 * (node_coords[0] + node_coords[1])
                 coedge = edge_midpoint - cc[0]
             else:
-                raise RuntimeError('A face should have either 1 or two adjacent cells.')
+                raise RuntimeError('An edge should have either 1 or two adjacent cells.')
 
             # Project the coedge onto the outer normal. The two vectors should
             # be parallel, it's just the sign of the coedge length that is to
@@ -359,7 +359,7 @@ class Mesh2D( Mesh ):
 
         return
     # --------------------------------------------------------------------------
-    def show(self):
+    def show(self, highlight_nodes = []):
         '''Plot the mesh.'''
         if self.edgesNodes is None:
             raise RuntimeError('Can only show mesh when edges are created.')
@@ -367,27 +367,52 @@ class Mesh2D( Mesh ):
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
 
-        # get cell circumcenters
         if self.cell_circumcenters is None:
             self.create_cell_circumcenters()
-        cell_ccs = self.cell_circumcenters
-
-        # get face circumcenters
-        if self.face_circumcenters is None:
-            self.create_face_circumcenters()
-        face_ccs = self.face_circumcenters
-
-        edge_nodes = self.nodes[self.edgesNodes[edge_id]]
-        edge_midpoint = 0.5 * ( edge_nodes[0] + edge_nodes[1] )
 
         fig = plt.figure()
-        ax = fig.gca(projection='3d')
+        #ax = fig.gca(projection='3d')
+        ax = fig.gca()
+        plt.axis('equal')
 
         # plot edges
         col = 'k'
         for node_ids in self.edgesNodes:
             x = self.nodes[node_ids]
-            ax.plot(x[:,0], x[:,1], x[:,2], col)
+            ax.plot(x[:,0],
+                    x[:,1],
+                    #x[:,2],
+                    col)
+
+        # Highlight nodes and their covolumes.
+        node_col = 'r'
+        covolume_col = '0.5'
+        for node_id in highlight_nodes:
+            x = self.nodes[node_id]
+            ax.plot([x[0]],
+                    [x[1]],
+                    #[x[2]],
+                    color=node_col, marker='o')
+            # Plot the covolume.
+            # TODO Something like nodesEdges would be useful here.
+            for edge_id, node_ids in enumerate(self.edgesNodes):
+                if node_id in node_ids:
+                    adjacent_cells = self.edgesCells[edge_id]
+                    ccs = self.cell_circumcenters[adjacent_cells]
+                    if len(ccs) == 2:
+                        ax.plot( [ccs[0][0], ccs[1][0]],
+                                 [ccs[0][1], ccs[1][1]],
+                                 #[ccs[0][2], ccs[1][2]],
+                                 color = covolume_col )
+                    elif len(ccs) == 1:
+                        edge_midpoint = 0.5 * (self.nodes[node_ids[0]]
+                                              +self.nodes[node_ids[1]])
+                        ax.plot( [ccs[0][0], edge_midpoint[0]],
+                                 [ccs[0][1], edge_midpoint[1]],
+                                 #[ccs[0][2], edge_midpoint[2]],
+                                 color = covolume_col )
+                    else:
+                        raise RuntimeError('An edge has to have either 1 or 2 adjacent cells.')
 
         plt.show()
         return

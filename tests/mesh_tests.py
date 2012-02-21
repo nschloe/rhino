@@ -23,6 +23,15 @@ class TestMesh(unittest.TestCase):
 
         return
     # --------------------------------------------------------------------------
+    def test_rectanglesmall(self):
+        filename = 'rectanglesmall.e'
+        pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+        actual_values = [ 10.0,
+                          5.0,
+                          2.5 ]
+        self._run_test(pyginlamesh, actual_values )
+        return
+    # --------------------------------------------------------------------------
     #def test_arrow(self):
         #num_nodes = 5
         #nodes = np.array([[0.0,  0.0, 0.0],
@@ -34,19 +43,13 @@ class TestMesh(unittest.TestCase):
                               #[1,3,0],
                               #[2,3,4],
                               #[0,3,2]])
+        #from mesh.mesh2d import Mesh2D
         #mymesh = Mesh2D(nodes, cellsNodes)
 
-        #mymesh.show()
+        #mymesh.create_adjacent_entities()
+
+        #mymesh.show( highlight_nodes=[3])
         #return
-    # --------------------------------------------------------------------------
-    def test_rectanglesmall(self):
-        filename = 'rectanglesmall.e'
-        pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
-        actual_values = [ 10.0,
-                          5.0,
-                          2.5 ]
-        self._run_test(pyginlamesh, actual_values )
-        return
     # --------------------------------------------------------------------------
     def test_pacman(self):
         filename = 'pacman.e'
