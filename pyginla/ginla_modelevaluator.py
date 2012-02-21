@@ -756,29 +756,6 @@ class GinlaModelEvaluator:
     # ==========================================================================
     def _compute_control_volumes_3d_old(self):
         # ----------------------------------------------------------------------
-        def _tetrahedron_circumcenter( x ):
-            '''Computes the center of the circumsphere of a tetrahedron.
-            '''
-            ## http://www.cgafaq.info/wiki/Tetrahedron_Circumsphere
-            #b = x[1] - x[0]
-            #c = x[2] - x[0]
-            #d = x[3] - x[0]
-
-            #omega = (2.0 * np.dot( b, np.cross(c, d)))
-
-            #if abs(omega) < 1.0e-10:
-                #raise ZeroDivisionError( 'Tetrahedron is degenerate.' )
-            #m = x[0] + (   np.dot(b, b) * np.cross(c, d)
-                            #+ np.dot(c, c) * np.cross(d, b)
-                            #+ np.dot(d, d) * np.cross(b, c)
-                          #) / omega
-
-            import vtk
-            m = np.empty(3,float)
-            vtk.vtkTetra.Circumsphere(x[0], x[1], x[2], x[3], m)
-
-            return m
-        # ----------------------------------------------------------------------
         def _compute_covolume(edge_node_ids, cc, other_node_ids, verbose=False):
             covolume = 0.0
             edge_nodes = self.mesh.nodes[edge_node_ids]
@@ -846,6 +823,11 @@ class GinlaModelEvaluator:
         if self.mesh.edgesNodes is None:
             self.mesh.create_adjacent_entities()
 
+        # get cell circumcenters
+        if self.mesh.cell_circumcenters is None:
+            self.mesh.create_cell_circumcenters()
+        cell_ccs = self.mesh.cell_circumcenters
+
         num_edges = len(self.mesh.edgesNodes)
         edge_lengths = np.empty(num_edges, dtype=float)
         for edge_id in xrange(num_edges):
@@ -856,17 +838,14 @@ class GinlaModelEvaluator:
         self.control_volumes = np.zeros((num_nodes,1), dtype = float )
 
         self.edge_contribs = np.zeros((num_edges,1), dtype = float )
+        # Iterate over cells -> edges.
         for cell_id, cellNodes in enumerate(self.mesh.cellsNodes):
-            # Compute the circumcenter of the cell.
-            cc = _tetrahedron_circumcenter( self.mesh.nodes[cellNodes] )
-
-            # Iterate over pairs of nodes aka local edges.
             for edge_id in self.mesh.cellsEdges[cell_id]:
                 indices = self.mesh.edgesNodes[edge_id]
 
                 other_indices = _without(cellNodes, indices)
                 covolume = _compute_covolume(indices,
-                                             cc,
+                                             cell_ccs[cell_id],
                                              other_indices,
                                              verbose = 0 in indices and edge_id == 0 and cell_id == 0
                                              )
