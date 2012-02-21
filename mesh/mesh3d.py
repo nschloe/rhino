@@ -49,7 +49,38 @@ class Mesh3D( Mesh ):
         self.cellsFaces = None
         self.cell_circumcenters = None
         self.face_circumcenters = None
+        self.cellsVolume = None
         self.vtk_mesh = None
+    # --------------------------------------------------------------------------
+    def create_cells_volume(self):
+        '''Returns the volume of a tetrahedron given by the nodes.
+        '''
+        import vtk
+        num_cells = len(self.cellsNodes)
+        self.cellsVolume = np.empty(num_cells, dtype=float)
+        for cell_id, cellNodes in enumerate(self.cellsNodes):
+            #edge0 = node0 - node1
+            #edge1 = node1 - node2
+            #edge2 = node2 - node3
+            #edge3 = node3 - node0
+
+            #alpha = np.vdot( edge0, np.cross(edge1, edge2) )
+            #norm_prod = np.linalg.norm(edge0) \
+                      #* np.linalg.norm(edge1) \
+                      #* np.linalg.norm(edge2)
+            #if abs(alpha) / norm_prod < 1.0e-5:
+                ## Edges probably conplanar. Take a different set.
+                #alpha = np.vdot( edge0, np.cross(edge1, edge3) )
+                #norm_prod = np.linalg.norm(edge0) \
+                          #* np.linalg.norm(edge1) \
+                          #* np.linalg.norm(edge3)
+
+            #self.cellsVolume[cell_id] = abs( alpha ) / 6.0
+
+            x = self.nodes[cellNodes]
+            self.cellsVolume[cell_id] = \
+                abs(vtk.vtkTetra.ComputeVolume(x[0], x[1], x[2], x[3]))
+        return
     # --------------------------------------------------------------------------
     def create_adjacent_entities( self ):
         # Take cell #0 as representative.

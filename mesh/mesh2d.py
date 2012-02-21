@@ -40,12 +40,80 @@ class Mesh2D( Mesh ):
         self.nodes = nodes
         self.edgesNodes = edgesNodes
         self.edgesCells = edgesCells
-        self.facesCells = None
         self.cellsNodes = cellsNodes
         self.cellsEdges = cellsEdges
+
+        self.cellsVolume = None
         self.cell_circumcenters = None
 
         self.vtk_mesh = None
+    # --------------------------------------------------------------------------
+    def create_cells_volume(self):
+        '''Returns the area of triangle spanned by the two given edges.'''
+        import vtk
+        num_cells = len(self.cellsNodes)
+        self.cellsVolume = np.empty(num_cells, dtype=float)
+        for cell_id, cellNodes in enumerate(self.cellsNodes):
+            #edge0 = node0 - node1
+            #edge1 = node1 - node2
+            #self.cellsVolume[cell_id] = 0.5 * np.linalg.norm( np.cross( edge0, edge1 ) )
+            x = self.nodes[cellNodes]
+            self.cellsVolume[cell_id] = \
+               abs(vtk.vtkTriangle.TriangleArea(x[0], x[1], x[2]))
+        return
+    # --------------------------------------------------------------------------
+    def create_cell_circumcenters( self ):
+        '''Computes the center of the circumsphere of each cell.
+        '''
+        import vtk
+        num_cells = len(self.cellsNodes)
+        self.cell_circumcenters = np.empty(num_cells, dtype=np.dtype((float,3)))
+        for cell_id, cellNodes in enumerate(self.cellsNodes):
+            x = self.nodes[cellNodes]
+            # Project triangle to 2D.
+            v = np.empty(3, dtype=np.dtype((float,2)))
+            vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2],
+                                        v[0], v[1], v[2])
+            # Get the circumcenter in 2D.
+            cc_2d = np.empty(2, dtype=float)
+            vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2],
+                                         cc_2d)
+            # Project back to 3D by using barycentric coordinates.
+            bcoords = np.empty(3, dtype=float)
+            vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
+            self.cell_circumcenters[cell_id] = \
+                bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
+
+            #a = x[0] - x[1]
+            #b = x[1] - x[2]
+            #c = x[2] - x[0]
+            #w = np.cross(a, b)
+            #omega = 2.0 * np.dot(w, w)
+            #if abs(omega) < 1.0e-10:
+                #raise ZeroDivisionError( 'The nodes don''t seem to form '
+                                        #+ 'a proper triangle.' )
+            #alpha = -np.dot(b, b) * np.dot(a, c) / omega
+            #beta  = -np.dot(c, c) * np.dot(b, a) / omega
+            #gamma = -np.dot(a, a) * np.dot(c, b) / omega
+            #m = alpha * x[0] + beta * x[1] + gamma * x[2]
+
+            ## Alternative implementation from
+            ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
+            #a = x[1] - x[0]
+            #b = x[2] - x[0]
+            #alpha = np.dot(a, a)
+            #beta = np.dot(b, b)
+            #w = np.cross(a, b)
+            #omega = 2.0 * np.dot(w, w)
+            #m = np.empty(3)
+            #m[0] = x[0][0] + ((alpha * b[1] - beta * a[1]) * w[2]
+                              #-(alpha * b[2] - beta * a[2]) * w[1]) / omega
+            #m[1] = x[0][1] + ((alpha * b[2] - beta * a[2]) * w[0]
+                              #-(alpha * b[0] - beta * a[0]) * w[2]) / omega
+            #m[2] = x[0][2] + ((alpha * b[0] - beta * a[0]) * w[1]
+                              #-(alpha * b[1] - beta * a[1]) * w[0]) / omega
+
+        return
     # --------------------------------------------------------------------------
     def create_adjacent_entities( self ):
 

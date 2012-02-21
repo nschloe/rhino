@@ -4,12 +4,10 @@ import numpy as np
 # ==============================================================================
 class Mesh:
     # --------------------------------------------------------------------------
-    def __init__( self,
-                  nodes,
-                  cellsNodes,
-                  cellsEdges = None,
-                  edgesNodes = None,
-                  edgesCells = None):
+    def __init__(self,
+                 nodes,
+                 cellsNodes
+                 ):
         # It would be sweet if we could handle cells and the rest as arrays
         # with fancy dtypes such as
         #
@@ -30,24 +28,9 @@ class Mesh:
         if not isinstance(cellsNodes,np.ndarray):
            raise TypeError('For performace reasons, build cellsNodes as np.empty(num_nodes, dtype=np.dtype((int, 3)))')
 
-        if cellsEdges is not None and not isinstance(cellsEdges,np.ndarray):
-           raise TypeError('For performace reasons, build cellsEdges as np.empty(num_nodes, dtype=np.dtype((int, 3)))')
-
-        if edgesNodes is not None and  not isinstance(edgesNodes,np.ndarray):
-           raise TypeError('For performace reasons, build edgesNodes as np.empty(num_nodes, dtype=np.dtype((int, 2)))')
-
         self.nodes = nodes
-        self.edgesNodes = edgesNodes
-        self.edgesFaces = None
-        self.edgesCells = edgesCells
-        self.facesNodes = None
-        self.facesEdges = None
-        self.facesCells = None
         self.cellsNodes = cellsNodes
-        self.cellsEdges = cellsEdges
-        self.cellsFaces = None
-        self.cell_circumcenters = None
-        self.face_circumcenters = None
+        self.cellsVolume = None
         self.vtk_mesh = None
     # --------------------------------------------------------------------------
     def write( self,

@@ -9,39 +9,6 @@ from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import spdiags
 import math, cmath
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-# ==============================================================================
-def get_triangle_area(node0, node1, node2):
-    '''Returns the area of triangle spanned by the two given edges.'''
-    #edge0 = node0 - node1
-    #edge1 = node1 - node2
-    #return 0.5 * np.linalg.norm( np.cross( edge0, edge1 ) )
-    import vtk
-    return abs(vtk.vtkTriangle.TriangleArea(node0, node1, node2))
-# ==============================================================================
-def get_tetrahedron_volume(node0, node1, node2, node3):
-    '''Returns the volume of a tetrahedron given by the nodes.
-    '''
-    #edge0 = node0 - node1
-    #edge1 = node1 - node2
-    #edge2 = node2 - node3
-    #edge3 = node3 - node0
-
-    #alpha = np.vdot( edge0, np.cross(edge1, edge2) )
-    #norm_prod = np.linalg.norm(edge0) \
-              #* np.linalg.norm(edge1) \
-              #* np.linalg.norm(edge2)
-    #if abs(alpha) / norm_prod < 1.0e-5:
-        ## Edges probably conplanar. Take a different set.
-        #alpha = np.vdot( edge0, np.cross(edge1, edge3) )
-        #norm_prod = np.linalg.norm(edge0) \
-                  #* np.linalg.norm(edge1) \
-                  #* np.linalg.norm(edge3)
-
-    #return abs( alpha ) / 6.0
-    import vtk
-    return abs(vtk.vtkTetra.ComputeVolume(node0, node1, node2, node3))
-# ==============================================================================
-# #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class GinlaModelEvaluator:
     '''Ginzburg--Landau model evaluator class.
     '''
@@ -322,8 +289,12 @@ class GinlaModelEvaluator:
         num_edges = len(self.mesh.edgesNodes)
         self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
 
+        if self.mesh.cellsVolume is None:
+            self.mesh.create_cells_volume()
+        vols = self.mesh.cellsVolume
+
         # Calculate the edge contributions cell by cell.
-        for cellNodes, cellEdges in zip(self.mesh.cellsNodes,self.mesh.cellsEdges):
+        for cell_id, cellEdges in enumerate(self.mesh.cellsEdges):
             # We only deal with simplices.
             num_local_edges = len(cellEdges)
             # Build local edge coordinates.
@@ -331,20 +302,6 @@ class GinlaModelEvaluator:
             for k, edgeNodes in enumerate(self.mesh.edgesNodes[cellEdges]):
                 local_edges[k] = self.mesh.nodes[edgeNodes[1]] \
                                - self.mesh.nodes[edgeNodes[0]]
-
-            # Compute the volume of the simplex.
-            if num_local_edges == 3:
-                vol = get_triangle_area(self.mesh.nodes[cellNodes[0]],
-                                        self.mesh.nodes[cellNodes[1]],
-                                        self.mesh.nodes[cellNodes[2]])
-            elif num_local_edges == 6:
-                vol = get_tetrahedron_volume(self.mesh.nodes[cellNodes[0]],
-                                             self.mesh.nodes[cellNodes[1]],
-                                             self.mesh.nodes[cellNodes[2]],
-                                             self.mesh.nodes[cellNodes[3]])
-            else:
-                raise RuntimeError( 'Unknown geometry with %d edges.'
-                                    % num_local_edges )
 
             # Build the equation system:
             # The equation
@@ -356,11 +313,10 @@ class GinlaModelEvaluator:
             A   = np.zeros( (num_local_edges, num_local_edges), dtype = float )
             rhs = np.empty( num_local_edges, dtype = float )
             for i in xrange( num_local_edges ):
-                rhs[i] = vol * np.dot(local_edges[i], local_edges[i])
+                rhs[i] = vols[cell_id] * np.dot(local_edges[i], local_edges[i])
                 # Fill the upper triangle of the symmetric matrix A.
                 for j in xrange(i, num_local_edges):
-                    alpha = np.dot(local_edges[i], local_edges[j])
-                    A[i, j] = alpha**2
+                    A[i, j] = np.dot(local_edges[i], local_edges[j])**2
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
@@ -374,13 +330,14 @@ class GinlaModelEvaluator:
         '''Builds the cache for the magnetic vector potential.'''
 
         # make sure the mesh has edges
-        self.mesh.create_adjacent_entities()
+        if self.mesh.edgesNodes is None:
+            self.mesh.create_adjacent_entities()
 
         num_edges = len(self.mesh.edgesNodes)
         self._mvp_edge_cache = np.zeros(num_edges, dtype=float)
 
         # Loop over the all local edges of all cells.
-        for k, node_indices in enumerate(self.mesh.edgesNodes):
+        for edge_id, node_indices in enumerate(self.mesh.edgesNodes):
             # ----------------------------------------------------------
             # Approximate the integral
             #
@@ -395,7 +352,7 @@ class GinlaModelEvaluator:
                  - self.mesh.nodes[node_indices[0]]
             mvp = 0.5 * (self._get_mvp(node_indices[1]) \
                        + self._get_mvp(node_indices[0]))
-            self._mvp_edge_cache[k] = np.dot(edge, mvp)
+            self._mvp_edge_cache[edge_id] = np.dot(edge, mvp)
 
         return
     # ==========================================================================
@@ -479,10 +436,9 @@ class GinlaModelEvaluator:
         self.control_volumes = np.zeros((num_nodes,1), dtype = float)
 
         # compute cell circumcenters
-        num_cells = len(self.mesh.cellsNodes)
-        circumcenters = np.empty(num_cells, dtype=np.dtype((float,3)))
-        for k, cellNodes in enumerate(self.mesh.cellsNodes):
-            circumcenters[k] = self._triangle_circumcenter(self.mesh.nodes[cellNodes])
+        if self.mesh.cell_circumcenters is None:
+            self.mesh.create_cell_circumcenters()
+        circumcenters = self.mesh.cell_circumcenters
 
         if self.mesh.edgesNodes is None:
             self.mesh.create_adjacent_entities()
@@ -546,52 +502,6 @@ class GinlaModelEvaluator:
             self.control_volumes[node_ids] += pyramid_volume
 
         return
-    # ==========================================================================
-    def _triangle_circumcenter(self, x):
-        '''Compute the circumcenter of a triangle.
-        '''
-        import vtk
-        # Project triangle to 2D.
-        v = np.empty(3, dtype=np.dtype((float,2)))
-        vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2], v[0], v[1], v[2])
-        # Get the circumcenter in 2D.
-        cc_2d = np.empty(2,dtype=float)
-        vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2], cc_2d)
-        # Project back to 3D by using barycentric coordinates.
-        bcoords = np.empty(3,dtype=float)
-        vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
-        m = bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
-
-        #a = x[0] - x[1]
-        #b = x[1] - x[2]
-        #c = x[2] - x[0]
-        #w = np.cross(a, b)
-        #omega = 2.0 * np.dot(w, w)
-        #if abs(omega) < 1.0e-10:
-            #raise ZeroDivisionError( 'The nodes don''t seem to form '
-                                    #+ 'a proper triangle.' )
-        #alpha = -np.dot(b, b) * np.dot(a, c) / omega
-        #beta  = -np.dot(c, c) * np.dot(b, a) / omega
-        #gamma = -np.dot(a, a) * np.dot(c, b) / omega
-        #m = alpha * x[0] + beta * x[1] + gamma * x[2]
-
-        ## Alternative implementation from
-        ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
-        #a = x[1] - x[0]
-        #b = x[2] - x[0]
-        #alpha = np.dot(a, a)
-        #beta = np.dot(b, b)
-        #w = np.cross(a, b)
-        #omega = 2.0 * np.dot(w, w)
-        #m = np.empty(3)
-        #m[0] = x[0][0] + ((alpha * b[1] - beta * a[1]) * w[2]
-                          #-(alpha * b[2] - beta * a[2]) * w[1]) / omega
-        #m[1] = x[0][1] + ((alpha * b[2] - beta * a[2]) * w[0]
-                          #-(alpha * b[0] - beta * a[0]) * w[2]) / omega
-        #m[2] = x[0][2] + ((alpha * b[0] - beta * a[0]) * w[1]
-                          #-(alpha * b[1] - beta * a[1]) * w[0]) / omega
-
-        return m
     # ==========================================================================
     def _show_covolume(self, edge_id):
         '''For debugging.'''
@@ -758,6 +668,23 @@ class GinlaModelEvaluator:
     # ==========================================================================
     def _compute_control_volumes_3d_old(self):
         # ----------------------------------------------------------------------
+        def _triangle_circumcenter(x):
+            '''Compute the circumcenter of a triangle.
+            '''
+            import vtk
+            # Project triangle to 2D.
+            v = np.empty(3, dtype=np.dtype((float,2)))
+            vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2], v[0], v[1], v[2])
+            # Get the circumcenter in 2D.
+            cc_2d = np.empty(2,dtype=float)
+            vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2], cc_2d)
+            # Project back to 3D by using barycentric coordinates.
+            bcoords = np.empty(3,dtype=float)
+            vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
+            m = bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
+
+            return m
+        # ----------------------------------------------------------------------
         def _compute_covolume(edge_node_ids, cc, other_node_ids, verbose=False):
             covolume = 0.0
             edge_nodes = self.mesh.nodes[edge_node_ids]
@@ -777,7 +704,7 @@ class GinlaModelEvaluator:
             # tetrahedron.
 
             # Compute the circumcenters of the adjacent faces.
-            ccFace0 = self._triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[0]])
+            ccFace0 = _triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[0]])
 
             # Add the area of the first triangle (MP,ccFace0,cc).
             # This makes use of the right angles.
@@ -795,7 +722,7 @@ class GinlaModelEvaluator:
             covolume += math.copysign(triangleArea0,
                                       np.dot(triangleNormal0, gauge))
 
-            ccFace1 = self._triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[1]])
+            ccFace1 = _triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[1]])
 
             # Add the area of the second triangle (MP,cc,ccFace1).
             # This makes use of the right angles.
