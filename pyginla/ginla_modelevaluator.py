@@ -151,6 +151,7 @@ class GinlaModelEvaluator:
                                                )
             elif precon_type == 'one cycle':
                 x = amg_prec * rhs
+                #x = prec_amg_solver.solve(rhs, maxiter=1, cycle='V', tol=1e-15)
             else:
                 raise ValueError('Unknown preconditioner type \'%s\'.' % precon_type)
 
