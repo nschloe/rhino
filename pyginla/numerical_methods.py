@@ -1039,6 +1039,7 @@ def newton( x0,
                             explicit_residual = False,
                             **linear_solver_extra_args
                             )
+        print 'Linear solver \'%s\' performed %d iterations.' %(linear_solver.__name__, len(out['relresvec'])-1)
 
         # make sure the solution is alright
         if out['info'] != 0:
