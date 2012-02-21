@@ -73,8 +73,8 @@ class TestJacobian(unittest.TestCase):
 
         tol = 1.0e-12
 
-        n = len( ginla_modeleval.control_volumes )
-        D = spdiags(ginla_modeleval.control_volumes.T, [0], n, n)
+        n = len( pyginla_mesh.control_volumes )
+        D = spdiags(pyginla_mesh.control_volumes.T, [0], n, n)
 
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones((len(psi),1), dtype=complex)

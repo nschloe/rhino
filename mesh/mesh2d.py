@@ -5,12 +5,13 @@ from mesh import Mesh
 # ==============================================================================
 class Mesh2D( Mesh ):
     # --------------------------------------------------------------------------
-    def __init__( self,
-                  nodes,
-                  cellsNodes,
-                  cellsEdges = None,
-                  edgesNodes = None,
-                  edgesCells = None):
+    def __init__(self,
+                 nodes,
+                 cellsNodes,
+                 cellsEdges = None,
+                 edgesNodes = None,
+                 edgesCells = None
+                 ):
         # It would be sweet if we could handle cells and the rest as arrays
         # with fancy dtypes such as
         #
@@ -45,6 +46,7 @@ class Mesh2D( Mesh ):
 
         self.cellsVolume = None
         self.cell_circumcenters = None
+        self.control_volumes = None
 
         self.vtk_mesh = None
     # --------------------------------------------------------------------------
@@ -283,6 +285,111 @@ class Mesh2D( Mesh ):
         self.edgesNodes = new_edgesNodes
         self.cellsNodes = new_cellsNodes
         self.cellsEdges = new_cellsEdges
+        return
+    # --------------------------------------------------------------------------
+    def compute_control_volumes( self ):
+        num_nodes = len(self.nodes)
+        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
+
+        # compute cell circumcenters
+        if self.cell_circumcenters is None:
+            self.create_cell_circumcenters()
+        circumcenters = self.cell_circumcenters
+
+        if self.edgesNodes is None:
+            self.create_adjacent_entities()
+
+        # Precompute edge lengths.
+        num_edges = len(self.edgesNodes)
+        edge_lengths = np.empty(num_edges, dtype=float)
+        for k in xrange(num_edges):
+            nodes = self.nodes[self.edgesNodes[k]]
+            edge_lengths[k] = np.linalg.norm(nodes[1] - nodes[0])
+
+        # Precompute edge normals. Do that in such a way that the
+        # face normals points in the direction of the cell with the higher
+        # cell ID.
+        normals = np.zeros(num_edges, dtype=np.dtype((float,3)))
+        for cell_id, cellEdges in enumerate(self.cellsEdges):
+            # Loop over the local faces.
+            for k in xrange(3):
+                edge_id = cellEdges[k]
+                # Compute the normal in the direction of the higher cell ID,
+                # or if this is a boundary face, to the outside of the domain.
+                neighbor_cell_ids = self.edgesCells[edge_id]
+                if cell_id == neighbor_cell_ids[0]:
+                    edge_nodes = self.nodes[self.edgesNodes[edge_id]]
+                    # The current cell is the one with the lower ID.
+                    # Get "other" node (aka the one which is not in the current
+                    # "face").
+                    other_node_id = self.cellsNodes[cell_id][k]
+                    # Get any direction other_node -> face.
+                    # As reference, any point in face can be taken, e.g.,
+                    # the first face corner point
+                    # self.edgesNodes[edge_id][0].
+                    normals[edge_id] = edge_nodes[0] \
+                                     - self.nodes[other_node_id]
+                    # Make it orthogonal to the face.
+                    edge_dir = (edge_nodes[1] - edge_nodes[0]) / edge_lengths[edge_id]
+                    normals[edge_id] -= np.dot(normals[edge_id], edge_dir) * edge_dir
+                    # Normalization.
+                    normals[edge_id] /= np.linalg.norm(normals[edge_id])
+
+        # Compute covolumes and control volumes.
+        for k in xrange(num_edges):
+            # Get the circumcenters of the adjacent cells.
+            cc = circumcenters[self.edgesCells[k]]
+            node_ids = self.edgesNodes[k]
+            if len(cc) == 2: # interior cell
+                # TODO check out if this holds true for bent surfaces too
+                coedge = cc[1] - cc[0]
+            elif len(cc) == 1: # boundary cell
+                node_coords = self.nodes[node_ids]
+                edge_midpoint = 0.5 * (node_coords[0] + node_coords[1])
+                coedge = edge_midpoint - cc[0]
+            else:
+                raise RuntimeError('A face should have either 1 or two adjacent cells.')
+
+            # Project the coedge onto the outer normal. The two vectors should
+            # be parallel, it's just the sign of the coedge length that is to
+            # be determined here.
+            covolume = np.dot(coedge, normals[k])
+            pyramid_volume = 0.5 * edge_lengths[k] * covolume / 2
+            self.control_volumes[node_ids] += pyramid_volume
+
+        return
+    # --------------------------------------------------------------------------
+    def show(self):
+        '''Plot the mesh.'''
+        if self.edgesNodes is None:
+            raise RuntimeError('Can only show mesh when edges are created.')
+
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
+        # get cell circumcenters
+        if self.cell_circumcenters is None:
+            self.create_cell_circumcenters()
+        cell_ccs = self.cell_circumcenters
+
+        # get face circumcenters
+        if self.face_circumcenters is None:
+            self.create_face_circumcenters()
+        face_ccs = self.face_circumcenters
+
+        edge_nodes = self.nodes[self.edgesNodes[edge_id]]
+        edge_midpoint = 0.5 * ( edge_nodes[0] + edge_nodes[1] )
+
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+
+        # plot edges
+        col = 'k'
+        for node_ids in self.edgesNodes:
+            x = self.nodes[node_ids]
+            ax.plot(x[:,0], x[:,1], x[:,2], col)
+
+        plt.show()
         return
     # --------------------------------------------------------------------------
 # ==============================================================================
