@@ -46,7 +46,7 @@ class GinlaModelEvaluator:
     '''Ginzburg--Landau model evaluator class.
     '''
     # ==========================================================================
-    def __init__( self, mesh, A, mu ):
+    def __init__(self, mesh, A, mu):
         '''Initialization. Set mesh.
         '''
         self.dtype = complex
@@ -283,6 +283,8 @@ class GinlaModelEvaluator:
             self._build_edgecoeff_cache()
         if self._mvp_edge_cache is None:
             self._build_mvp_edge_cache()
+        if self.mesh.edgesNodes is None:
+            self.mesh.create_adjacent_entities()
 
         # loop over all edges
         self.mesh.create_adjacent_entities()

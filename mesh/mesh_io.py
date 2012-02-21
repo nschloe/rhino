@@ -103,8 +103,7 @@ def _read_exodusii_grid( reader, file_name, timestep=None ):
     return vtk_mesh[0]
 # ==============================================================================
 def read_mesh(filename, timestep=None):
-    '''
-    Reads an FEM mesh from a VTK file
+    '''Reads an FEM mesh with added data.
     '''
     vtk_mesh = read( filename, timestep=timestep )
 
@@ -121,7 +120,14 @@ def read_mesh(filename, timestep=None):
     # gather the field data
     field_data = _read_field_data( vtk_mesh )
 
-    return mesh.Mesh( points, cellsNodes ), psi, A, field_data
+    if len(cellsNodes[0]) == 3: # 2D
+        from mesh2d import Mesh2D
+        return Mesh2D( points, cellsNodes ), psi, A, field_data
+    elif len(cellsNodes[0]) == 4: # 3D
+        from mesh3d import Mesh3D
+        return Mesh3D( points, cellsNodes ), psi, A, field_data
+    else:
+        raise RuntimeError('Unknonw mesh type.')
 # ==============================================================================
 def _extract_points( vtk_mesh ):
 
