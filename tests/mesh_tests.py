@@ -9,7 +9,8 @@ class TestMesh(unittest.TestCase):
     # --------------------------------------------------------------------------
     def _run_test(self, pyginlamesh, actual_values ):
         # Compute the control volumes.
-        pyginlamesh.compute_control_volumes()
+        if pyginlamesh.control_volumes is None:
+            pyginlamesh.compute_control_volumes()
 
         tol = 1.0e-12
 
@@ -32,24 +33,30 @@ class TestMesh(unittest.TestCase):
         self._run_test(pyginlamesh, actual_values )
         return
     # --------------------------------------------------------------------------
-    #def test_arrow(self):
-        #num_nodes = 5
-        #nodes = np.array([[0.0,  0.0, 0.0],
-                          #[2.0, -1.0, 0.0],
-                          #[2.0,  1.0, 0.0],
-                          #[1.0,  0.0, 0.0],
-                          #[2.0,  0.0, 0.0]])
-        #cellsNodes = np.array([[1,4,3],
-                              #[1,3,0],
-                              #[2,3,4],
-                              #[0,3,2]])
-        #from mesh.mesh2d import Mesh2D
-        #mymesh = Mesh2D(nodes, cellsNodes)
+    def test_arrow3d(self):
+        num_nodes = 5
+        nodes = np.array([[0.0,  0.0, 0.0],
+                          [2.0, -1.0, 0.0],
+                          [2.0,  0.0, 0.0],
+                          [2.0,  1.0, 0.0],
+                          [0.5,  0.0, -1.0],
+                          [0.5,  0.0, 1.0]])
+        cellsNodes = np.array([[1,2,4,5],
+                              [2,3,4,5],
+                              [0,1,4,5],
+                              [0,3,4,5]])
+        from mesh.mesh3d import Mesh3D
+        mymesh = Mesh3D(nodes, cellsNodes)
 
-        #mymesh.create_adjacent_entities()
+        #if mymesh.edgesNodes is None:
+            #mymesh.create_adjacent_entities()
+        #mymesh.show_edge(5)
 
-        #mymesh.show( highlight_nodes=[3])
-        #return
+        actual_values = [ 1.3333333333333333,
+                          0.66386172963165968,
+                          0.54166666666666652 ]
+        self._run_test(mymesh, actual_values)
+        return
     # --------------------------------------------------------------------------
     def test_pacman(self):
         filename = 'pacman.e'

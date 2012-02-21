@@ -473,4 +473,70 @@ class Mesh3D( Mesh ):
 
         return
     # --------------------------------------------------------------------------
+    def show_edge(self, edge_id):
+        '''Displays edge with covolume.'''
+        import matplotlib as mpl
+        from mpl_toolkits.mplot3d import Axes3D
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+
+        if self.edgesNodes is None:
+            self.create_adjacent_entities()
+
+        edge_nodes = self.nodes[self.edgesNodes[edge_id]]
+
+        # plot all adjacent cells
+        col = 'k'
+        for cell_id in self.edgesCells[edge_id]:
+            for edge in self.cellsEdges[cell_id]:
+                x = self.nodes[self.edgesNodes[edge]]
+                ax.plot(x[:,0], x[:,1], x[:,2], col)
+
+        # make clear which is the edge
+        ax.plot(edge_nodes[:,0], edge_nodes[:,1], edge_nodes[:,2],
+                color=col, linewidth=3.0 )
+
+        # get cell circumcenters
+        if self.cell_circumcenters is None:
+            self.create_cell_circumcenters()
+        cell_ccs = self.cell_circumcenters
+
+        # get face circumcenters
+        if self.face_circumcenters is None:
+            self.create_face_circumcenters()
+        face_ccs = self.face_circumcenters
+
+        # plot covolume
+        for face_id in self.edgesFaces[edge_id]:
+            ccs = cell_ccs[ self.facesCells[face_id] ]
+            v = np.empty(3, dtype=np.dtype((float,2)))
+            #col = '0.5'
+            col = 'g'
+            if len(ccs) == 2:
+                ax.plot(ccs[:,0], ccs[:,1], ccs[:,2], color=col)
+            elif len(ccs) == 1:
+                face_cc = face_ccs[face_id]
+                ax.plot([ccs[0][0],face_cc[0]], [ccs[0][1],face_cc[1]], [ccs[0][2],face_cc[2]], color=col)
+            else:
+                raise RuntimeError('???')
+
+        #edge_midpoint = 0.5 * ( edge_nodes[0] + edge_nodes[1] )
+        #ax.plot([edge_midpoint[0]], [edge_midpoint[1]], [edge_midpoint[2]], 'ro')
+
+        # highlight cells
+        #print self.edgesCells[edge_id]
+        highlight_cells = [] #[3]
+        col = 'r'
+        for k in highlight_cells:
+            cell_id = self.edgesCells[edge_id][k]
+            ax.plot([cell_ccs[cell_id,0]], [cell_ccs[cell_id,1]], [cell_ccs[cell_id,2]],
+                    color = col, marker='o')
+            for edge in self.cellsEdges[cell_id]:
+                x = self.nodes[self.edgesNodes[edge]]
+                ax.plot(x[:,0], x[:,1], x[:,2], col, linestyle='dashed')
+
+        plt.show()
+        return
+    # --------------------------------------------------------------------------
 # ==============================================================================
