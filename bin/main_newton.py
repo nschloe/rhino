@@ -53,6 +53,7 @@ def _main():
     #assert( newton_out[1] == 0 )
 
     #multiplot_data_series( newton_out[3] )
+    #pp.xlim([0,45])
     #pp.show()
     #matplotlib2tikz.save('w-defl.tex')
 
