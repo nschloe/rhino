@@ -32,29 +32,29 @@ def _main():
                     dtype = complex
                   )
 
-    print "Performing Newton iteration...",
+    print "Performing Newton iteration..."
     # perform newton iteration
     newton_out = nm.newton( psi0,
                             ginla_modelval,
                             linear_solver = nm.minres,
-                            linear_solver_maxiter = None,
+                            linear_solver_maxiter = 50,
                             linear_solver_extra_args = { }, 
                             nonlinear_tol = 1.0e-10,
-                            forcing_term = 'constant', #'type 2'
-                            eta0 = 1.0e-12,
+                            forcing_term = 'type 2', #'constant', #'type 2'
+                            eta0 = 1.0e-5,
                             use_preconditioner = True,
                             deflate_ix = True,
-                            num_deflation_vectors = 0,
+                            num_deflation_vectors = 1,
                             debug=True,
-                            newton_maxiter = 1
+                            newton_maxiter = 20
                           )
     print " done."
     print newton_out[2]
     #assert( newton_out[1] == 0 )
 
-    #multiplot_data_series( newton_out[3] )
-    #pp.xlim([0,45])
-    #pp.show()
+    multiplot_data_series( newton_out[3] )
+    pp.xlim([0,45])
+    pp.show()
     #matplotlib2tikz.save('w-defl.tex')
 
     # energy of the state

@@ -256,7 +256,7 @@ def minres(A, b, x0,
     if return_basis or full_reortho:
         Vfull = np.c_[MMlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
         Pfull = np.c_[Mlr0 / norm_MMlr0, np.zeros([N,maxiter], dtype=xtype)]
-        Hfull = scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
+        Hfull = np.zeros((maxiter+1,maxiter)) #scipy.sparse.lil_matrix( (maxiter+1,maxiter) )
     # Last and current Lanczos vector:
     V = np.c_[np.zeros(N), MMlr0 / norm_MMlr0]
     # M*v[i] = P[1], M*v[i-1] = P[0]
@@ -272,6 +272,7 @@ def minres(A, b, x0,
 
     # resulting approximation is xk = x0 + Mr*yk
     yk = np.zeros((N,1))
+    xk = x0
 
     if timer:
         times['setup'][0] = time.time()-start
@@ -596,65 +597,76 @@ def get_ritz(W, AW, Vfull, Hfull, M=None, Minv=None, inner_product = _ipstd):
     E = inner_product(W, AW)        # ~
     B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
     B = B1[:, 0:-1]
+    if scipy.sparse.issparse(Hfull):
+        Hfull = Hfull.todense()
 
-    # Stack matrices appropriately: [E, B; B', Hfull(1:end-1,:)].
+    # Compute residual norms.
+    if nW>0:
+        Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
+
+        # Apply preconditioner to AW (I don't see a way to get rid of this! -- André).
+        # cost: nW*APPLM
+        MAW = _apply(M, AW)
+    else:
+        N = W.shape[0]
+        Einv = np.zeros( (0,0) )
+        MAW = np.zeros( (N,0) )
+    
+    # Stack matrices appropriately: [E, B; B', Hfull(1:end-1,:) + B'*Einv*B].
     ritzmat = np.r_[    np.c_[E,B],
-                        np.c_[B.T.conj(), Hfull[0:-1,:].todense()] 
+                        np.c_[B.T.conj(), Hfull[0:-1,:] + np.dot(B.T.conj(), np.dot(Einv, B))] 
                    ]
 
     # Compute Ritz values / vectors.
     from scipy.linalg import eigh
     lam, U = eigh(ritzmat)
-
-    # Compute residual norms.
+    
     norm_ritz_res = np.zeros(lam.shape[0])
-    if nW>0:
-        Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
-
-        # cost: (nW^2)*AXPY
-        AWE = np.dot(AW, Einv)
-        
-        # Apply preconditioner to AWE (I don't see a way to get rid of this! -- André).
-        # cost: nW*APPLM
-        MAWE = _apply(M, AWE)
-    else:
-        N = W.shape[0]
-        Einv = np.zeros( (0,0) )
-        AWE = np.zeros( (N,0) )
-        MAWE = np.zeros( (N,0) )
 
     # cost: (nW^2)*IP
-    D = inner_product(AWE, MAWE)
     D1 = np.eye(nW)
-    D2 = np.dot(Einv, B1)
-    CC = np.r_[ np.c_[D, D1, D2],
-                np.c_[D1.T.conj(), np.eye(nW), np.zeros( (nW,nVfull))],
-                np.c_[D2.T.conj(), np.zeros((nVfull,nW)), np.eye(nVfull)]
+    D = inner_product(AW, MAW)
+    zeros = np.zeros((nW,nVfull))
+    # Attention: CC should be HPD. However, this only holds if the 
+    #            preconditioner was solved exactly 
+    #            (then inner_product(Minv*W,W)=I)
+    #            If the preconditioner is solved exactly, the 
+    #            computation seems to be stable.
+    CC = np.r_[ np.c_[ D1,             E,           zeros],
+                np.c_[ E.T.conj(),     D,           B1],
+                np.c_[ zeros.T.conj(), B1.T.conj(), np.eye(nVfull)] 
               ]
 
     for i in xrange(0,ritzmat.shape[0]):
-        w = U[0:W.shape[1],i]
-        v = U[W.shape[1]:,i]
+        w = U[0:W.shape[1],[i]]
+        v = U[W.shape[1]:,[i]]
         mu = lam[i]
 
-        z = np.r_[mu*w, -mu*w, -np.dot(B.T.conj(), w), Hfull[-1,-1]*v[-1]]
+        z = np.r_[ -mu*w, 
+                    w + np.dot( Einv, np.dot(B, v)), 
+                    np.dot(Hfull, v) - np.r_[mu*v, np.zeros((1,1))] ]
         z = np.reshape(z, (z.shape[0],1))
         CCz = np.dot(CC, z)
         res_ip = _ipstd(z, CCz)[0,0]
         if res_ip.imag > 1e-13:
             print 'Warning: res_ip.imag = %g > 1e-13' % res_ip.imag
+            print '         Make sure that the preconditioner is solved \'exactly enough\'.'
         if res_ip.real < -1e-10:
             print 'Warning: res_ip.real = %g < -1e-10' % res_ip.real
+            print '         Make sure that the preconditioner is solved \'exactly enough\'.'
         norm_ritz_res[i] = np.sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
         #X = np.c_[W, Vfull[:,0:-1]]
-        #V = np.dot(X, U)
+        #V = np.dot(X, np.r_[w,v])
         #MAV = _apply(M,_apply(A, V))
-        #res_explicit = MAV[:,[i]] - lam[i]*V[:,[i]]
+        #res_explicit = MAV - lam[i]*V
         #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
         #assert( zz.imag<1e-13 )
         #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
+        #print 'Explicit residual: %g' % np.sqrt(abs(zz))
+        if norm_ritz_res[i] < 1e-8:
+            print 'Info: ritz value %g converged with residual %g.' % (lam[i], norm_ritz_res[i])
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
     sorti = np.argsort(abs(lam))
@@ -784,7 +796,7 @@ def gmres( A, b, x0,
             P[:, [k+1]] = z / H[k+1, k]
         V[:, [k+1]] = Mz / H[k+1, k]
         if return_basis:
-            Horig[0:k+1, [k]] = H[0:k+1, [k]]
+            Horig[0:k+2, [k]] = H[0:k+2, [k]]
         
         # Apply previous Givens rotations.
         for i in xrange(k):
@@ -946,6 +958,8 @@ def newton( x0,
     W = np.zeros( (len(x),0 ) )
     linear_relresvecs = []
     while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
+        if debug:
+            print '--------- Next Newton step ---------'
         # Linear tolerance is given by
         #
         # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
@@ -959,7 +973,7 @@ def newton( x0,
             eta = eta0
         elif forcing_term == 'type 1':
             # linear_relresvec[-1] \approx tol, so this could be replaced.
-            eta = abs(Fx_norms[-1] - linear_relresvec[-1]) / Fx_norms[-2]
+            eta = abs(Fx_norms[-1] - out["relresvec"][-1]) / Fx_norms[-2]
             eta = max( eta, eta_previous**golden, eta_min )
             eta = min( eta, eta_max )
         elif forcing_term == 'type 2':
@@ -969,6 +983,8 @@ def newton( x0,
         else:
             raise ValueError('Unknown forcing term \'%s\'. Abort.')
         eta_previous = eta
+        if debug:
+            print 'New tolerance for linear solver is %g.' % eta
 
         # Setup linear problem.
         jacobian = model_evaluator.get_jacobian( x )
@@ -988,6 +1004,10 @@ def newton( x0,
         W, R = qr(W, inner_product=Minner_product)
 
         # Conditionally deflate the nearly-null vector i*x.
+        # Attention: if the preconditioner is later solved inexactly
+        #            then W will be orthonormal w.r.t. another inner
+        #            product! This may affect the computation of ritz
+        #            pairs and their residuals.
         if deflate_ix:
             u = 1j * x
             Mu = _apply(M, u)
@@ -1024,7 +1044,7 @@ def newton( x0,
             maxmem = 0.5*(2**30) # bytes
             linear_solver_maxiter = min(linear_solver_maxiter, int(floor(maxmem/(2*16*len(x)))))
         else:
-            return_basis = True
+            return_basis = False
 
         # Solve the linear system.
         out = linear_solver(jacobian,
@@ -1039,12 +1059,14 @@ def newton( x0,
                             explicit_residual = False,
                             **linear_solver_extra_args
                             )
-        print 'Linear solver \'%s\' performed %d iterations.' %(linear_solver.__name__, len(out['relresvec'])-1)
+        if debug:
+            print 'Linear solver \'%s\' performed %d iterations.' %(linear_solver.__name__, len(out['relresvec'])-1)
 
         # make sure the solution is alright
         if out['info'] != 0:
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out['info']
 
+        np.set_printoptions(linewidth=150)
         if ('Vfull' in out.keys()) and ('Hfull' in out.keys()):
             if debug:
                 MVfull = out['Pfull'] if ('Pfull' in out.keys()) else out['Vfull']
@@ -1052,6 +1074,9 @@ def newton( x0,
                     np.linalg.norm(model_evaluator.inner_product(MVfull, W))
                 print '||I-ip(Vfull,Vfull)|| = %g' % \
                     np.linalg.norm(np.eye(out['Vfull'].shape[1]) - model_evaluator.inner_product(MVfull, out['Vfull']))
+                # next one is time-consuming, uncomment if needed
+                #print '||Minv*A*P*V - V_*H|| = %g' % \
+                #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
 
             if num_deflation_vectors > 0:
                 ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out['Vfull'], out['Hfull'],
@@ -1080,6 +1105,8 @@ def newton( x0,
         k += 1
         Fx = model_evaluator.compute_f( x )
         Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
+        if debug:
+            print 'New Newton residual is %g.' % Fx_norms[-1]
 
     if k == newton_maxiter:
         error_code = 1
