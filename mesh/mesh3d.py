@@ -260,7 +260,6 @@ class Mesh3D( Mesh ):
         # Get cell circumcenters.
         if self.cell_circumcenters is None:
             self.create_cell_circumcenters()
-        cell_ccs = self.cell_circumcenters
 
         # Compute covolumes and control volumes.
         num_nodes = len(self.nodes)
@@ -309,7 +308,7 @@ class Mesh3D( Mesh ):
                 face0_idx = np.nonzero(self.cellsFaces[cell0] == face_id)[0][0]
                 other0 = self.nodes[self.cellsNodes[cell0][face0_idx]]
 
-                cc = cell_ccs[self.facesCells[face_id]]
+                cc = self.cell_circumcenters[self.facesCells[face_id]]
                 if len(cc) == 2:
                     # Get opposing point of the other cell.
                     cell1 = self.facesCells[face_id][1]
@@ -317,8 +316,9 @@ class Mesh3D( Mesh ):
                     other1 = self.nodes[self.cellsNodes[cell1][face1_idx]]
                     gauge = np.dot(edge, np.cross(other1 - other0,
                                                   opposing_point - edge_midpoint))
-                    a = np.dot(edge, np.cross(cc[1] - edge_midpoint,
-                                              cc[0] - edge_midpoint))
+                    alpha += np.sign(gauge) \
+                           * np.dot(edge, np.cross(cc[1] - edge_midpoint,
+                                                cc[0] - edge_midpoint))
                 elif len(cc) == 1:
                     # Each boundary face circumcenter is computed three times.
                     # Probably one could save a bit of CPU time by caching
@@ -326,12 +326,11 @@ class Mesh3D( Mesh ):
                     face_cc = self._get_face_circumcenter(face_id)
                     gauge = np.dot(edge, np.cross(face_cc - other0,
                                                   opposing_point - edge_midpoint))
-                    a = np.dot(edge, np.cross(face_cc - edge_midpoint,
-                                              cc[0] - edge_midpoint))
+                    alpha += np.sign(gauge) \
+                           * np.dot(edge, np.cross(face_cc - edge_midpoint,
+                                                   cc[0] - edge_midpoint))
                 else:
                     raise RuntimeError('A face should have either 1 or 2 adjacent cells.')
-
-                alpha += np.sign(gauge) * a
 
             # We add the pyramid volume
             #   covolume * 0.5*edgelength / 3,
@@ -344,6 +343,9 @@ class Mesh3D( Mesh ):
         return
     # --------------------------------------------------------------------------
     def _compute_face_normals(self):
+        # TODO VTK has ComputeNormal() for triangles, check
+        # http://www.vtk.org/doc/nightly/html/classvtkTriangle.html
+
         # Precompute edge lengths.
         num_edges = len(self.edgesNodes)
         edge_lengths = np.empty(num_edges, dtype=float)

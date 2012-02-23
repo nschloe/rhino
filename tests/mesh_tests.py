@@ -14,9 +14,17 @@ class TestMesh(unittest.TestCase):
 
         tol = 1.0e-12
 
-        # Get their norms
-        norm = np.linalg.norm( pyginlamesh.control_volumes, ord=1 )
-        self.assertAlmostEqual( actual_values[0], norm, delta=tol )
+        # Check the volume by summing over the cell volume.
+        if pyginlamesh.cellsVolume is None:
+            pyginlamesh.create_cells_volume()
+        vol2 = sum(pyginlamesh.cellsVolume)
+        self.assertAlmostEqual( actual_values[0], vol2, delta=tol )
+
+        # Check the volume by summing over the control volumes.
+        vol = sum(pyginlamesh.control_volumes)
+        self.assertAlmostEqual( actual_values[0], vol, delta=tol )
+
+        # Check control volume norms.
         norm = np.linalg.norm( pyginlamesh.control_volumes, ord=2 )
         self.assertAlmostEqual( actual_values[1], norm, delta=tol )
         norm = np.linalg.norm( pyginlamesh.control_volumes, ord=np.Inf)

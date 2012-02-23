@@ -59,7 +59,9 @@ class Mesh2D( Mesh ):
             #edge0 = node0 - node1
             #edge1 = node1 - node2
             #self.cellsVolume[cell_id] = 0.5 * np.linalg.norm( np.cross( edge0, edge1 ) )
-            x = self.nodes[cellNodes]
+            # Append a third component.
+            z = np.zeros((3,1))
+            x = np.c_[self.nodes[cellNodes], z]
             self.cellsVolume[cell_id] = \
                abs(vtk.vtkTriangle.TriangleArea(x[0], x[1], x[2]))
         return
@@ -69,51 +71,11 @@ class Mesh2D( Mesh ):
         '''
         import vtk
         num_cells = len(self.cellsNodes)
-        self.cell_circumcenters = np.empty(num_cells, dtype=np.dtype((float,3)))
+        self.cell_circumcenters = np.empty(num_cells, dtype=np.dtype((float,2)))
         for cell_id, cellNodes in enumerate(self.cellsNodes):
             x = self.nodes[cellNodes]
-            # Project triangle to 2D.
-            v = np.empty(3, dtype=np.dtype((float,2)))
-            vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2],
-                                        v[0], v[1], v[2])
-            # Get the circumcenter in 2D.
-            cc_2d = np.empty(2, dtype=float)
-            vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2],
-                                         cc_2d)
-            # Project back to 3D by using barycentric coordinates.
-            bcoords = np.empty(3, dtype=float)
-            vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
-            self.cell_circumcenters[cell_id] = \
-                bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
-
-            #a = x[0] - x[1]
-            #b = x[1] - x[2]
-            #c = x[2] - x[0]
-            #w = np.cross(a, b)
-            #omega = 2.0 * np.dot(w, w)
-            #if abs(omega) < 1.0e-10:
-                #raise ZeroDivisionError( 'The nodes don''t seem to form '
-                                        #+ 'a proper triangle.' )
-            #alpha = -np.dot(b, b) * np.dot(a, c) / omega
-            #beta  = -np.dot(c, c) * np.dot(b, a) / omega
-            #gamma = -np.dot(a, a) * np.dot(c, b) / omega
-            #m = alpha * x[0] + beta * x[1] + gamma * x[2]
-
-            ## Alternative implementation from
-            ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
-            #a = x[1] - x[0]
-            #b = x[2] - x[0]
-            #alpha = np.dot(a, a)
-            #beta = np.dot(b, b)
-            #w = np.cross(a, b)
-            #omega = 2.0 * np.dot(w, w)
-            #m = np.empty(3)
-            #m[0] = x[0][0] + ((alpha * b[1] - beta * a[1]) * w[2]
-                              #-(alpha * b[2] - beta * a[2]) * w[1]) / omega
-            #m[1] = x[0][1] + ((alpha * b[2] - beta * a[2]) * w[0]
-                              #-(alpha * b[0] - beta * a[0]) * w[2]) / omega
-            #m[2] = x[0][2] + ((alpha * b[0] - beta * a[0]) * w[1]
-                              #-(alpha * b[1] - beta * a[1]) * w[0]) / omega
+            vtk.vtkTriangle.Circumcircle(x[0], x[1], x[2],
+                                         self.cell_circumcenters[cell_id])
 
         return
     # --------------------------------------------------------------------------
@@ -294,52 +256,61 @@ class Mesh2D( Mesh ):
         # compute cell circumcenters
         if self.cell_circumcenters is None:
             self.create_cell_circumcenters()
-        circumcenters = self.cell_circumcenters
 
         if self.edgesNodes is None:
             self.create_adjacent_entities()
 
-        # Precompute edge lengths.
-        num_edges = len(self.edgesNodes)
-        edge_lengths = np.empty(num_edges, dtype=float)
-        for k in xrange(num_edges):
-            nodes = self.nodes[self.edgesNodes[k]]
-            edge_lengths[k] = np.linalg.norm(nodes[1] - nodes[0])
-
-        # Get edge normals.
-        edge_normals = self._compute_edge_normals(edge_lengths)
-
         # Compute covolumes and control volumes.
-        for k in xrange(num_edges):
+        num_edges = len(self.edgesNodes)
+        for edge_id in xrange(num_edges):
+            # Move the system such that one of the two end points is in the
+            # origin. Deliberately take self.edgesNodes[edge_id][0].
+            node = self.nodes[self.edgesNodes[edge_id][0]]
+
+            # The orientation of the coedge needs gauging.
+            # Do it in such as a way that the control volume contribution
+            # is positive if and only if the area of the triangle
+            # (node, other0, edge_midpoint) (in this order) is positive.
+            # Equivalently, the triangle (node, edge_midpoint, other1) could
+            # be considered.
+            # other{0,1} refer to that one node of the adjacent.
+            # Get the opposing node of the first adjacent cell.
+            cell0 = self.edgesCells[edge_id][0]
+            edge_idx = np.nonzero(self.cellsEdges[cell0] == edge_id)[0][0]
+            # This makes use of the fact that cellsEdges and cellsNodes
+            # are coordinated such that in cell #i, the edge cellsEdges[i][k]
+            # opposes cellsNodes[i][k].
+            other0 = self.nodes[self.cellsNodes[cell0][edge_idx]] \
+                   - node
+            node_ids = self.edgesNodes[edge_id]
+            node_coords = self.nodes[node_ids]
+            edge_midpoint = 0.5 * (node_coords[0] + node_coords[1]) \
+                          - node
+            gauge = other0[0] * edge_midpoint[1] \
+                  - other0[1] * edge_midpoint[0]
+
             # Get the circumcenters of the adjacent cells.
-            cc = circumcenters[self.edgesCells[k]]
-            node_ids = self.edgesNodes[k]
-            if len(cc) == 2: # interior cell
-                # TODO check out if this holds true for bent surfaces too
-                coedge = cc[1] - cc[0]
-            elif len(cc) == 1: # boundary cell
-                node_coords = self.nodes[node_ids]
-                edge_midpoint = 0.5 * (node_coords[0] + node_coords[1])
-                coedge = edge_midpoint - cc[0]
+            cc = self.cell_circumcenters[self.edgesCells[edge_id]] \
+               - node
+            if len(cc) == 2: # interior edge
+                self.control_volumes[node_ids] += np.sign(gauge) \
+                                                * 0.5 * (cc[0][0] * cc[1][1] \
+                                                        -cc[0][1] * cc[1][0])
+            elif len(cc) == 1: # boundary edge
+                self.control_volumes[node_ids] += np.sign(gauge) \
+                                                * 0.5 * (cc[0][0] * edge_midpoint[1]
+                                                        -cc[0][1] * edge_midpoint[0])
             else:
                 raise RuntimeError('An edge should have either 1 or two adjacent cells.')
 
-            # Project the coedge onto the outer normal. The two vectors should
-            # be parallel, it's just the sign of the coedge length that is to
-            # be determined here.
-            covolume = np.dot(coedge, edge_normals[k])
-            pyramid_volume = 0.5 * edge_lengths[k] * covolume / 2
-            self.control_volumes[node_ids] += pyramid_volume
-
         return
-
     # --------------------------------------------------------------------------
     def _compute_edge_normals(self, edge_lengths):
         # Precompute edge normals. Do that in such a way that the
         # face normals points in the direction of the cell with the higher
         # cell ID.
         num_edges = len(self.edgesNodes)
-        edge_normals = np.empty(num_edges, dtype=np.dtype((float,3)))
+        edge_normals = np.empty(num_edges, dtype=np.dtype((float,2)))
         for cell_id, cellEdges in enumerate(self.cellsEdges):
             # Loop over the local faces.
             for k in xrange(3):
@@ -364,6 +335,7 @@ class Mesh2D( Mesh ):
                     edge_normals[edge_id] -= np.dot(edge_normals[edge_id], edge_dir) * edge_dir
                     # Normalization.
                     edge_normals[edge_id] /= np.linalg.norm(edge_normals[edge_id])
+
         return edge_normals
     # --------------------------------------------------------------------------
     def show(self, highlight_nodes = []):

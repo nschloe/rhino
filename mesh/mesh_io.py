@@ -121,8 +121,15 @@ def read_mesh(filename, timestep=None):
     field_data = _read_field_data( vtk_mesh )
 
     if len(cellsNodes[0]) == 3: # 2D
-        from mesh2d import Mesh2D
-        return Mesh2D( points, cellsNodes ), psi, A, field_data
+        if all(points[:,2] == 0.0):
+           # flat mesh
+           assert all(A[:,2] == 0.0)
+           from mesh2d import Mesh2D
+           return Mesh2D( points[:,:2], cellsNodes ), psi, A[:,:2], field_data
+        else:
+            # shell mesh
+            from mesh2d_shell import Mesh2DShell
+            return Mesh2DShell( points, cellsNodes ), psi, A, field_data
     elif len(cellsNodes[0]) == 4: # 3D
         from mesh3d import Mesh3D
         return Mesh3D( points, cellsNodes ), psi, A, field_data
