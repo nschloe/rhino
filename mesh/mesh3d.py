@@ -48,7 +48,6 @@ class Mesh3D( Mesh ):
         self.cellsEdges = cellsEdges
         self.cellsFaces = None
         self.cell_circumcenters = None
-        self.face_circumcenters = None
         self.cellsVolume = None
         self.control_volumes = None
         self.vtk_mesh = None
@@ -204,55 +203,52 @@ class Mesh3D( Mesh ):
 
         return
     # --------------------------------------------------------------------------
-    def create_face_circumcenters( self ):
+    def _get_face_circumcenter(self, face_id):
         '''Computes the center of the circumcircle of each face.
         '''
         import vtk
-        num_faces = len(self.facesNodes)
-        self.face_circumcenters = np.empty(num_faces, dtype=np.dtype((float,3)))
-        for face_id, faceNodes in enumerate(self.facesNodes):
-            x = self.nodes[faceNodes]
-            # Project triangle to 2D.
-            v = np.empty(3, dtype=np.dtype((float, 2)))
-            vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2],
-                                        v[0], v[1], v[2])
-            # Get the circumcenter in 2D.
-            cc_2d = np.empty(2, dtype=float)
-            vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2], cc_2d)
-            # Project back to 3D by using barycentric coordinates.
-            bcoords = np.empty(3, dtype=float)
-            vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
-            self.face_circumcenters[face_id] = \
-                bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
 
-            #a = x[0] - x[1]
-            #b = x[1] - x[2]
-            #c = x[2] - x[0]
-            #w = np.cross(a, b)
-            #omega = 2.0 * np.dot(w, w)
-            #if abs(omega) < 1.0e-10:
-                #raise ZeroDivisionError( 'The nodes don''t seem to form '
-                                        #+ 'a proper triangle.' )
-            #alpha = -np.dot(b, b) * np.dot(a, c) / omega
-            #beta  = -np.dot(c, c) * np.dot(b, a) / omega
-            #gamma = -np.dot(a, a) * np.dot(c, b) / omega
-            #m = alpha * x[0] + beta * x[1] + gamma * x[2]
+        x = self.nodes[self.facesNodes[face_id]]
+        # Project triangle to 2D.
+        v = np.empty(3, dtype=np.dtype((float, 2)))
+        vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2],
+                                    v[0], v[1], v[2])
+        # Get the circumcenter in 2D.
+        cc_2d = np.empty(2, dtype=float)
+        vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2], cc_2d)
+        # Project back to 3D by using barycentric coordinates.
+        bcoords = np.empty(3, dtype=float)
+        vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
+        return bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
 
-            ## Alternative implementation from
-            ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
-            #a = x[1] - x[0]
-            #b = x[2] - x[0]
-            #alpha = np.dot(a, a)
-            #beta = np.dot(b, b)
-            #w = np.cross(a, b)
-            #omega = 2.0 * np.dot(w, w)
-            #m = np.empty(3)
-            #m[0] = x[0][0] + ((alpha * b[1] - beta * a[1]) * w[2]
-                              #-(alpha * b[2] - beta * a[2]) * w[1]) / omega
-            #m[1] = x[0][1] + ((alpha * b[2] - beta * a[2]) * w[0]
-                              #-(alpha * b[0] - beta * a[0]) * w[2]) / omega
-            #m[2] = x[0][2] + ((alpha * b[0] - beta * a[0]) * w[1]
-                              #-(alpha * b[1] - beta * a[1]) * w[0]) / omega
+        #a = x[0] - x[1]
+        #b = x[1] - x[2]
+        #c = x[2] - x[0]
+        #w = np.cross(a, b)
+        #omega = 2.0 * np.dot(w, w)
+        #if abs(omega) < 1.0e-10:
+            #raise ZeroDivisionError( 'The nodes don''t seem to form '
+                                    #+ 'a proper triangle.' )
+        #alpha = -np.dot(b, b) * np.dot(a, c) / omega
+        #beta  = -np.dot(c, c) * np.dot(b, a) / omega
+        #gamma = -np.dot(a, a) * np.dot(c, b) / omega
+        #m = alpha * x[0] + beta * x[1] + gamma * x[2]
+
+        ## Alternative implementation from
+        ## https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
+        #a = x[1] - x[0]
+        #b = x[2] - x[0]
+        #alpha = np.dot(a, a)
+        #beta = np.dot(b, b)
+        #w = np.cross(a, b)
+        #omega = 2.0 * np.dot(w, w)
+        #m = np.empty(3)
+        #m[0] = x[0][0] + ((alpha * b[1] - beta * a[1]) * w[2]
+                          #-(alpha * b[2] - beta * a[2]) * w[1]) / omega
+        #m[1] = x[0][1] + ((alpha * b[2] - beta * a[2]) * w[0]
+                          #-(alpha * b[0] - beta * a[0]) * w[2]) / omega
+        #m[2] = x[0][2] + ((alpha * b[0] - beta * a[0]) * w[1]
+                          #-(alpha * b[1] - beta * a[1]) * w[0]) / omega
         return
     # --------------------------------------------------------------------------
     def compute_control_volumes(self):
@@ -265,11 +261,6 @@ class Mesh3D( Mesh ):
         if self.cell_circumcenters is None:
             self.create_cell_circumcenters()
         cell_ccs = self.cell_circumcenters
-
-        # Get face circumcenters.
-        if self.face_circumcenters is None:
-            self.create_face_circumcenters()
-        face_ccs = self.face_circumcenters
 
         # Get face normals.
         face_normals = self._compute_face_normals()
@@ -305,6 +296,9 @@ class Mesh3D( Mesh ):
                 # Find the edge in the list of edges of this face.
                 # http://projects.scipy.org/numpy/ticket/1673
                 edge_idx = np.nonzero(self.facesEdges[face_id] == edge_id)[0][0]
+                # faceNodes and faceEdges need to be coordinates such that
+                # the node faceNodes[face_id][k] and the edge
+                # faceEdges[face_id][k] are opposing in the face face_id.
                 opposing_point = self.nodes[self.facesNodes[face_id][edge_idx]]
                 gauge = np.dot(edge, np.cross(face_normals[face_id],
                                               opposing_point - edge_midpoint))
@@ -314,7 +308,11 @@ class Mesh3D( Mesh ):
                     a = np.dot(edge, np.cross(cc[1] - edge_midpoint,
                                               cc[0] - edge_midpoint))
                 elif len(cc) == 1:
-                    a = np.dot(edge, np.cross(face_ccs[face_id] - edge_midpoint,
+                    # Each boundary face circumcenter is computed three times.
+                    # Probably one could save a bit of CPU time by caching
+                    # those.
+                    face_cc = self._get_face_circumcenter(face_id)
+                    a = np.dot(edge, np.cross(face_cc - edge_midpoint,
                                               cc[0] - edge_midpoint))
                 else:
                     raise RuntimeError('A face should have either 1 or 2 adjacent cells.')
