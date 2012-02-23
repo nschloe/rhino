@@ -272,7 +272,7 @@ def minres(A, b, x0,
 
     # resulting approximation is xk = x0 + Mr*yk
     yk = np.zeros((N,1))
-    xk = x0
+    xk = x0.copy()
 
     if timer:
         times['setup'][0] = time.time()-start
