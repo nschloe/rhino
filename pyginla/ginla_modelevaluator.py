@@ -289,10 +289,8 @@ class GinlaModelEvaluator:
         vols = self.mesh.cellsVolume
 
         # Precompute edges.
-        edges = np.empty(num_edges, dtype=np.dtype((float,3)))
-        for edge_id, edge_nodes in enumerate(self.mesh.edgesNodes):
-            edges[edge_id] = self.mesh.nodes[edge_nodes[1]] \
-                           - self.mesh.nodes[edge_nodes[0]]
+        edges = self.mesh.nodes[self.mesh.edgesNodes[:,1]] \
+              - self.mesh.nodes[self.mesh.edgesNodes[:,0]]
 
         # Calculate the edge contributions cell by cell.
         for vol, cellEdges in zip(vols, self.mesh.cellsEdges):
@@ -322,30 +320,26 @@ class GinlaModelEvaluator:
         if self.mesh.edgesNodes is None:
             self.mesh.create_adjacent_entities()
 
-        num_edges = len(self.mesh.edgesNodes)
-        self._mvp_edge_cache = np.empty(num_edges, dtype=float)
-
-        # Loop over the all local edges of all cells.
-        for edge_id, node_indices in enumerate(self.mesh.edgesNodes):
-            # ----------------------------------------------------------
-            # Approximate the integral
-            #
-            #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
-            #
-            # numerically by the midpoint rule, i.e.,
-            #
-            #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
-            #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
-            #
-            edge = self.mesh.nodes[node_indices[1]] \
-                 - self.mesh.nodes[node_indices[0]]
-            mvp = 0.5 * (self._get_mvp(node_indices[1]) \
-                       + self._get_mvp(node_indices[0]))
-            self._mvp_edge_cache[edge_id] = np.dot(edge, mvp)
+        # Approximate the integral
+        #
+        #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
+        #
+        # numerically by the midpoint rule, i.e.,
+        #
+        #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
+        #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
+        #
+        # The following computes the dot-products of all those
+        # edges[i], mvp[i], and put the result in the cache.
+        edges = self.mesh.nodes[self.mesh.edgesNodes[:,1]] \
+              - self.mesh.nodes[self.mesh.edgesNodes[:,0]]
+        mvp = 0.5 * (self._get_mvp(self.mesh.edgesNodes[:,1]) \
+                    +self._get_mvp(self.mesh.edgesNodes[:,0]))
+        self._mvp_edge_cache = np.sum(edges * mvp, 1)
 
         return
     # ==========================================================================
-    def _get_mvp( self, index ):
+    def _get_mvp(self, index):
         return self.mu * self._raw_magnetic_vector_potential[index]
     # ==========================================================================
     #def keo_smallest_eigenvalue_approximation( self ):

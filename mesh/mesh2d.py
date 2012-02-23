@@ -306,34 +306,8 @@ class Mesh2D( Mesh ):
             nodes = self.nodes[self.edgesNodes[k]]
             edge_lengths[k] = np.linalg.norm(nodes[1] - nodes[0])
 
-        # Precompute edge normals. Do that in such a way that the
-        # face normals points in the direction of the cell with the higher
-        # cell ID.
-        normals = np.zeros(num_edges, dtype=np.dtype((float,3)))
-        for cell_id, cellEdges in enumerate(self.cellsEdges):
-            # Loop over the local faces.
-            for k in xrange(3):
-                edge_id = cellEdges[k]
-                # Compute the normal in the direction of the higher cell ID,
-                # or if this is a boundary face, to the outside of the domain.
-                neighbor_cell_ids = self.edgesCells[edge_id]
-                if cell_id == neighbor_cell_ids[0]:
-                    edge_nodes = self.nodes[self.edgesNodes[edge_id]]
-                    # The current cell is the one with the lower ID.
-                    # Get "other" node (aka the one which is not in the current
-                    # "face").
-                    other_node_id = self.cellsNodes[cell_id][k]
-                    # Get any direction other_node -> face.
-                    # As reference, any point in face can be taken, e.g.,
-                    # the first face corner point
-                    # self.edgesNodes[edge_id][0].
-                    normals[edge_id] = edge_nodes[0] \
-                                     - self.nodes[other_node_id]
-                    # Make it orthogonal to the face.
-                    edge_dir = (edge_nodes[1] - edge_nodes[0]) / edge_lengths[edge_id]
-                    normals[edge_id] -= np.dot(normals[edge_id], edge_dir) * edge_dir
-                    # Normalization.
-                    normals[edge_id] /= np.linalg.norm(normals[edge_id])
+        # Get edge normals.
+        edge_normals = self._compute_edge_normals(edge_lengths)
 
         # Compute covolumes and control volumes.
         for k in xrange(num_edges):
@@ -353,11 +327,44 @@ class Mesh2D( Mesh ):
             # Project the coedge onto the outer normal. The two vectors should
             # be parallel, it's just the sign of the coedge length that is to
             # be determined here.
-            covolume = np.dot(coedge, normals[k])
+            covolume = np.dot(coedge, edge_normals[k])
             pyramid_volume = 0.5 * edge_lengths[k] * covolume / 2
             self.control_volumes[node_ids] += pyramid_volume
 
         return
+
+    # --------------------------------------------------------------------------
+    def _compute_edge_normals(self, edge_lengths):
+        # Precompute edge normals. Do that in such a way that the
+        # face normals points in the direction of the cell with the higher
+        # cell ID.
+        num_edges = len(self.edgesNodes)
+        edge_normals = np.empty(num_edges, dtype=np.dtype((float,3)))
+        for cell_id, cellEdges in enumerate(self.cellsEdges):
+            # Loop over the local faces.
+            for k in xrange(3):
+                edge_id = cellEdges[k]
+                # Compute the normal in the direction of the higher cell ID,
+                # or if this is a boundary face, to the outside of the domain.
+                neighbor_cell_ids = self.edgesCells[edge_id]
+                if cell_id == neighbor_cell_ids[0]:
+                    edge_nodes = self.nodes[self.edgesNodes[edge_id]]
+                    # The current cell is the one with the lower ID.
+                    # Get "other" node (aka the one which is not in the current
+                    # "face").
+                    other_node_id = self.cellsNodes[cell_id][k]
+                    # Get any direction other_node -> face.
+                    # As reference, any point in face can be taken, e.g.,
+                    # the first face corner point
+                    # self.edgesNodes[edge_id][0].
+                    edge_normals[edge_id] = edge_nodes[0] \
+                                      - self.nodes[other_node_id]
+                    # Make it orthogonal to the face.
+                    edge_dir = (edge_nodes[1] - edge_nodes[0]) / edge_lengths[edge_id]
+                    edge_normals[edge_id] -= np.dot(edge_normals[edge_id], edge_dir) * edge_dir
+                    # Normalization.
+                    edge_normals[edge_id] /= np.linalg.norm(edge_normals[edge_id])
+        return edge_normals
     # --------------------------------------------------------------------------
     def show(self, highlight_nodes = []):
         '''Plot the mesh.'''
