@@ -262,9 +262,6 @@ class Mesh3D( Mesh ):
             self.create_cell_circumcenters()
         cell_ccs = self.cell_circumcenters
 
-        # Get face normals.
-        face_normals = self._compute_face_normals()
-
         # Compute covolumes and control volumes.
         num_nodes = len(self.nodes)
         self.control_volumes = np.zeros((num_nodes,1), dtype = float)
@@ -300,11 +297,26 @@ class Mesh3D( Mesh ):
                 # the node faceNodes[face_id][k] and the edge
                 # faceEdges[face_id][k] are opposing in the face face_id.
                 opposing_point = self.nodes[self.facesNodes[face_id][edge_idx]]
-                gauge = np.dot(edge, np.cross(face_normals[face_id],
-                                              opposing_point - edge_midpoint))
+
+                # Get the other point of one adjacent cell.
+                # This involves:
+                #   (a) Get the cell, get all its faces.
+                #   (c) Find out which local index face_id is.
+                # Then we rely on the data structure organized such that
+                # cellsNodes[i][k] is opposite of cellsEdges[i][k] in
+                # cell i.
+                cell0 = self.facesCells[face_id][0]
+                face0_idx = np.nonzero(self.cellsFaces[cell0] == face_id)[0][0]
+                other0 = self.nodes[self.cellsNodes[cell0][face0_idx]]
 
                 cc = cell_ccs[self.facesCells[face_id]]
                 if len(cc) == 2:
+                    # Get opposing point of the other cell.
+                    cell1 = self.facesCells[face_id][1]
+                    face1_idx = np.nonzero(self.cellsFaces[cell0] == face_id)[0][0]
+                    other1 = self.nodes[self.cellsNodes[cell1][face1_idx]]
+                    gauge = np.dot(edge, np.cross(other1 - other0,
+                                                  opposing_point - edge_midpoint))
                     a = np.dot(edge, np.cross(cc[1] - edge_midpoint,
                                               cc[0] - edge_midpoint))
                 elif len(cc) == 1:
@@ -312,6 +324,8 @@ class Mesh3D( Mesh ):
                     # Probably one could save a bit of CPU time by caching
                     # those.
                     face_cc = self._get_face_circumcenter(face_id)
+                    gauge = np.dot(edge, np.cross(face_cc - other0,
+                                                  opposing_point - edge_midpoint))
                     a = np.dot(edge, np.cross(face_cc - edge_midpoint,
                                               cc[0] - edge_midpoint))
                 else:
