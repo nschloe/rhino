@@ -134,7 +134,7 @@ class Mesh3D( Mesh ):
         self.cellsFaces = np.empty(num_cells, dtype=np.dtype((int,4)))
         # Loop over all elements.
         new_face_gid = 0
-        faces = {}
+        registered_faces = {}
         for cell_id in xrange(num_cells):
             # Make sure cellNodes are sorted.
             self.cellsNodes[cell_id] = np.sort(self.cellsNodes[cell_id])
@@ -142,29 +142,33 @@ class Mesh3D( Mesh ):
                 # Remove the k-th element. This makes sure that the k-th
                 # face is opposite of the k-th node. Useful later in
                 # in construction of face normals.
-                # TODO np.delete() is slow; come up with something faster.
-                indices = tuple(np.delete(self.cellsNodes[cell_id], k))
-                if indices in faces:
+                indices = tuple(self.cellsNodes[cell_id][:k]) \
+                        + tuple(self.cellsNodes[cell_id][k+1:])
+                if indices in registered_faces:
                     # Face already assigned, just register it with the
                     # current cell.
-                    face_gid = faces[indices]
+                    face_gid = registered_faces[indices]
                     self.facesCells[face_gid].append( cell_id )
                     self.cellsFaces[cell_id][k] = face_gid
                 else:
                     # Add face.
+                    # Make sure that facesNodes[k] and facesEdge[k] are
+                    # coordinated in such a way that facesNodes[k][i]
+                    # and facesEdge[k][i] are opposite in face k.
                     self.facesNodes[new_face_gid] = indices
+                    # Register edges.
+                    for kk in xrange(len(indices)):
+                        # Note that node_tuple is also sorted, and thus
+                        # is a key in the edges dictionary.
+                        node_tuple = indices[:kk] + indices[kk+1:]
+                        edge_id = edges[node_tuple]
+                        self.edgesFaces[edge_id].append( new_face_gid )
+                        self.facesEdges[new_face_gid][kk] = edge_id
                     # Register cells.
                     self.facesCells[new_face_gid].append( cell_id )
                     self.cellsFaces[cell_id][k] = new_face_gid
-                    # Register edges.
-                    for k, node_tuples in enumerate(itertools.combinations(indices, 2)):
-                        # Note that node_tuples is also sorted, and thus
-                        # is a key in the edges dictionary.
-                        edge_id = edges[node_tuples]
-                        self.edgesFaces[edge_id].append( new_face_gid )
-                        self.facesEdges[new_face_gid][k] = edge_id
                     # Finalize.
-                    faces[indices] = new_face_gid
+                    registered_faces[indices] = new_face_gid
                     new_face_gid += 1
 
         # trim faces
@@ -181,6 +185,9 @@ class Mesh3D( Mesh ):
         num_cells = len(self.cellsNodes)
         self.cell_circumcenters = np.empty(num_cells, dtype=np.dtype((float,3)))
         for cell_id, cellNodes in enumerate(self.cellsNodes):
+            x = self.nodes[cellNodes]
+            vtk.vtkTetra.Circumsphere(x[0], x[1], x[2], x[3],
+                                      self.cell_circumcenters[cell_id])
             ## http://www.cgafaq.info/wiki/Tetrahedron_Circumsphere
             #b = x[1] - x[0]
             #c = x[2] - x[0]
@@ -194,9 +201,7 @@ class Mesh3D( Mesh ):
                             #+ np.dot(c, c) * np.cross(d, b)
                             #+ np.dot(d, d) * np.cross(b, c)
                           #) / omega
-            x = self.nodes[cellNodes]
-            vtk.vtkTetra.Circumsphere(x[0], x[1], x[2], x[3],
-                                      self.cell_circumcenters[cell_id])
+
         return
     # --------------------------------------------------------------------------
     def create_face_circumcenters( self ):
@@ -251,25 +256,85 @@ class Mesh3D( Mesh ):
         return
     # --------------------------------------------------------------------------
     def compute_control_volumes(self):
-        #self._compute_control_volumes_new()
-        self._compute_control_volumes_old()
-        return
-    # --------------------------------------------------------------------------
-    def _compute_control_volumes_new(self):
+        '''Computes the control volumes of the mesh.'''
 
         if self.edgesNodes is None:
             self.create_adjacent_entities()
 
-        # get cell circumcenters
+        # Get cell circumcenters.
         if self.cell_circumcenters is None:
             self.create_cell_circumcenters()
         cell_ccs = self.cell_circumcenters
 
-        # get face circumcenters
+        # Get face circumcenters.
         if self.face_circumcenters is None:
             self.create_face_circumcenters()
         face_ccs = self.face_circumcenters
 
+        # Get face normals.
+        face_normals = self._compute_face_normals()
+
+        # Compute covolumes and control volumes.
+        num_nodes = len(self.nodes)
+        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
+        for edge_id in xrange(len(self.edgesNodes)):
+            edge_node_ids = self.edgesNodes[edge_id]
+            edge = self.nodes[edge_node_ids[1]] \
+                 - self.nodes[edge_node_ids[0]]
+            edge_midpoint = 0.5 * ( self.nodes[edge_node_ids[0]]
+                                  + self.nodes[edge_node_ids[1]])
+
+            # 0.5 * alpha / edge_length = covolume.
+            # This is chosen to avoid unnecessary calculation (such as
+            # projecting onto the normalized edge and later multiplying
+            # the aggregate by the edge length.
+            alpha = 0.0
+            for face_id in self.edgesFaces[edge_id]:
+                # Make sure that the edge orientation is such that the covolume
+                # contribution is positive if and only if the the vector
+                # p[0]->p[1] is oriented like the face normal
+                # (which is oriented cell[0]->cell[1]).
+                # We need to make sure to gauge the edge orientation using
+                # the face normal and one point *in* the face, e.g., the one
+                # corner point that is not part of the edge. This makes sure
+                # that certain nasty cases are properly dealt with, e.g., when
+                # the edge midpoint does not sit in the covolume or that the
+                # covolume orientation is clockwise while the corresponding
+                # cells are oriented counter-clockwise.
+                #
+                # Find the edge in the list of edges of this face.
+                # http://projects.scipy.org/numpy/ticket/1673
+                edge_idx = np.nonzero(self.facesEdges[face_id] == edge_id)[0][0]
+                opposing_point = self.nodes[self.facesNodes[face_id][edge_idx]]
+                gauge = np.dot(edge, np.cross(face_normals[face_id],
+                                              opposing_point - edge_midpoint))
+
+                cc = cell_ccs[self.facesCells[face_id]]
+                if len(cc) == 2:
+                    a = np.dot(edge, np.cross(cc[1] - edge_midpoint,
+                                              cc[0] - edge_midpoint))
+                elif len(cc) == 1:
+                    a = np.dot(edge, np.cross(face_ccs[face_id] - edge_midpoint,
+                                              cc[0] - edge_midpoint))
+                else:
+                    raise RuntimeError('A face should have either 1 or 2 adjacent cells.')
+
+                if gauge >= 0.0:
+                    alpha += a
+                else:
+                    alpha -= a
+
+            # We add the pyramid volume
+            #   covolume * 0.5*edgelength / 3,
+            # which, given
+            #   covolume = 0.5 * alpha / edge_length
+            # is just
+            #   0.25 * alpha / 3.
+            self.control_volumes[edge_node_ids] += 0.25 * alpha / 3
+
+        return
+    # --------------------------------------------------------------------------
+    def _compute_face_normals(self):
         # Precompute edge lengths.
         num_edges = len(self.edgesNodes)
         edge_lengths = np.empty(num_edges, dtype=float)
@@ -277,11 +342,11 @@ class Mesh3D( Mesh ):
             nodes = self.nodes[self.edgesNodes[edge_id]]
             edge_lengths[edge_id] = np.linalg.norm(nodes[1] - nodes[0])
 
-        # Precompute face normals. Do that in such a way that the
+        # Compute face normals. Do that in such a way that the
         # face normals points in the direction of the cell with the higher
         # cell ID.
         num_faces = len(self.facesNodes)
-        normals = np.zeros(num_faces, dtype=np.dtype((float,3)))
+        face_normals = np.zeros(num_faces, dtype=np.dtype((float,3)))
         for cell_id, cellFaces in enumerate(self.cellsFaces):
             # Loop over the local faces.
             for k in xrange(4):
@@ -297,11 +362,11 @@ class Mesh3D( Mesh ):
                     other_node_id = self.cellsNodes[cell_id][k]
                     # Get any direction other_node -> face.
                     # As reference, any point in face can be taken, e.g.,
-                    # the face circumcenter.
-                    normals[face_id] = face_ccs[face_id] \
-                                     - self.nodes[other_node_id]
+                    # face_nodes[0].
+                    face_normals[face_id] = face_nodes[0] \
+                                          - self.nodes[other_node_id]
                     if face_id == 2:
-                        tmp = normals[face_id]
+                        tmp = face_normals[face_id]
                     # Make it orthogonal to the face by doing Gram-Schmidt
                     # with the two edges of the face.
                     edge_id = self.facesEdges[face_id][0]
@@ -314,164 +379,12 @@ class Mesh3D( Mesh ):
                     v1 = nodes[1] - nodes[0]
                     v1 -= np.dot(v1, v0) * v0
                     v1 /= np.linalg.norm(v1)
-                    normals[face_id] -= np.dot(normals[face_id], v0) * v0
-                    normals[face_id] -= np.dot(normals[face_id], v1) * v1
+                    face_normals[face_id] -= np.dot(face_normals[face_id], v0) * v0
+                    face_normals[face_id] -= np.dot(face_normals[face_id], v1) * v1
                     # Normalization.
-                    normals[face_id] /= np.linalg.norm(normals[face_id])
+                    face_normals[face_id] /= np.linalg.norm(face_normals[face_id])
 
-        # Compute covolumes and control volumes.
-        num_nodes = len(self.nodes)
-        self.control_volumes = np.zeros((num_nodes,1), dtype = float)
-
-        self.edge_contribs = np.zeros((num_edges,1), dtype = float)
-        for edge_id in xrange(num_edges):
-            covolume = 0.0
-            edge_node_ids = self.edgesNodes[edge_id]
-            edge_midpoint = 0.5 * ( self.nodes[edge_node_ids[0]]
-                                  + self.nodes[edge_node_ids[1]])
-            for face_id in self.edgesFaces[edge_id]:
-                face_cc = face_ccs[face_id]
-                # Get the circumcenters of the adjacent cells.
-                cc = cell_ccs[self.facesCells[face_id]]
-                if len(cc) == 2: # interior face
-                    coedge = cc[1] - cc[0]
-                elif len(cc) == 1: # boundary face
-                    coedge = face_cc - cc[0]
-                else:
-                    raise RuntimeError('A face should have either 1 or 2 adjacent cells.')
-                # Project the coedge onto the outer normal. The two vectors
-                # should be parallel, it's just the sign of the coedge length
-                # that is to be determined here.
-                h = np.dot(coedge, normals[face_id])
-                alpha = np.linalg.norm(face_cc - edge_midpoint)
-                covolume += 0.5 * alpha * h
-
-            pyramid_volume = 0.5 * edge_lengths[edge_id] * covolume / 3
-
-            if edge_id == 54:
-                self.control_volumes[edge_node_ids] += pyramid_volume
-
-        return
-    # --------------------------------------------------------------------------
-    def _compute_control_volumes_old(self):
-        # ----------------------------------------------------------------------
-        def _triangle_circumcenter(x):
-            '''Compute the circumcenter of a triangle.
-            '''
-            import vtk
-            # Project triangle to 2D.
-            v = np.empty(3, dtype=np.dtype((float,2)))
-            vtk.vtkTriangle.ProjectTo2D(x[0], x[1], x[2], v[0], v[1], v[2])
-            # Get the circumcenter in 2D.
-            cc_2d = np.empty(2,dtype=float)
-            vtk.vtkTriangle.Circumcircle(v[0], v[1], v[2], cc_2d)
-            # Project back to 3D by using barycentric coordinates.
-            bcoords = np.empty(3,dtype=float)
-            vtk.vtkTriangle.BarycentricCoords(cc_2d, v[0], v[1], v[2], bcoords)
-            m = bcoords[0] * x[0] + bcoords[1] * x[1] + bcoords[2] * x[2]
-
-            return m
-        # ----------------------------------------------------------------------
-        def _compute_covolume(edge_node_ids, cc, other_node_ids, verbose=False):
-            import math
-            covolume = 0.0
-            edge_nodes = self.nodes[edge_node_ids]
-            edge_midpoint = 0.5 * (edge_nodes[0] + edge_nodes[1])
-
-            other_nodes = self.nodes[other_node_ids]
-
-            # Use the triangle (MP, other_nodes[0], other_nodes[1]] )
-            # (in this order) to gauge the orientation of the two triangles that
-            # compose the quadrilateral.
-            gauge = np.cross(other_nodes[0] - edge_midpoint,
-                             other_nodes[1] - edge_midpoint)
-
-            # Compute the area of the quadrilateral.
-            # There are some really tricky degenerate cases here, i.e.,
-            # combinations of when ccFace{0,1}, cc, sit outside of the
-            # tetrahedron.
-
-            # Compute the circumcenters of the adjacent faces.
-            ccFace0 = _triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[0]])
-
-            # Add the area of the first triangle (MP,ccFace0,cc).
-            # This makes use of the right angles.
-            triangleArea0 = 0.5 \
-                          * np.linalg.norm(edge_midpoint - ccFace0) \
-                          * np.linalg.norm(ccFace0 - cc)
-
-            # Check if the orientation of the triangle (MP,ccFace0,cc)
-            # coincides with the orientation of the gauge triangle. If yes, add
-            # the area, subtract otherwise.
-            triangleNormal0 = np.cross(ccFace0 - edge_midpoint,
-                                       cc - edge_midpoint)
-            # copysign takes the absolute value of the first argument and the
-            # sign of the second.
-            covolume += math.copysign(triangleArea0,
-                                      np.dot(triangleNormal0, gauge))
-
-            ccFace1 = _triangle_circumcenter([edge_nodes[0], edge_nodes[1], other_nodes[1]])
-
-            # Add the area of the second triangle (MP,cc,ccFace1).
-            # This makes use of the right angles.
-            triangleArea1 = 0.5 \
-                          * np.linalg.norm(edge_midpoint - ccFace1) \
-                          * np.linalg.norm(ccFace1 - cc)
-
-            # Check if the orientation of the triangle (MP,cc,ccFace1)
-            # coincides with the orientation of the gauge triangle. If yes, add
-            # the area, subtract otherwise.
-            triangleNormal1 = np.cross(cc - edge_midpoint,
-                                       ccFace1 - edge_midpoint)
-            # copysign takes the absolute value of the first argument and the
-            # sign of the second.
-            covolume += math.copysign(triangleArea1,
-                                      np.dot(triangleNormal1, gauge))
-            return covolume
-        # ----------------------------------------------------------------------
-        def _without(myset, e):
-            other_indices = []
-            for k in myset:
-                if k not in e:
-                    other_indices.append( k )
-            return other_indices
-        # ----------------------------------------------------------------------
-        # Precompute edge lengths.
-        if self.edgesNodes is None:
-            self.create_adjacent_entities()
-
-        # get cell circumcenters
-        if self.cell_circumcenters is None:
-            self.create_cell_circumcenters()
-        cell_ccs = self.cell_circumcenters
-
-        num_edges = len(self.edgesNodes)
-        edge_lengths = np.empty(num_edges, dtype=float)
-        for edge_id in xrange(num_edges):
-            nodes = self.nodes[self.edgesNodes[edge_id]]
-            edge_lengths[edge_id] = np.linalg.norm(nodes[1] - nodes[0])
-
-        num_nodes = len(self.nodes)
-        self.control_volumes = np.zeros((num_nodes,1), dtype = float )
-
-        self.edge_contribs = np.zeros((num_edges,1), dtype = float )
-        # Iterate over cells -> edges.
-        for cell_id, cellNodes in enumerate(self.cellsNodes):
-            for edge_id in self.cellsEdges[cell_id]:
-                indices = self.edgesNodes[edge_id]
-
-                other_indices = _without(cellNodes, indices)
-                covolume = _compute_covolume(indices,
-                                             cell_ccs[cell_id],
-                                             other_indices,
-                                             verbose = 0 in indices and edge_id == 0 and cell_id == 0
-                                             )
-
-                pyramid_volume = 0.5 * edge_lengths[edge_id] * covolume / 3
-                # control volume contributions
-                self.control_volumes[indices] += pyramid_volume
-
-        return
+        return face_normals
     # --------------------------------------------------------------------------
     def show_edge(self, edge_id):
         '''Displays edge with covolume.'''
@@ -480,6 +393,8 @@ class Mesh3D( Mesh ):
         import matplotlib.pyplot as plt
         fig = plt.figure()
         ax = fig.gca(projection='3d')
+        # 3D axis aspect ratio isn't implemented in matplotlib yet (2012-02-21).
+        #plt.axis('equal')
 
         if self.edgesNodes is None:
             self.create_adjacent_entities()
@@ -507,21 +422,46 @@ class Mesh3D( Mesh ):
             self.create_face_circumcenters()
         face_ccs = self.face_circumcenters
 
-        # plot covolume
-        for face_id in self.edgesFaces[edge_id]:
+        edge_midpoint = 0.5 * (edge_nodes[0] + edge_nodes[1])
+
+        # plot covolume and highlight faces in matching colors
+        num_local_faces = len(self.edgesFaces[edge_id])
+        for k, face_id in enumerate(self.edgesFaces[edge_id]):
+            # get rainbow color
+            h = float(k) / num_local_faces
+            hsv_face_col = np.array([[[h,1.0,1.0]]])
+            col = mpl.colors.hsv_to_rgb(hsv_face_col)[0][0]
+
+            # paint the face
+            face_nodes = self.nodes[self.facesNodes[face_id]]
+            import mpl_toolkits.mplot3d as mpl3
+            tri = mpl3.art3d.Poly3DCollection( [face_nodes] )
+            tri.set_color(mpl.colors.rgb2hex(col))
+            #tri.set_alpha( 0.5 )
+            ax.add_collection3d( tri )
+
+            # mark face circumcenters
+            face_cc = face_ccs[face_id]
+            ax.plot([face_cc[0]], [face_cc[1]], [face_cc[2]],
+                    marker='o', color=col)
+
+            boundary_col = [0.5,0.5,0.5]
             ccs = cell_ccs[ self.facesCells[face_id] ]
-            v = np.empty(3, dtype=np.dtype((float,2)))
-            #col = '0.5'
-            col = 'g'
             if len(ccs) == 2:
                 ax.plot(ccs[:,0], ccs[:,1], ccs[:,2], color=col)
             elif len(ccs) == 1:
+                ax.plot([ccs[0][0],face_cc[0]],
+                        [ccs[0][1],face_cc[1]],
+                        [ccs[0][2],face_cc[2]],
+                        color=col)
                 face_cc = face_ccs[face_id]
-                ax.plot([ccs[0][0],face_cc[0]], [ccs[0][1],face_cc[1]], [ccs[0][2],face_cc[2]], color=col)
+                ax.plot([edge_midpoint[0],face_cc[0]],
+                        [edge_midpoint[1],face_cc[1]],
+                        [edge_midpoint[2],face_cc[2]],
+                        color=boundary_col)
             else:
                 raise RuntimeError('???')
 
-        #edge_midpoint = 0.5 * ( edge_nodes[0] + edge_nodes[1] )
         #ax.plot([edge_midpoint[0]], [edge_midpoint[1]], [edge_midpoint[2]], 'ro')
 
         # highlight cells

@@ -39,8 +39,8 @@ class TestMesh(unittest.TestCase):
                           [2.0, -1.0, 0.0],
                           [2.0,  0.0, 0.0],
                           [2.0,  1.0, 0.0],
-                          [0.5,  0.0, -1.0],
-                          [0.5,  0.0, 1.0]])
+                          [0.5,  0.0, -0.9],
+                          [0.5,  0.0, 0.9]])
         cellsNodes = np.array([[1,2,4,5],
                               [2,3,4,5],
                               [0,1,4,5],
@@ -48,13 +48,28 @@ class TestMesh(unittest.TestCase):
         from mesh.mesh3d import Mesh3D
         mymesh = Mesh3D(nodes, cellsNodes)
 
+        # pull this to see what a negative covolume looks like
         #if mymesh.edgesNodes is None:
             #mymesh.create_adjacent_entities()
         #mymesh.show_edge(5)
 
-        actual_values = [ 1.3333333333333333,
-                          0.66386172963165968,
-                          0.54166666666666652 ]
+        actual_values = [ 1.2,
+                          0.58276428453480855,
+                          0.459 ]
+        self._run_test(mymesh, actual_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_tet(self):
+        filename = 'tetrahedron.e'
+        mymesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+
+        #if mymesh.edgesNodes is None:
+            #mymesh.create_adjacent_entities()
+        #mymesh.show_edge(54)
+
+        actual_values = [ 64.150028545708011,
+                          15.243602636687179,
+                          7.7180603065060023 ]
         self._run_test(mymesh, actual_values)
         return
     # --------------------------------------------------------------------------
@@ -78,11 +93,12 @@ class TestMesh(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_brick(self):
         filename = 'brick-w-hole.e'
-        pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+        mymesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+
         actual_values = [ 388.68629169464117,
                           16.661401941985677,
                           1.4684734547497671 ]
-        self._run_test(pyginlamesh, actual_values)
+        self._run_test(mymesh, actual_values)
         return
 # ==============================================================================
 if __name__ == '__main__':
