@@ -151,8 +151,8 @@ class Mesh2D( Mesh ):
                 # Remove the k-th element. This makes sure that the k-th
                 # edge is opposite of the k-th node. Useful later in
                 # in construction of edge (face) normals.
-                # TODO np.delete() is slow; come up with something faster.
-                indices = tuple(np.delete(self.cellsNodes[cell_id], k))
+                indices = tuple(self.cellsNodes[cell_id][:k]) \
+                        + tuple(self.cellsNodes[cell_id][k+1:])
                 if indices in edges:
                     edge_gid = edges[indices]
                     self.edgesCells[edge_gid].append( cell_id )

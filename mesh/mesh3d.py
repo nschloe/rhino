@@ -301,7 +301,7 @@ class Mesh3D( Mesh ):
                 # Get the other point of one adjacent cell.
                 # This involves:
                 #   (a) Get the cell, get all its faces.
-                #   (c) Find out which local index face_id is.
+                #   (b) Find out which local index face_id is.
                 # Then we rely on the data structure organized such that
                 # cellsNodes[i][k] is opposite of cellsEdges[i][k] in
                 # cell i.
@@ -331,10 +331,7 @@ class Mesh3D( Mesh ):
                 else:
                     raise RuntimeError('A face should have either 1 or 2 adjacent cells.')
 
-                if gauge >= 0.0:
-                    alpha += a
-                else:
-                    alpha -= a
+                alpha += np.sign(gauge) * a
 
             # We add the pyramid volume
             #   covolume * 0.5*edgelength / 3,
