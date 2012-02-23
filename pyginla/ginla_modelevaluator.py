@@ -295,9 +295,6 @@ class GinlaModelEvaluator:
                            - self.mesh.nodes[edge_nodes[0]]
 
         # Calculate the edge contributions cell by cell.
-        num_local_edges = len(self.mesh.cellsEdges[0])
-        A   = np.empty( (num_local_edges, num_local_edges), dtype = float )
-        rhs = np.empty( num_local_edges, dtype = float )
         for vol, cellEdges in zip(vols, self.mesh.cellsEdges):
             # Build the equation system:
             # The equation
@@ -306,16 +303,15 @@ class GinlaModelEvaluator:
             #
             # has to hold for all vectors u in the plane spanned by the edges,
             # particularly by the edges themselves.
-            for i in xrange( num_local_edges ):
-                rhs[i] = vol * np.dot(edges[cellEdges[i]], edges[cellEdges[i]])
-                # Fill the upper triangle of the symmetric matrix A.
-                for j in xrange(i, num_local_edges):
-                    A[i, j] = np.dot(edges[cellEdges[i]], edges[cellEdges[j]])**2
+            A = np.dot(edges[cellEdges], edges[cellEdges].T)
+            # Careful here! As of NumPy 1.7, np.diag() returns a view.
+            rhs = vol * np.diag(A).copy()
+            A = A**2
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
-            coeffs = linalg.solve(A, rhs, sym_pos=True)
-            self._edgecoeff_cache[cellEdges] += coeffs
+            self._edgecoeff_cache[cellEdges] += \
+                linalg.solve(A, rhs, sym_pos=True)
 
         return
     # ==========================================================================
