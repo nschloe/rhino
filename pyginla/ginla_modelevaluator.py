@@ -298,13 +298,7 @@ class GinlaModelEvaluator:
         num_local_edges = len(self.mesh.cellsEdges[0])
         A   = np.empty( (num_local_edges, num_local_edges), dtype = float )
         rhs = np.empty( num_local_edges, dtype = float )
-        for cell_id, cellEdges in enumerate(self.mesh.cellsEdges):
-            # Build local edge coordinates.
-            local_edges = np.empty(num_local_edges, dtype=np.dtype((float,3)))
-            for k, edgeNodes in enumerate(self.mesh.edgesNodes[cellEdges]):
-                local_edges[k] = self.mesh.nodes[edgeNodes[1]] \
-                               - self.mesh.nodes[edgeNodes[0]]
-
+        for vol, cellEdges in zip(vols, self.mesh.cellsEdges):
             # Build the equation system:
             # The equation
             #
@@ -313,7 +307,7 @@ class GinlaModelEvaluator:
             # has to hold for all vectors u in the plane spanned by the edges,
             # particularly by the edges themselves.
             for i in xrange( num_local_edges ):
-                rhs[i] = vols[cell_id] * np.dot(edges[cellEdges[i]], edges[cellEdges[i]])
+                rhs[i] = vol * np.dot(edges[cellEdges[i]], edges[cellEdges[i]])
                 # Fill the upper triangle of the symmetric matrix A.
                 for j in xrange(i, num_local_edges):
                     A[i, j] = np.dot(edges[cellEdges[i]], edges[cellEdges[j]])**2
