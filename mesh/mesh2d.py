@@ -286,6 +286,9 @@ class Mesh2D( Mesh ):
             node_coords = self.nodes[node_ids]
             edge_midpoint = 0.5 * (node_coords[0] + node_coords[1]) \
                           - node
+            # Computing the triangle volume like this is called the shoelace
+            # formula and can be interpreted as the z-component of the
+            # cross-product of other0 and edge_midpoint.
             gauge = other0[0] * edge_midpoint[1] \
                   - other0[1] * edge_midpoint[0]
 

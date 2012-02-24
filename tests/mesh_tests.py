@@ -20,8 +20,9 @@ class TestMesh(unittest.TestCase):
         vol2 = sum(pyginlamesh.cellsVolume)
         self.assertAlmostEqual( actual_values[0], vol2, delta=tol )
 
-        # Check the volume by summing over the control volumes.
-        vol = sum(pyginlamesh.control_volumes)
+        # Check the volume by summing over the absolute value of the
+        # control volumes.
+        vol = np.linalg.norm( pyginlamesh.control_volumes, ord=1 )
         self.assertAlmostEqual( actual_values[0], vol, delta=tol )
 
         # Check control volume norms.

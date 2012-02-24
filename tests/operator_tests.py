@@ -31,6 +31,7 @@ class TestKeo(unittest.TestCase):
         self.assertAlmostEqual( actual_control_sum_real,
                                 ginla_modeleval._keo.sum(),
                                 delta=tol )
+        return
     # --------------------------------------------------------------------------
     def test_rectanglesmall(self):
         filename = 'rectanglesmall.e'
@@ -73,24 +74,23 @@ class TestJacobian(unittest.TestCase):
 
         tol = 1.0e-12
 
-        n = len( pyginla_mesh.control_volumes )
-        D = spdiags(pyginla_mesh.control_volumes.T, [0], n, n)
-
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones((len(psi),1), dtype=complex)
 
-        val = np.vdot( phi, D*(J*phi) ).real
+        val = np.vdot( phi, pyginla_mesh.control_volumes * (J*phi)).real
         self.assertAlmostEqual( actual_values[0], val, delta=tol )
 
         # [1, 1, 1, ... ]
         phi = np.ones((len(psi),1), dtype=complex)
-        val = np.vdot( phi, D*(J*phi) ).real
+        val = np.vdot( phi, pyginla_mesh.control_volumes * (J*phi)).real
         self.assertAlmostEqual( actual_values[1], val, delta=tol )
 
         # [i, i, i, ... ]
         phi = 1j * np.ones((len(psi),1), dtype=complex)
-        val = np.vdot( phi, D*(J*phi) ).real
+        val = np.vdot( phi, pyginla_mesh.control_volumes * (J*phi)).real
         self.assertAlmostEqual( actual_values[2], val, delta=tol )
+
+        return
     # --------------------------------------------------------------------------
     def test_rectanglesmall(self):
         filename = 'rectanglesmall.e'
