@@ -1,4 +1,4 @@
-import mesh.mesh_io
+import voropy
 import pyginla.ginla_modelevaluator as gm
 import numpy as np
 import unittest
@@ -11,10 +11,10 @@ class TestKeo(unittest.TestCase):
     # --------------------------------------------------------------------------
     def _run_test(self, filename, mu, actual_control_sum_real):
         # read the mesh
-        pyginla_mesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+        mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        ginla_modeleval = gm.GinlaModelEvaluator(pyginla_mesh, A, mu)
+        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
         # Assemble the KEO.
         ginla_modeleval._assemble_keo()
@@ -64,30 +64,34 @@ class TestJacobian(unittest.TestCase):
     # --------------------------------------------------------------------------
     def _run_test(self, filename, mu, actual_values ):
         # read the mesh
-        pyginla_mesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+        mesh, point_data, field_data = voropy.read( filename )
+        psi = point_data['psi'][:,0] \
+            + 1j * point_data['psi'][:,1]
+        num_unknowns = len(psi)
+        psi = psi.reshape(num_unknowns,1)
 
         # build the model evaluator
-        ginla_modeleval = gm.GinlaModelEvaluator(pyginla_mesh, A, mu)
+        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
         # Get the Jacobian
-        J = ginla_modeleval.get_jacobian( psi )
+        J = ginla_modeleval.get_jacobian(psi)
 
         tol = 1.0e-12
 
         # [1+i, 1+i, 1+i, ... ]
-        phi = (1+1j) * np.ones((len(psi),1), dtype=complex)
+        phi = (1+1j) * np.ones((num_unknowns,1), dtype=complex)
 
-        val = np.vdot( phi, pyginla_mesh.control_volumes * (J*phi)).real
+        val = np.vdot( phi, mesh.control_volumes * (J*phi)).real
         self.assertAlmostEqual( actual_values[0], val, delta=tol )
 
         # [1, 1, 1, ... ]
-        phi = np.ones((len(psi),1), dtype=complex)
-        val = np.vdot( phi, pyginla_mesh.control_volumes * (J*phi)).real
+        phi = np.ones((num_unknowns,1), dtype=complex)
+        val = np.vdot( phi, mesh.control_volumes * (J*phi)).real
         self.assertAlmostEqual( actual_values[1], val, delta=tol )
 
         # [i, i, i, ... ]
-        phi = 1j * np.ones((len(psi),1), dtype=complex)
-        val = np.vdot( phi, pyginla_mesh.control_volumes * (J*phi)).real
+        phi = 1j * np.ones((num_unknowns,1), dtype=complex)
+        val = np.vdot( phi, mesh.control_volumes * (J*phi)).real
         self.assertAlmostEqual( actual_values[2], val, delta=tol )
 
         return

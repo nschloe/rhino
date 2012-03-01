@@ -547,7 +547,10 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, Vfull, Hfull, M=None, Minv=None, inner_product = _ipstd):
+def get_ritz(W, AW, Vfull, Hfull,
+             M=None, Minv=None,
+             inner_product = _ipstd,
+             debug = False):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
     
     Arguments
@@ -665,7 +668,7 @@ def get_ritz(W, AW, Vfull, Hfull, M=None, Minv=None, inner_product = _ipstd):
         #assert( zz.imag<1e-13 )
         #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
         #print 'Explicit residual: %g' % np.sqrt(abs(zz))
-        if norm_ritz_res[i] < 1e-8:
+        if debug and norm_ritz_res[i] < 1e-8:
             print 'Info: ritz value %g converged with residual %g.' % (lam[i], norm_ritz_res[i])
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.

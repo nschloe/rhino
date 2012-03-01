@@ -3,11 +3,12 @@
 '''Solve the Ginzburg--Landau equation.
 '''
 # ==============================================================================
-import pyginla.numerical_methods as nm
-import pyginla.ginla_modelevaluator as gm
-import mesh.mesh_io
 import numpy as np
 import matplotlib.pyplot as pp
+
+import pyginla.numerical_methods as nm
+import pyginla.ginla_modelevaluator as gm
+import voropy
 #import matplotlib2tikz
 # ==============================================================================
 def _main():
@@ -19,18 +20,20 @@ def _main():
     #warnings.warn('fff')
     # read the mesh
     print "Reading the mesh...",
-    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename )
+    mesh, point_data, field_data = voropy.read( filename )
+    #point_data['psi'] = point_data['psi'][:,0] \
+                      #+ 1j * point_data['psi'][:,1]
     print "done."
 
     # build the model evaluator
     mu = 0.5
-    ginla_modelval = gm.GinlaModelEvaluator( pyginlamesh, A, mu )
+    ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
-    num_nodes = len( pyginlamesh.nodes )
-    psi0 = np.ones( (num_nodes,1),
-                    dtype = complex
-                  )
+    num_nodes = len(mesh.node_coords)
+    psi0 = np.ones((num_nodes,1),
+                   dtype = complex
+                   )
 
     print "Performing Newton iteration..."
     # perform newton iteration
@@ -38,7 +41,7 @@ def _main():
                             ginla_modelval,
                             linear_solver = nm.minres,
                             linear_solver_maxiter = 50,
-                            linear_solver_extra_args = { }, 
+                            linear_solver_extra_args = {}, 
                             nonlinear_tol = 1.0e-10,
                             forcing_term = 'type 2', #'constant', #'type 2'
                             eta0 = 1.0e-5,

@@ -54,12 +54,13 @@ class GinlaModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            return (- self._keo * phi) / self.mesh.control_volumes \
+            x = (- self._keo * phi) / self.mesh.control_volumes \
                 + alpha * phi \
                 - psi0Squared * phi.conj()
+            return x
         # ----------------------------------------------------------------------
-        assert( psi0 is not None )
-        num_unknowns = len(self.mesh.nodes)
+        assert psi0 is not None
+        num_unknowns = len(self.mesh.node_coords)
 
         if self._keo is None:
             self._assemble_keo()
@@ -100,7 +101,7 @@ class GinlaModelEvaluator:
                 + 2.0 * absPsi0Squared * x
         # ----------------------------------------------------------------------
         assert( psi0 is not None )
-        num_unknowns = len(self.mesh.nodes)
+        num_unknowns = len(self.mesh.node_coords)
 
         if self._keo is None:
             self._assemble_keo()
@@ -165,7 +166,7 @@ class GinlaModelEvaluator:
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        num_nodes = len(self.mesh.nodes)
+        num_nodes = len(self.mesh.node_coords)
         absPsi0Squared = psi0.real**2 + psi0.imag**2
         D = spdiags(2 * absPsi0Squared.T * self.mesh.control_volumes.T, [0],
                     num_nodes, num_nodes)
@@ -245,8 +246,8 @@ class GinlaModelEvaluator:
         '''Assemble the kinetic energy operator.'''
 
         # Create the matrix structure.
-        num_nodes = len( self.mesh.nodes )
-        self._keo = sparse.lil_matrix( ( num_nodes, num_nodes ),
+        num_nodes = len(self.mesh.node_coords)
+        self._keo = sparse.lil_matrix( (num_nodes, num_nodes),
                                        dtype = complex
                                      )
         # Build caches.
@@ -254,11 +255,11 @@ class GinlaModelEvaluator:
             self._build_edgecoeff_cache()
         if self._mvp_edge_cache is None:
             self._build_mvp_edge_cache()
-        if self.mesh.edgesNodes is None:
+        if self.mesh.edges is None:
             self.mesh.create_adjacent_entities()
 
         # loop over all edges
-        for k, node_indices in enumerate(self.mesh.edgesNodes):
+        for k, node_indices in enumerate(self.mesh.edges['nodes']):
             # Fetch the cached values.
             alpha = self._edgecoeff_cache[k]
             alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[k])
@@ -278,22 +279,22 @@ class GinlaModelEvaluator:
         (in 2D: coedge-edge ratios).'''
 
         # make sure the mesh has edges
-        if self.mesh.cellsEdges is None:
+        if self.mesh.edges is None:
             self.mesh.create_adjacent_entities()
 
-        num_edges = len(self.mesh.edgesNodes)
+        num_edges = len(self.mesh.edges)
         self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
 
-        if self.mesh.cellsVolume is None:
+        if self.mesh.cells_volume is None:
             self.mesh.create_cells_volume()
-        vols = self.mesh.cellsVolume
+        vols = self.mesh.cells_volume
 
         # Precompute edges.
-        edges = self.mesh.nodes[self.mesh.edgesNodes[:,1]] \
-              - self.mesh.nodes[self.mesh.edgesNodes[:,0]]
+        edges = self.mesh.node_coords[self.mesh.edges['nodes'][:,1]] \
+              - self.mesh.node_coords[self.mesh.edges['nodes'][:,0]]
 
         # Calculate the edge contributions cell by cell.
-        for vol, cellEdges in zip(vols, self.mesh.cellsEdges):
+        for vol, cell_edges in zip(vols, self.mesh.cells['edges']):
             # Build the equation system:
             # The equation
             #
@@ -301,14 +302,14 @@ class GinlaModelEvaluator:
             #
             # has to hold for all vectors u in the plane spanned by the edges,
             # particularly by the edges themselves.
-            A = np.dot(edges[cellEdges], edges[cellEdges].T)
+            A = np.dot(edges[cell_edges], edges[cell_edges].T)
             # Careful here! As of NumPy 1.7, np.diag() returns a view.
             rhs = vol * np.diag(A).copy()
             A = A**2
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
-            self._edgecoeff_cache[cellEdges] += \
+            self._edgecoeff_cache[cell_edges] += \
                 linalg.solve(A, rhs, sym_pos=True)
 
         return
@@ -317,7 +318,7 @@ class GinlaModelEvaluator:
         '''Builds the cache for the magnetic vector potential.'''
 
         # make sure the mesh has edges
-        if self.mesh.edgesNodes is None:
+        if self.mesh.edges is None:
             self.mesh.create_adjacent_entities()
 
         # Approximate the integral
@@ -331,10 +332,10 @@ class GinlaModelEvaluator:
         #
         # The following computes the dot-products of all those
         # edges[i], mvp[i], and put the result in the cache.
-        edges = self.mesh.nodes[self.mesh.edgesNodes[:,1]] \
-              - self.mesh.nodes[self.mesh.edgesNodes[:,0]]
-        mvp = 0.5 * (self._get_mvp(self.mesh.edgesNodes[:,1]) \
-                    +self._get_mvp(self.mesh.edgesNodes[:,0]))
+        edges = self.mesh.node_coords[self.mesh.edges['nodes'][:,1]] \
+              - self.mesh.node_coords[self.mesh.edges['nodes'][:,0]]
+        mvp = 0.5 * (self._get_mvp(self.mesh.edges['nodes'][:,1]) \
+                    +self._get_mvp(self.mesh.edges['nodes'][:,0]))
         self._mvp_edge_cache = np.sum(edges * mvp, 1)
 
         return
