@@ -149,13 +149,13 @@ class GinlaModelEvaluator:
                 x = np.empty((num_nodes,1), dtype=complex)
                 x[:,0] = prec_amg_solver.solve(rhs,
                                                x0 = x0,
-                                               maxiter = 1,
+                                               maxiter = 5,
                                                tol = 0.0,
                                                accel = None
                                                )
             elif precon_type == 'one cycle':
-                #x = amg_prec * rhs
-                x = prec_amg_solver.solve(rhs, maxiter=20, cycle='V', tol=1e-14)
+                x = amg_prec * rhs
+                #x = prec_amg_solver.solve(rhs, maxiter=1, cycle='V', tol=1e-14)
             else:
                 raise ValueError('Unknown preconditioner type \'%s\'.' % precon_type)
 

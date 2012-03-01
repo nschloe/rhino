@@ -4,7 +4,6 @@
 '''
 # ==============================================================================
 import numpy as np
-import matplotlib.pyplot as pp
 
 import pyginla.numerical_methods as nm
 import pyginla.ginla_modelevaluator as gm
@@ -26,7 +25,7 @@ def _main():
     print "done."
 
     # build the model evaluator
-    mu = 0.5
+    mu = 0.05
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
@@ -37,24 +36,25 @@ def _main():
 
     print "Performing Newton iteration..."
     # perform newton iteration
-    newton_out = nm.newton( psi0,
-                            ginla_modelval,
-                            linear_solver = nm.minres,
-                            linear_solver_maxiter = 50,
-                            linear_solver_extra_args = {}, 
-                            nonlinear_tol = 1.0e-10,
-                            forcing_term = 'type 2', #'constant', #'type 2'
-                            eta0 = 1.0e-5,
-                            use_preconditioner = True,
-                            deflate_ix = True,
-                            num_deflation_vectors = 1,
-                            debug=True,
-                            newton_maxiter = 20
-                          )
+    newton_out = nm.newton(psi0,
+                           ginla_modelval,
+                           linear_solver = nm.minres,
+                           linear_solver_maxiter = 200,
+                           linear_solver_extra_args = {},
+                           nonlinear_tol = 1.0e-10,
+                           forcing_term = 'constant', #'constant', #'type 2'
+                           eta0 = 1.0e-10,
+                           use_preconditioner = True,
+                           deflate_ix = True,
+                           num_deflation_vectors = 0,
+                           debug=True,
+                           newton_maxiter = 20
+                           )
     print " done."
     print newton_out[2]
     #assert( newton_out[1] == 0 )
 
+    #import matplotlib.pyplot as pp
     #multiplot_data_series( newton_out[3] )
     #pp.xlim([0,45])
     #pp.show()
