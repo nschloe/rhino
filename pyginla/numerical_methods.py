@@ -1114,7 +1114,11 @@ def newton( x0,
     if k == newton_maxiter:
         error_code = 1
 
-    return x, error_code, Fx_norms, linear_relresvecs
+    return {'x': x,
+            'info': error_code,
+            'Newton residuals': Fx_norms,
+            'linear relresvecs': linear_relresvecs
+            }
 # ==============================================================================
 def jacobi_davidson(A,
                     v0, # starting vector

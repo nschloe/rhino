@@ -369,8 +369,8 @@ class TestLinearSolvers(unittest.TestCase):
         x0 = np.array( [[1.0]] )
         tol = 1.0e-10
         out = nm.newton(x0, qmodeleval, nonlinear_tol=tol )
-        self.assertEqual(out[1], 0)
-        self.assertAlmostEqual(out[0][0,0], np.sqrt(2.0), delta=tol)
+        self.assertEqual(out['info'], 0)
+        self.assertAlmostEqual(out['x'][0,0], np.sqrt(2.0), delta=tol)
     # --------------------------------------------------------------------------
     #def test_jacobi_davidson(self):
         #num_unknowns = 10

@@ -158,10 +158,10 @@ def _solve_system(filename, timestep, use_preconditioner):
             print '\'%s\': %12g  %12g  %12g  %12g' \
                 % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
-    pp.semilogy( out['relresvec'], color='0.5' )
-    #pp.show()
+    pp.semilogy(nc_cumsum, out['relresvec'], color='0.0')
+    pp.show()
     #import matplotlib2tikz
-    #matplotlib2tikz.save('
+    #matplotlib2tikz.save('cycle10.tex')
 
     #matplotlib2tikz.save('inf.tex')
 

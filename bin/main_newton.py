@@ -8,7 +8,6 @@ import numpy as np
 import pyginla.numerical_methods as nm
 import pyginla.ginla_modelevaluator as gm
 import voropy
-#import matplotlib2tikz
 # ==============================================================================
 def _main():
     '''Main function.
@@ -48,20 +47,20 @@ def _main():
                            deflate_ix = False,
                            num_deflation_vectors = 0,
                            debug=True,
-                           newton_maxiter = 25
+                           newton_maxiter = 7
                            )
     print " done."
-    print newton_out[2]
-    #assert( newton_out[1] == 0 )
+    print newton_out['Newton residuals']
+    #assert( newton_out['info'] == 0 )
 
-    import matplotlib.pyplot as pp
-    multiplot_data_series( newton_out[3] )
+    #import matplotlib.pyplot as pp
+    #multiplot_data_series( newton_out['linear relresvecs'] )
     #pp.xlim([0,45])
-    pp.show()
+    #pp.show()
     #matplotlib2tikz.save('w-defl.tex')
 
     # energy of the state
-    print "Energy of the solution state: %g." % ginla_modelval.energy( newton_out[0] )
+    print "Energy of the solution state: %g." % ginla_modelval.energy( newton_out['x'] )
 
     #print "Performing Poor man's continuation..."
     #nm.poor_mans_continuation( psi0,
@@ -71,9 +70,10 @@ def _main():
                                #nonlinear_tol = 1.0e-8
                              #)
 
-    ## write the solution to a file
-    #sol_filename = "solution.vtu"
-    #mesh.write( sol_filename, psi_sol )
+    # write the solution to a file
+    mesh.write('solution.e',
+               {'psi': newton_out['x']}
+               )
 
     return
 # ==============================================================================
