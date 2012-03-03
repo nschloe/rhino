@@ -25,16 +25,24 @@ class TestF(unittest.TestCase):
         r *= mesh.control_volumes
 
         tol = 1.0e-13
+        # For C++ Ginla compatibility:
+        # Compute 1-norm of vector (Re(psi[0]), Im(psi[0]), Re(psi[1]), ... )
+        alpha = np.linalg.norm(r.real, ord=1) \
+              + np.linalg.norm(r.imag, ord=1)
         self.assertAlmostEqual(control_values['one'],
-                               np.linalg.norm(r, ord=1),
+                               alpha,
                                delta=tol
                                )
         self.assertAlmostEqual(control_values['two'],
                                np.linalg.norm(r, ord=2),
                                delta=tol
                                )
+        # For C++ Ginla compatibility:
+        # Compute inf-norm of vector (Re(psi[0]), Im(psi[0]), Re(psi[1]), ... )
+        alpha = max(np.linalg.norm(r.real, ord=np.inf),
+                    np.linalg.norm(r.imag, ord=np.inf))
         self.assertAlmostEqual(control_values['inf'],
-                               np.linalg.norm(r, ord=np.inf),
+                               alpha,
                                delta=tol
                                )
         return
@@ -42,9 +50,9 @@ class TestF(unittest.TestCase):
     def test_rectanglesmall(self):
         filename = 'rectanglesmall.e'
         mu = 1.0e-2
-        control_values = {'one': 0.49498868763272103,
+        control_values = {'one': 0.50126061034211067,
                           'two': 0.24749434381636057,
-                          'inf': 0.12374717190818026
+                          'inf': 0.12373710977782607
                           }
         self._run_test(filename, mu, control_values)
         return
@@ -52,9 +60,9 @@ class TestF(unittest.TestCase):
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        control_values = {'one': 0.70778045160760017,
+        control_values = {'one': 0.713664749303348,
                           'two': 0.12552206461432219,
-                          'inf': 0.055869497923103882
+                          'inf': 0.055859321274632785
                           }
         self._run_test(filename, mu, control_values)
         return
@@ -62,9 +70,9 @@ class TestF(unittest.TestCase):
     def test_cubesmall(self):
         filename = 'cubesmall.e'
         mu = 1.0e-2
-        control_values = {'one': 0.28718901293909327,
+        control_values = {'one': 0.28999063035759653,
                           'two': 0.15062204533498347,
-                          'inf': 0.095260290928229824
+                          'inf': 0.095254500561777741
                           }
         self._run_test(filename, mu, control_values)
         return
@@ -72,9 +80,9 @@ class TestF(unittest.TestCase):
     def test_brick(self):
         filename = 'brick-w-hole.e'
         mu = 1.0e-2
-        control_values = {'one': 1.7583842180275095,
+        control_values = {'one': 1.8084716162552725,
                           'two': 0.15654267591639234,
-                          'inf': 0.03075371646255106
+                          'inf': 0.030744236169795706
                           }
         self._run_test(filename, mu, control_values)
         return
