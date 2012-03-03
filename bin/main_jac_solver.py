@@ -13,9 +13,7 @@ import matplotlib.pyplot as pp
 #rc( 'text', usetex = True )
 #rc( 'font', family = 'serif' )
 
-import matplotlib2tikz
-
-import mesh.mesh_io
+import voropy
 import pyginla.ginla_modelevaluator
 #import pyginla.preconditioners
 import pyginla.numerical_methods as nm
@@ -30,28 +28,30 @@ def _main():
 
     return
 # ==============================================================================
-def _solve_system( filename, timestep, use_preconditioner ):
+def _solve_system(filename, timestep, use_preconditioner):
     # read the mesh
     #print "Reading the mesh...",
-    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( filename,
-                                                  timestep=timestep
-                                                )
+    mesh, point_data, field_data = voropy.read(filename,
+                                               timestep=timestep
+                                               )
     #print "done."
 
     # build the model evaluator
     mu = 1.0e-1
-    ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
+    ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initialize the preconditioners
     #precs = preconditioners.Preconditioners( ginla_modeleval )
 
-    num_unknowns = len( pyginlamesh.nodes )
+    num_unknowns = len( mesh.node_coords )
 
     #_plot_l2_condition_numbers( ginla_modeleval )
 
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
     #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns, dtype = complex )
+    #current_psi = np.random.rand(num_unknowns, 1) \
+                #+ 1j * np.random.rand(num_unknowns, 1)
     current_psi = 1.0 * np.ones( (num_unknowns,1), dtype = complex )
 
     #current_psi = psi
@@ -123,6 +123,21 @@ def _solve_system( filename, timestep, use_preconditioner ):
                     #exact_solution = ref_sol
                     )
 
+    # get the number of MG cycles
+    # 'ginla_modeleval.num_cycles' contains the number of MG cycles executed
+    # for all AMG calls run.
+    # In nm.minres, two calls to the precondictioner are done prior to the
+    # actual iteration for the normalization of the residuals.
+    # With explicit_residual=True, *two* calls to the preconditioner are done
+    # in each iteration.
+    # What we would like to have here is the number of V-cycles done per loop
+    # when explicit_residual=False. Also, forget about the precondictioner
+    # calls for the initialization.
+    # Hence, cut of the first two and replace it by 0, and out of the
+    # remainder take every other one.
+    nc = [0] + ginla_modeleval.num_cycles[2::2]
+    nc_cumsum = np.cumsum(nc)
+
     #end_time = time.clock()
     #print 'done. (%gs)' % (end_time - start_time)
     #if info == 0:
@@ -143,8 +158,10 @@ def _solve_system( filename, timestep, use_preconditioner ):
             print '\'%s\': %12g  %12g  %12g  %12g' \
                 % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
-    #pp.semilogy( out['relresvec'] )
+    pp.semilogy( out['relresvec'], color='0.5' )
     #pp.show()
+    #import matplotlib2tikz
+    #matplotlib2tikz.save('
 
     #matplotlib2tikz.save('inf.tex')
 

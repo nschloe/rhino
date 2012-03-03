@@ -25,7 +25,7 @@ class GinlaModelEvaluator:
         self._D = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
-        self._prec_type = 'amg' #'direct'
+        self.num_cycles = []
         return
     # ==========================================================================
     def compute_f( self, psi ):
@@ -115,50 +115,46 @@ class GinlaModelEvaluator:
                               )
     # ==========================================================================
     def get_preconditioner_inverse(self, psi0):
-        if self._prec_type == 'amg':
-            return self._get_preconditioner_inverse_amg(psi0)
-        elif self._prec_type == 'direct':
-            return self._get_preconditioner_inverse_directsolve(psi0)
-        else:
-            raise ValueError('Unknown preconditioner type \'%s\'.' %
-                             self._prec_type )
+        return self._get_preconditioner_inverse_amg(psi0)
+        #return self._get_preconditioner_inverse_directsolve(psi0)
     # ==========================================================================
     def _get_preconditioner_inverse_amg(self, psi0):
         '''Use AMG to invert M approximately.
         '''
         import pyamg
-        import numerical_methods as nm
         # ----------------------------------------------------------------------
-        def _apply_inverse_prec(phi):
+        def _apply_inverse_prec_customcg(phi):
             rhs = self.mesh.control_volumes * phi
-
-            precon_type = 'one cycle'
-            if precon_type == 'custom cg':
-                x0 = np.zeros((num_unknowns, 1), dtype=complex)
-                out = nm.cg(prec, rhs, x0,
-                            tol = 1.0e-13,
-                            M = amg_prec,
-                            #explicit_residual = False
-                            )
-                if out['info'] != 0:
-                    print 'Preconditioner did not converge; last residual: %g' \
-                          % out['relresvec'][-1]
-                return out['xk']
-            elif precon_type == 'pyamg solve':
-                x0 = np.zeros((num_unknowns, 1), dtype=complex)
-                x = np.empty((num_nodes,1), dtype=complex)
-                x[:,0] = prec_amg_solver.solve(rhs,
-                                               x0 = x0,
-                                               maxiter = 5,
-                                               tol = 0.0,
-                                               accel = None
-                                               )
-            elif precon_type == 'one cycle':
-                x = amg_prec * rhs
-                #x = prec_amg_solver.solve(rhs, maxiter=1, cycle='V', tol=1e-14)
-            else:
-                raise ValueError('Unknown preconditioner type \'%s\'.' % precon_type)
-
+            x0 = np.zeros((num_unknowns, 1), dtype=complex)
+            out = nm.cg(prec, rhs, x0,
+                        tol = 1.0e-13,
+                        M = amg_prec,
+                        #explicit_residual = False
+                        )
+            if out['info'] != 0:
+                print 'Preconditioner did not converge; last residual: %g' \
+                      % out['relresvec'][-1]
+            # Forget about the cycle used to gauge the residual norm.
+            self.num_cycles += [len(out['relresvec']) - 1]
+            return out['xk']
+        # ----------------------------------------------------------------------
+        def _apply_inverse_prec_pyamgsolve(phi):
+            rhs = self.mesh.control_volumes * phi
+            x0 = np.zeros((num_unknowns, 1), dtype=complex)
+            x = np.empty((num_nodes,1), dtype=complex)
+            num_cycles = 1
+            residuals = []
+            x[:,0] = prec_amg_solver.solve(rhs,
+                                            x0 = x0,
+                                            maxiter = num_cycles,
+                                            tol = 0.0,
+                                            accel = None,
+                                            residuals=residuals
+                                            )
+            # Alternative for one cycle:
+            # amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
+            # x = amg_prec * rhs
+            self.num_cycles += [num_cycles]
             return x
         # ----------------------------------------------------------------------
         if self._keo is None:
@@ -185,13 +181,23 @@ class GinlaModelEvaluator:
             coarse_solver='pinv'
             )
 
-        amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
-
         num_unknowns = len(psi0)
-        return LinearOperator((num_unknowns, num_unknowns),
-                              _apply_inverse_prec,
-                              dtype = self.dtype
-                              )
+
+        precon_type = 'pyamg solve'
+        if precon_type == 'custom cg':
+            import numerical_methods as nm
+            amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
+            return LinearOperator((num_unknowns, num_unknowns),
+                                  _apply_inverse_prec_customcg,
+                                  dtype = self.dtype
+                                  )
+        elif precon_type == 'pyamg solve':
+            return LinearOperator((num_unknowns, num_unknowns),
+                                  _apply_inverse_prec_pyamgsolve,
+                                  dtype = self.dtype
+                                  )
+        else:
+            raise ValueError('Unknown preconditioner type \'%s\'.' % precon_type)
     # ==========================================================================
     def _get_preconditioner_inverse_directsolve(self, psi0):
         '''Use a direct solver for M^{-1}.

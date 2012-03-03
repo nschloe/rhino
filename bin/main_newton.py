@@ -25,7 +25,7 @@ def _main():
     print "done."
 
     # build the model evaluator
-    mu = 0.05
+    mu = 0.5
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
@@ -39,25 +39,25 @@ def _main():
     newton_out = nm.newton(psi0,
                            ginla_modelval,
                            linear_solver = nm.minres,
-                           linear_solver_maxiter = 200,
+                           linear_solver_maxiter = 500,
                            linear_solver_extra_args = {},
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', #'type 2'
                            eta0 = 1.0e-10,
                            use_preconditioner = True,
-                           deflate_ix = True,
+                           deflate_ix = False,
                            num_deflation_vectors = 0,
                            debug=True,
-                           newton_maxiter = 20
+                           newton_maxiter = 25
                            )
     print " done."
     print newton_out[2]
     #assert( newton_out[1] == 0 )
 
-    #import matplotlib.pyplot as pp
-    #multiplot_data_series( newton_out[3] )
+    import matplotlib.pyplot as pp
+    multiplot_data_series( newton_out[3] )
     #pp.xlim([0,45])
-    #pp.show()
+    pp.show()
     #matplotlib2tikz.save('w-defl.tex')
 
     # energy of the state
@@ -79,6 +79,7 @@ def _main():
 # ==============================================================================
 def multiplot_data_series( list_of_data_vectors ):
     '''Plot a list of data vectors with increasing black value.'''
+    import matplotlib.pyplot as pp
     num_plots = len( list_of_data_vectors )
     for k, relresvec in enumerate(list_of_data_vectors):
         pp.semilogy(relresvec, color=str(1.0 - float(k+1)/num_plots))
