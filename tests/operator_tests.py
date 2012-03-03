@@ -4,6 +4,81 @@ import numpy as np
 import unittest
 from scipy.sparse import spdiags
 # ==============================================================================
+class TestF(unittest.TestCase):
+    # --------------------------------------------------------------------------
+    def setUp(self):
+        return
+    # --------------------------------------------------------------------------
+    def _run_test(self, filename, mu, control_values):
+        # read the mesh
+        mesh, point_data, field_data = voropy.read( filename )
+
+        # build the model evaluator
+        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+
+        # compute the ginzburg-landau residual
+        r = ginla_modeleval.compute_f(point_data['psi'])
+
+        # scale with D for compliance with the Ginla (C++) tests
+        if mesh.control_volumes is None:
+            mesh.compute_control_volumes()
+        r *= mesh.control_volumes
+
+        tol = 1.0e-13
+        self.assertAlmostEqual(control_values['one'],
+                               np.linalg.norm(r, ord=1),
+                               delta=tol
+                               )
+        self.assertAlmostEqual(control_values['two'],
+                               np.linalg.norm(r, ord=2),
+                               delta=tol
+                               )
+        self.assertAlmostEqual(control_values['inf'],
+                               np.linalg.norm(r, ord=np.inf),
+                               delta=tol
+                               )
+        return
+    # --------------------------------------------------------------------------
+    def test_rectanglesmall(self):
+        filename = 'rectanglesmall.e'
+        mu = 1.0e-2
+        control_values = {'one': 0.49498868763272103,
+                          'two': 0.24749434381636057,
+                          'inf': 0.12374717190818026
+                          }
+        self._run_test(filename, mu, control_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_pacman(self):
+        filename = 'pacman.e'
+        mu = 1.0e-2
+        control_values = {'one': 0.70778045160760017,
+                          'two': 0.12552206461432219,
+                          'inf': 0.055869497923103882
+                          }
+        self._run_test(filename, mu, control_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_cubesmall(self):
+        filename = 'cubesmall.e'
+        mu = 1.0e-2
+        control_values = {'one': 0.28718901293909327,
+                          'two': 0.15062204533498347,
+                          'inf': 0.095260290928229824
+                          }
+        self._run_test(filename, mu, control_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_brick(self):
+        filename = 'brick-w-hole.e'
+        mu = 1.0e-2
+        control_values = {'one': 1.7583842180275095,
+                          'two': 0.15654267591639234,
+                          'inf': 0.03075371646255106
+                          }
+        self._run_test(filename, mu, control_values)
+        return
+# ==============================================================================
 class TestKeo(unittest.TestCase):
     # --------------------------------------------------------------------------
     def setUp(self):
