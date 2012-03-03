@@ -235,8 +235,7 @@ class GinlaModelEvaluator:
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        alpha = - np.vdot(psi**2, self.mesh.control_volumes * psi**2)
-        assert( abs( alpha.imag ) < 1.0e-10 )
+        alpha = -self.inner_product(psi**2, psi**2)
 
         return alpha.real / self.mesh.control_volumes.sum()
     # ==========================================================================

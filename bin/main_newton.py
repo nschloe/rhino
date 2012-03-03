@@ -24,14 +24,12 @@ def _main():
     print "done."
 
     # build the model evaluator
-    mu = 0.5
+    mu = 1.0
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
     num_nodes = len(mesh.node_coords)
-    psi0 = np.ones((num_nodes,1),
-                   dtype = complex
-                   )
+    psi0 = 0.5 * np.ones((num_nodes,1), dtype=complex)
 
     print "Performing Newton iteration..."
     # perform newton iteration
@@ -47,7 +45,7 @@ def _main():
                            deflate_ix = False,
                            num_deflation_vectors = 0,
                            debug=True,
-                           newton_maxiter = 7
+                           newton_maxiter = 25
                            )
     print " done."
     print newton_out['Newton residuals']
@@ -60,7 +58,7 @@ def _main():
     #matplotlib2tikz.save('w-defl.tex')
 
     # energy of the state
-    print "Energy of the solution state: %g." % ginla_modelval.energy( newton_out['x'] )
+    print "Energy of the final state: %g." % ginla_modelval.energy( newton_out['x'] )
 
     #print "Performing Poor man's continuation..."
     #nm.poor_mans_continuation( psi0,
