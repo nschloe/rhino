@@ -45,10 +45,12 @@ def find_sweet_state( ginla_modelval ):
 
     # define search space:
     Mu = np.linspace(0.1, 1.0, 10)
-    scalePsi0 = np.linspace(0.0, 1.0, 11)
+    scalePsi0 = np.linspace(0.1, 1.0, 10)
 
     # initial guess
     num_nodes = len(ginla_modelval.mesh.node_coords)
+
+    interesting_solutions = []
 
     k = 0
     for mu in Mu:
@@ -58,15 +60,29 @@ def find_sweet_state( ginla_modelval ):
             psi0 = alpha * np.ones((num_nodes,1), dtype=complex)
             newton_out = newton(ginla_modelval, psi0, debug=False)
             if newton_out['info'] == 0:
-                energy = ginla_modelval.energy( newton_out['x'] )
+                psi = newton_out['x']
+                energy = ginla_modelval.energy( psi )
                 print 'Energy of solution state: %g.' % energy
                 if energy > -0.9 and energy < -0.1:
                     # store the file
                     filename = 'sol' + repr(k).rjust(3,'0') + '.e'
-                    print 'Interesting! Storing in %s...' \
-                        % (mu, alpha, filename)
-                    ginla_modelval.mesh.write(filename, {'psi': newton_out['x']})
-                    k += 1
+                    print 'Interesting! ',
+                    # Check if we already stored that one.
+                    already_found = False
+                    for state in interesting_solutions:
+                        # Synchronize the complex argument.
+                        state *= np.exp(1j * (np.angle(psi[0]) - np.angle(state[0])))
+                        diff = psi - state
+                        if ginla_modelval.inner_product(diff, diff) < 1.0e-10:
+                            already_found = True
+                            break
+                    if already_found:
+                        print 'But we already have that one.'
+                    else:
+                        interesting_solutions.append(psi)
+                        print 'Storing in %s.' % filename
+                        ginla_modelval.mesh.write(filename, {'psi': psi})
+                        k += 1
             print
 
     return
