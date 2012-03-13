@@ -127,7 +127,7 @@ class GinlaModelEvaluator:
             rhs = self.mesh.control_volumes * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             out = nm.cg(prec, rhs, x0,
-                        tol = 1.0e-13,
+                        tol = 1.0e-12,
                         M = amg_prec,
                         #explicit_residual = False
                         )
@@ -168,6 +168,15 @@ class GinlaModelEvaluator:
                     num_nodes, num_nodes)
 
         prec = self._keo + D
+
+        # The preconditioner assumes the eigenvalue 0 iff mu=0 and psi=0.
+        # This may lead to problems if mu=0 and the Newton iteration
+        # converges to psi=0 for psi0 != 0.
+        #import scipy.sparse.linalg
+        #lambd, v = scipy.sparse.linalg.eigs(prec, which='SM')
+        #assert all(abs(lambd.imag) < 1.0e-15)
+        #print '||psi||^2 = %g' % np.linalg.norm(absPsi0Squared)
+        #print 'lambda =', lambd.real
 
         prec_amg_solver = \
             pyamg.smoothed_aggregation_solver(prec,

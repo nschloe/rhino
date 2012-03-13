@@ -20,8 +20,11 @@ def _main():
     print 'done.'
 
     # build the model evaluator
-    mu = 0.5
+    mu = 0.05
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+
+    find_sweet_state(ginla_modelval)
+    return
 
     # initial guess
     num_nodes = len(mesh.node_coords)
@@ -41,7 +44,7 @@ def find_sweet_state( ginla_modelval ):
     Such solutions are filtered out only by their energy at the moment.'''
 
     # define search space:
-    Mu = np.linspace(0.0, 1.0, 11)
+    Mu = np.linspace(0.1, 1.0, 10)
     scalePsi0 = np.linspace(0.0, 1.0, 11)
 
     # initial guess
@@ -56,13 +59,15 @@ def find_sweet_state( ginla_modelval ):
             newton_out = newton(ginla_modelval, psi0, debug=False)
             if newton_out['info'] == 0:
                 energy = ginla_modelval.energy( newton_out['x'] )
+                print 'Energy of solution state: %g.' % energy
                 if energy > -0.9 and energy < -0.1:
                     # store the file
-                    filename = 'sol' + repr(k).rjust(3,'0') + '.vtu'
-                    print 'Interesting state found at mu=%g, scaling=%g. Storing in %s...' \
+                    filename = 'sol' + repr(k).rjust(3,'0') + '.e'
+                    print 'Interesting! Storing in %s...' \
                         % (mu, alpha, filename)
                     ginla_modelval.mesh.write(filename, {'psi': newton_out['x']})
                     k += 1
+            print
 
     return
 # ==============================================================================
@@ -75,7 +80,7 @@ def newton(ginla_modelval, psi0, debug=True):
     newton_out = nm.newton(psi0,
                            ginla_modelval,
                            linear_solver = nm.minres,
-                           linear_solver_maxiter = 500,
+                           linear_solver_maxiter = 2*len(psi0),
                            linear_solver_extra_args = {},
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', #'type 2'
@@ -87,14 +92,15 @@ def newton(ginla_modelval, psi0, debug=True):
                            newton_maxiter = 7
                            )
     print ' done.'
-    print newton_out['Newton residuals']
+    print 'Newton residuals:', newton_out['Newton residuals']
     #assert( newton_out['info'] == 0 )
 
     #import matplotlib.pyplot as pp
     #multiplot_data_series( newton_out['linear relresvecs'] )
     #pp.xlim([0,45])
     #pp.show()
-    #matplotlib2tikz.save('w-defl.tex')
+    #import matplotlib2tikz
+    #matplotlib2tikz.save('minres-prec-defl.tex')
 
     #print 'Performing Poor man's continuation...'
     #nm.poor_mans_continuation( psi0,
