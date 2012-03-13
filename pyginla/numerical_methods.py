@@ -1111,7 +1111,7 @@ def newton( x0,
         if debug:
             print 'New Newton residual is %g.' % Fx_norms[-1]
 
-    if k == newton_maxiter:
+    if Fx_norms[-1] > nonlinear_tol:
         error_code = 1
 
     return {'x': x,
