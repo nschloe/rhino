@@ -41,9 +41,6 @@ def newton(ginla_modelval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
-    def deflation_ix(x):
-        return 1j*x
-
     print 'Performing Newton iteration...'
     # perform newton iteration
     newton_out = nm.newton(psi0,
@@ -55,7 +52,7 @@ def newton(ginla_modelval, psi0, debug=True):
                            forcing_term = 'constant', #'constant', #'type 2'
                            eta0 = 1.0e-10,
                            use_preconditioner = True,
-                           deflation_generators = [ deflation_ix ],
+                           deflation_generators = [ lambda x: 1j*x ],
                            num_deflation_vectors = 0,
                            debug=debug,
                            newton_maxiter = 10
