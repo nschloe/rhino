@@ -942,7 +942,7 @@ def newton( x0,
             alpha = 1.5, # only used by forcing_term='type 2'
             gamma = 0.9, # only used by forcing_term='type 2'
             use_preconditioner = False,
-            deflate_ix = False,
+            deflation_generators = None,
             num_deflation_vectors = 0,
             debug = False
           ):
@@ -1004,27 +1004,15 @@ def newton( x0,
         def Minner_product(x,y):
             return model_evaluator.inner_product(_apply(M,x), y)
 
-        W, R = qr(W, inner_product=Minner_product)
-
-        # Conditionally deflate the nearly-null vector i*x.
+        # Conditionally deflate the nearly-null vector i*x or others.
+        U = np.zeros( (len(x),len(deflation_generators)), dtype=x.dtype)
+        for i,deflation_generator in enumerate(deflation_generators):
+            U[:,[i]] = deflation_generator(x)
         # Attention: if the preconditioner is later solved inexactly
         #            then W will be orthonormal w.r.t. another inner
         #            product! This may affect the computation of ritz
         #            pairs and their residuals.
-        if deflate_ix:
-            u = 1j * x
-            Mu = _apply(M, u)
-            nrm_u = _norm(u, Mu, inner_product = model_evaluator.inner_product)
-            u /= nrm_u
-
-            u = orth_vec(u, W, Minner_product)
-
-            # normalize u in the M-norm
-            Mu = _apply(M, u)
-            nrm_u = _norm(u, Mu, inner_product = model_evaluator.inner_product)
-            if nrm_u > 1.0e-10:
-                u = u / nrm_u
-                W = np.c_[W, u]
+        W, _ = qr( np.c_[W,U], inner_product = Minner_product)
 
         if W.shape[1] > 0:
             AW = jacobian * W

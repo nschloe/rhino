@@ -41,6 +41,9 @@ def newton(ginla_modelval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
+    def deflation_ix(x):
+        return 1j*x
+
     print 'Performing Newton iteration...'
     # perform newton iteration
     newton_out = nm.newton(psi0,
@@ -52,7 +55,7 @@ def newton(ginla_modelval, psi0, debug=True):
                            forcing_term = 'constant', #'constant', #'type 2'
                            eta0 = 1.0e-10,
                            use_preconditioner = True,
-                           deflate_ix = False,
+                           deflation_generators = [ deflation_ix ],
                            num_deflation_vectors = 0,
                            debug=debug,
                            newton_maxiter = 10
@@ -61,10 +64,10 @@ def newton(ginla_modelval, psi0, debug=True):
     print 'Newton residuals:', newton_out['Newton residuals']
     #assert( newton_out['info'] == 0 )
 
-    #import matplotlib.pyplot as pp
-    #multiplot_data_series( newton_out['linear relresvecs'] )
+    import matplotlib.pyplot as pp
+    multiplot_data_series( newton_out['linear relresvecs'] )
     #pp.xlim([0,45])
-    #pp.show()
+    pp.show()
     #import matplotlib2tikz
     #matplotlib2tikz.save('minres-prec-defl.tex')
 
