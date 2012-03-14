@@ -19,12 +19,11 @@ def _main():
                       #+ 1j * point_data['psi'][:,1]
     print 'done.'
 
+    print field_data
+
     # build the model evaluator
     mu = 0.05
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
-
-    find_sweet_state(ginla_modelval)
-    return
 
     # initial guess
     num_nodes = len(mesh.node_coords)
@@ -38,55 +37,6 @@ def _main():
     #find_sweet_state( ginla_modelval )
     return
 # ==============================================================================
-def find_sweet_state( ginla_modelval ):
-    '''Loop through a set of parameters/initial states and try to find
-    starting points that (quickly) lead to "interesting looking" solutions.
-    Such solutions are filtered out only by their energy at the moment.'''
-
-    # define search space:
-    Mu = np.linspace(0.1, 1.0, 10)
-    scalePsi0 = np.linspace(0.1, 1.0, 10)
-
-    # initial guess
-    num_nodes = len(ginla_modelval.mesh.node_coords)
-
-    interesting_solutions = []
-
-    k = 0
-    for mu in Mu:
-        ginla_modelval.set_parameter(mu)
-        for alpha in scalePsi0:
-            print 'mu = %g, alpha = %g' % (mu, alpha)
-            psi0 = alpha * np.ones((num_nodes,1), dtype=complex)
-            newton_out = newton(ginla_modelval, psi0, debug=False)
-            if newton_out['info'] == 0:
-                psi = newton_out['x']
-                energy = ginla_modelval.energy( psi )
-                print 'Energy of solution state: %g.' % energy
-                if energy > -0.9 and energy < -0.1:
-                    # store the file
-                    filename = 'sol' + repr(k).rjust(3,'0') + '.e'
-                    print 'Interesting! ',
-                    # Check if we already stored that one.
-                    already_found = False
-                    for state in interesting_solutions:
-                        # Synchronize the complex argument.
-                        state *= np.exp(1j * (np.angle(psi[0]) - np.angle(state[0])))
-                        diff = psi - state
-                        if ginla_modelval.inner_product(diff, diff) < 1.0e-10:
-                            already_found = True
-                            break
-                    if already_found:
-                        print 'But we already have that one.'
-                    else:
-                        interesting_solutions.append(psi)
-                        print 'Storing in %s.' % filename
-                        ginla_modelval.mesh.write(filename, {'psi': psi})
-                        k += 1
-            print
-
-    return
-# ==============================================================================
 def newton(ginla_modelval, psi0, debug=True):
     '''Solve with Newton.
     '''
@@ -96,7 +46,7 @@ def newton(ginla_modelval, psi0, debug=True):
     newton_out = nm.newton(psi0,
                            ginla_modelval,
                            linear_solver = nm.minres,
-                           linear_solver_maxiter = 2*len(psi0),
+                           linear_solver_maxiter = 500, #2*len(psi0),
                            linear_solver_extra_args = {},
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', #'type 2'
@@ -105,7 +55,7 @@ def newton(ginla_modelval, psi0, debug=True):
                            deflate_ix = False,
                            num_deflation_vectors = 0,
                            debug=debug,
-                           newton_maxiter = 7
+                           newton_maxiter = 10
                            )
     print ' done.'
     print 'Newton residuals:', newton_out['Newton residuals']
