@@ -34,7 +34,6 @@ def _main():
     # energy of the state
     print 'Energy of the final state: %g.' % ginla_modelval.energy( newton_out['x'] )
 
-    #find_sweet_state( ginla_modelval )
     return
 # ==============================================================================
 def newton(ginla_modelval, psi0, debug=True):

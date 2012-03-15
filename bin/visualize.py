@@ -29,7 +29,7 @@ def _set_camera():
     #view.CameraViewUp = [0, 0, 1]
     view.CameraFocalPoint = [0, 0, 0]
     view.CameraViewAngle = 90
-    view.CameraPosition = [0, 0, 7]
+    view.CameraPosition = [0, 0, 10]
     view.ViewSize = [600, 600]
 
     # set the time step
