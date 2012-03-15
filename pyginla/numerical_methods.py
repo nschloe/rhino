@@ -942,7 +942,7 @@ def newton( x0,
             alpha = 1.5, # only used by forcing_term='type 2'
             gamma = 0.9, # only used by forcing_term='type 2'
             use_preconditioner = False,
-            deflation_generators = None,
+            deflation_generators = [],
             num_deflation_vectors = 0,
             debug = False
           ):
