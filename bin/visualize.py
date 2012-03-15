@@ -23,13 +23,13 @@ def _main():
 # ==============================================================================
 def _set_camera():
     view = pv.GetRenderView()
+    #view = pv.GetActiveView()
 
     # set the camera
-    #view = pv.GetActiveView()
     #view.CameraViewUp = [0, 0, 1]
+    #view.CameraViewAngle = 90
+    view.CameraPosition = [0, 0, 1]
     view.CameraFocalPoint = [0, 0, 0]
-    view.CameraViewAngle = 90
-    view.CameraPosition = [0, 0, 10]
     view.ViewSize = [600, 600]
 
     # set the time step
@@ -46,7 +46,7 @@ def _set_camera():
     view.CenterAxesVisibility = 0
     view.OrientationAxesVisibility = 0
     # make the background white
-    view.Background = [1.0, 1.0, 1.0]
+    view.Background =  [0.5, 0.5, 0.5]
     view.UseOffscreenRenderingForScreenshots = 0
 
     return
@@ -309,6 +309,9 @@ def _absarg2png( filenames ):
     key:value = array_name:file_name.'''
 
     data_representation = pv.Show()
+    # Reset the camera here to get the whole object.
+    view = pv.GetRenderView()
+    view.ResetCamera()
 
     # create calculator filter that computes the Cooper pair density
     array_name = filenames.keys()[1]
