@@ -261,9 +261,9 @@ class GinlaModelEvaluator:
 
         # Create the matrix structure.
         num_nodes = len(self.mesh.node_coords)
-        self._keo = sparse.lil_matrix( (num_nodes, num_nodes),
-                                       dtype = complex
-                                     )
+        self._keo = sparse.lil_matrix((num_nodes, num_nodes),
+                                      dtype = complex
+                                      )
         # Build caches.
         if self._edgecoeff_cache is None:
             self._build_edgecoeff_cache()
@@ -279,7 +279,7 @@ class GinlaModelEvaluator:
             alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[k])
             # Sum them into the matrix.
             self._keo[node_indices[0], node_indices[0]] += alpha
-            self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conjugate()
+            self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conj()
             self._keo[node_indices[1], node_indices[0]] -= alphaExp0
             self._keo[node_indices[1], node_indices[1]] += alpha
 

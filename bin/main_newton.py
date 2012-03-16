@@ -19,8 +19,6 @@ def _main():
                       #+ 1j * point_data['psi'][:,1]
     print 'done.'
 
-    print field_data
-
     # build the model evaluator
     mu = 0.05
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
