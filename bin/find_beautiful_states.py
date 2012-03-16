@@ -33,7 +33,7 @@ def find_beautiful_states( ginla_modeleval ):
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
     Mu = np.linspace(0.1, 1.0, 10)
     Alpha = np.linspace(0.1, 1.0, 10)
-    Wavelengths = [0, 0.25, 0.5, 1, 2, 4]
+    Frequencies = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
 
     # initial guess
     num_nodes = len(ginla_modeleval.mesh.node_coords)
@@ -42,21 +42,21 @@ def find_beautiful_states( ginla_modeleval ):
 
     solution_id = 0
     psi0 = np.empty((num_nodes,1), dtype=complex)
-    for mu, alpha, k1, k2 in ((a,b,c,d) for a in Mu for b in Alpha for c in Wavelengths for d in Wavelengths):
+    for mu, alpha, kx, ky in ((a,b,c,d) for a in Mu for b in Alpha for c in Frequencies for d in Frequencies):
         ginla_modeleval.set_parameter(mu)
-        print 'mu = %g, alpha = %g, k1 = %g, k2 = %g' % (mu, alpha, k1, k2)
+        print 'mu = %g, alpha = %g, kx = %g, ky = %g' % (mu, alpha, kx, ky)
         # Set the intitial guess for Newton.
         #psi0 = alpha * np.ones((num_nodes,1), dtype=complex)
         for i, node in enumerate(ginla_modeleval.mesh.node_coords):
-            psi0[i] = alpha * np.cos(k1 * node[0]) * np.cos(k2 * node[1])
+            psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
         newton_out = newton(ginla_modeleval, psi0, debug=False)
         print 'Num MINRES iterations:', [len(resvec) for resvec in newton_out['linear relresvecs']]
         print 'Newton residuals:', newton_out['Newton residuals']
         if newton_out['info'] == 0:
             num_newton_iters = len(newton_out['linear relresvecs'])
             psi = newton_out['x']
-            # Use the energy as a measure for ruling out boring states,
-            # e.g., psi==0 or psi==1 overall.
+            # Use the energy as a measure for ruling out boring states
+            # such as psi==0 or psi==1 overall.
             energy = ginla_modeleval.energy( psi )
             print 'Energy of solution state: %g.' % energy
             if energy > -0.999 and energy < -0.001:
@@ -64,7 +64,7 @@ def find_beautiful_states( ginla_modeleval ):
                 # and display them at once.
                 filename = 'interesting-newton' + repr(num_newton_iters).rjust(2,'0') \
                          + '-id' + repr(solution_id).rjust(3,'0') \
-                         + '.e'
+                         + '.vtu'
                 print 'Interesting!',
                 # Check if we already stored that one.
                 already_found = False
@@ -81,8 +81,9 @@ def find_beautiful_states( ginla_modeleval ):
                     interesting_solutions.append(psi)
                     print 'Storing in %s.' % filename
                     ginla_modeleval.mesh.write(filename,
-                                              point_data={'psi': psi, 'A': ginla_modeleval._raw_magnetic_vector_potential},
-                                              field_data={'mu': mu, 'alpha': alpha, 'k1': k1, 'k2': k2})
+                                               point_data={'psi': psi, 'A': ginla_modeleval._raw_magnetic_vector_potential},
+                                               field_data={'mu': mu, 'alpha': alpha, 'kx': kx, 'ky': ky}
+                                               )
                     solution_id += 1
         print
 
