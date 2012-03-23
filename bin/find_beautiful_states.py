@@ -46,7 +46,7 @@ def find_beautiful_states( ginla_modeleval ):
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
         # Loop over initial states.
-        for alpha, kx, ky in ((a,b,c) for a in Alpha for b in Frequencies for c in Frequencies):
+        for alpha, kx, ky in ((a,b,c) for a in reversed(Alpha) for b in Frequencies for c in Frequencies):
             ginla_modeleval.set_parameter(mu)
             print 'mu = %g, alpha = %g, kx = %g, ky = %g' % (mu, alpha, kx, ky)
             # Set the intitial guess for Newton.
