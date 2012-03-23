@@ -38,11 +38,11 @@ def find_beautiful_states( ginla_modeleval ):
     # initial guess
     num_nodes = len(ginla_modeleval.mesh.node_coords)
 
-
     solution_id = 0
     psi0 = np.empty((num_nodes,1), dtype=complex)
-    # Loop over problem parameters.
-    for mu in Mu:
+    # Loop over problem parameters in reversed order:
+    # This way, we'll find the states with many nodes first.
+    for mu in reversed(Mu):
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
         # Loop over initial states.
@@ -70,7 +70,7 @@ def find_beautiful_states( ginla_modeleval ):
                     filename = 'interesting-' \
                              + repr(num_newton_iters).rjust(2,'0') \
                              + repr(solution_id).rjust(3,'0') \
-                             + '.vtu'
+                             + '.e'
                     print 'Interesting!',
                     # Check if we already stored that one.
                     already_found = False

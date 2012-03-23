@@ -15,17 +15,18 @@ def _main():
     # read the mesh
     print 'Reading the mesh...',
     mesh, point_data, field_data = voropy.read( filename )
-    #point_data['psi'] = point_data['psi'][:,0] \
-                      #+ 1j * point_data['psi'][:,1]
+    point_data['psi'] = point_data['psi'][:,0] \
+                      + 1j * point_data['psi'][:,1]
     print 'done.'
 
     # build the model evaluator
-    mu = 0.05
+    mu = 0.4
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
     num_nodes = len(mesh.node_coords)
-    psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
+    #psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
+    psi0 = np.reshape(point_data['psi'], (num_nodes,1))
     newton_out = newton(ginla_modelval, psi0)
     # write the solution to a file
     ginla_modelval.mesh.write('solution.e', {'psi': newton_out['x']})
