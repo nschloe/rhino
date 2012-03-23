@@ -20,13 +20,19 @@ def _main():
     print 'done.'
 
     # build the model evaluator
-    mu = 0.4
+    mu = 0.2
     ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
     num_nodes = len(mesh.node_coords)
     #psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
-    psi0 = np.reshape(point_data['psi'], (num_nodes,1))
+    #psi0 = np.reshape(point_data['psi'], (num_nodes,1))
+    psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
+    alpha = 0.3
+    kx = 2
+    ky = 0.5
+    for i, node in enumerate(mesh.node_coords):
+        psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
     newton_out = newton(ginla_modelval, psi0)
     # write the solution to a file
     ginla_modelval.mesh.write('solution.e', {'psi': newton_out['x']})
@@ -44,7 +50,7 @@ def newton(ginla_modelval, psi0, debug=True):
     newton_out = nm.newton(psi0,
                            ginla_modelval,
                            linear_solver = nm.minres,
-                           linear_solver_maxiter = 500, #2*len(psi0),
+                           linear_solver_maxiter = 1000, #2*len(psi0),
                            linear_solver_extra_args = {},
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', #'type 2'
@@ -53,7 +59,7 @@ def newton(ginla_modelval, psi0, debug=True):
                            deflation_generators = [ lambda x: 1j*x ],
                            num_deflation_vectors = 0,
                            debug=debug,
-                           newton_maxiter = 10
+                           newton_maxiter = 30
                            )
     print ' done.'
     print 'Newton residuals:', newton_out['Newton residuals']

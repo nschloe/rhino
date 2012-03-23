@@ -962,7 +962,7 @@ def newton( x0,
     linear_relresvecs = []
     while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
         if debug:
-            print '--------- Next Newton step ---------'
+            print '--------- Newton step %d ---------' % (k+1)
         # Linear tolerance is given by
         #
         # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
@@ -1051,7 +1051,7 @@ def newton( x0,
                             **linear_solver_extra_args
                             )
         if debug:
-            print 'Linear solver \'%s\' performed %d iterations.' %(linear_solver.__name__, len(out['relresvec'])-1)
+            print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
 
         # make sure the solution is alright
         if out['info'] != 0:
@@ -1100,6 +1100,7 @@ def newton( x0,
             print 'New Newton residual is %g.' % Fx_norms[-1]
 
     if Fx_norms[-1] > nonlinear_tol:
+        print 'Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol)
         error_code = 1
 
     return {'x': x,
