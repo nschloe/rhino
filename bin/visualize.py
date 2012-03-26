@@ -45,8 +45,6 @@ def _set_camera():
     # turn off axes visibility
     view.CenterAxesVisibility = 0
     view.OrientationAxesVisibility = 0
-    # make the background white
-    view.Background =  [0.5, 0.5, 0.5]
     view.UseOffscreenRenderingForScreenshots = 0
 
     return
@@ -315,6 +313,8 @@ def _absarg2png( filenames ):
 
     # create calculator filter that computes the Cooper pair density
     array_name = filenames.keys()[1]
+    # make background green
+    view.Background =  [0.0, 1.0, 0.0]
     #data_representation.ScalarOpacityFunction = pv.CreatePiecewiseFunction()
     data_representation.ColorArrayName = array_name
     data_representation.LookupTable = \
@@ -326,6 +326,8 @@ def _absarg2png( filenames ):
     #pv.Render()
 
     array_name = filenames.keys()[0]
+    # make backgroun gray
+    view.Background =  [0.5, 0.5, 0.5]
     #data_representation.ScalarOpacityFunction = pv.CreatePiecewiseFunction()
     data_representation.ColorArrayName = array_name
     data_representation.LookupTable = \
