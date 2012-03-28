@@ -6,9 +6,9 @@ import matplotlib.pyplot as pp
 import numpy as np
 
 import matplotlib2tikz
+import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
-import mesh.mesh_io
 import pyginla.ginla_modelevaluator
 # ==============================================================================
 def _main():
@@ -17,101 +17,118 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh(args.filename,
-                                                  timestep=args.timestep
-                                                )
+    mesh, point_data, field_data = voropy.read(args.filename,
+                                               timestep=args.timestep
+                                               )
 
+    if 'mu' in field_data:
+        mu = field_data['mu']
+    else:
+        mu = 0.2
     # build the model evaluator
-    mu = 0.0
-    ginla_modelval = \
-        pyginla.ginla_modelevaluator.GinlaModelEvaluator( pyginlamesh, A, mu )
+    ginla_modeleval = \
+        pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh,
+                                                         point_data['A'],
+                                                         mu
+                                                         )
 
-    # set the range of parameters
-    steps = 51
-    mus = np.linspace( 0.0, 0.5, steps )
+    if not args.series:
+        # compute the eigenvalues once
+        eigenvals, X = _compute_eigenvalues(args.operator,
+                                            args.eigenvalue_type,
+                                            args.num_eigenvalues,
+                                            None,
+                                            ginla_modeleval
+                                            )
+        print eigenvals
+    else:
+        # initial guess for the eigenvectors
+        X = np.ones((len(mesh.node_coords), 1))
+        # ----------------------------------------------------------------------
+        # set the range of parameters
+        steps = 51
+        mus = np.linspace( 0.0, 0.5, steps )
+        eigenvals_list = []
+        #small_eigenvals_approx = []
+        for mu in mus:
+            ginla_modeleval.set_parameter(mu)
 
-    # initial guess for the eigenvectors
-    small_eigenvals_approx = []
-    num_eigenvalues = 10
-    X = np.ones( (len(pyginlamesh.nodes), 1) )
-    #X[:,0] = 1.0
-    eigenvals_list = []
-    num_unknowns = len(pyginlamesh.nodes)
-    # --------------------------------------------------------------------------
-    for mu in mus:
-        ginla_modelval.set_parameter(mu)
-
-        if args.operator == 'k':
-            ginla_modelval._assemble_keo()
-            A = ginla_modelval._keo
-        elif args.operator == 'p':
-            A = ginla_modelval.get_preconditioner(psi)
-        elif args.operator == 'j':
-            A = ginla_modelval.get_jacobian(psi)
-        elif args.operator == 'pj':
-            # build preconditioned operator
-            prec_inv = ginla_modelval.get_preconditioner_inverse(psi)
-            jacobian = ginla_modelval.get_jacobian(psi)
-            def _apply_prec_jacobian(phi):
-                return prec_inv * (jacobian * phi)
-            A = LinearOperator((num_unknowns, num_unknowns),
-                               _apply_prec_jacobian,
-                               dtype = complex
-                               )
-        else:
-            raise ValueError('Unknown operator \'', args.operator, '\'.')
-
-        print 'Compute smallest eigenvalues for mu =', mu, '..'
-        # get smallesteigenvalues
-        start_time = time.clock()
-        eigenvals, X = eigs(A,
-                            k = num_eigenvalues,
-                            sigma = None,
-                            which = args.eigenvalue_type,
-                            v0 = X[:,0],
-                            return_eigenvectors = True
-                            )
-        end_time = time.clock()
-        print 'done. (', end_time - start_time, 's).'
-
-        # make sure they are real (as they are supposed to be)
-        assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
-        eigenvals = eigenvals.real
-        #small_eigenval, X = my_lobpcg( ginla_modelval._keo,
-                                       #X,
-                                       #tolerance = 1.0e-5,
-                                       #maxiter = len(pyginlamesh.nodes),
-                                       #verbosity = 1
-                                     #)
-        #print 'Calculated values: ', small_eigenval
-        #alpha = ginla_modelval.keo_smallest_eigenvalue_approximation()
-        #print 'Linear approximation: ', alpha
-        #small_eigenvals_approx.append( alpha )
-        #print
-        eigenvals_list.append( eigenvals )
-    # --------------------------------------------------------------------------
-
-    # plot all the eigenvalues as balls
-    _plot_eigenvalue_series( mus, eigenvals_list )
-
-    #pp.plot( mus,
-             #small_eigenvals_approx,
-             #'--'
-           #)
-    #pp.legend()
-    pp.title('%s eigenvalues of %s' % (args.eigenvalue_type, args.operator))
-
-    #pp.ylim( ymin = 0.0 )
-
-    pp.xlabel( '$\mu$' )
-
-    pp.show()
-
-    #matplotlib2tikz.save('eigenvalues.tikz',
-                         #figurewidth = '\\figurewidth',
-                         #figureheight = '\\figureheight'
-                         #)
+            eigenvals, X = _compute_eigenvalues(args.operator,
+                                                args.eigenvalue_type,
+                                                args.num_eigenvalues,
+                                                X[:,0],
+                                                ginla_modeleval
+                                                )
+            #small_eigenval, X = my_lobpcg( ginla_modeleval._keo,
+                                          #X,
+                                          #tolerance = 1.0e-5,
+                                          #maxiter = len(pyginlamesh.nodes),
+                                          #verbosity = 1
+                                        #)
+            #print 'Calculated values: ', small_eigenval
+            #alpha = ginla_modeleval.keo_smallest_eigenvalue_approximation()
+            #print 'Linear approximation: ', alpha
+            #small_eigenvals_approx.append( alpha )
+            #print
+            eigenvals_list.append( eigenvals )
+        # plot all the eigenvalues as balls
+        _plot_eigenvalue_series( mus, eigenvals_list )
+        #pp.legend()
+        pp.title('%s eigenvalues of %s' % (args.eigenvalue_type, args.operator))
+        #pp.ylim( ymin = 0.0 )
+        pp.xlabel( '$\mu$' )
+        pp.show()
+        #matplotlib2tikz.save('eigenvalues.tikz',
+                            #figurewidth = '\\figurewidth',
+                            #figureheight = '\\figureheight'
+                            #)
+        # ----------------------------------------------------------------------
     return
+# ==============================================================================
+def _compute_eigenvalues(operator_type,
+                         eigenvalue_type,
+                         num_eigenvalues,
+                         v0,
+                         ginla_modeleval
+                         ):
+    if operator_type == 'k':
+        ginla_modeleval._assemble_keo()
+        A = ginla_modeleval._keo
+    elif operator_type == 'p':
+        A = ginla_modeleval.get_preconditioner(psi)
+    elif operator_type == 'j':
+        A = ginla_modeleval.get_jacobian(psi)
+    elif operator_type == 'pj':
+        # build preconditioned operator
+        prec_inv = ginla_modeleval.get_preconditioner_inverse(psi)
+        jacobian = ginla_modeleval.get_jacobian(psi)
+        def _apply_prec_jacobian(phi):
+            return prec_inv * (jacobian * phi)
+        num_unknowns = len(ginla_modeleval.mesh.node_coords)
+        A = LinearOperator((num_unknowns, num_unknowns),
+                            _apply_prec_jacobian,
+                            dtype = complex
+                            )
+    else:
+        raise ValueError('Unknown operator \'', operator_type, '\'.')
+
+    print 'Compute %s eigenvalues of %s...' \
+          % (eigenvalue_type, operator_type)
+    start_time = time.clock()
+    eigenvals, X = eigs(A,
+                        k = num_eigenvalues,
+                        sigma = None,
+                        which = eigenvalue_type,
+                        v0 = v0,
+                        return_eigenvectors = True
+                        )
+    end_time = time.clock()
+    print 'done. (', end_time - start_time, 's).'
+
+    # make sure they are real (as they are supposed to be)
+    assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
+
+    return eigenvals.real, X
 # ==============================================================================
 def _plot_eigenvalue_series(x, eigenvals_list):
     '''Plotting series of eigenvalues can be hard to make visually appealing.
@@ -206,12 +223,25 @@ def _parse_input_arguments():
                          help='operator to compute the eigenvalues of (k, p, j, pj; default: k)'
                        )
 
-    parser.add_argument( '--largest', '-l',
-                         dest='eigenvalue_type',
-                         action='store_const',
-                         const='LM',
-                         default='SM',
-                         help='get the largest eigenvalues (default: smallest)')
+    parser.add_argument('--numeigenvalues', '-k',
+                        dest='num_eigenvalues',
+                        type=int,
+                        default=6,
+                        help='the number of eigenvalues to compute (default: 6)'
+                        )
+
+    parser.add_argument('--series', '-s',
+                        dest='series',
+                        action='store_true',
+                        default=False,
+                        help='compute a series of eigenvalues for different mu (default: False)'
+                        )
+
+    parser.add_argument('--type', '-y',
+                        dest='eigenvalue_type',
+                        default='SM',
+                        help='the type of eigenvalues to compute (default: SM (smallest magnitude))'
+                        )
 
     args = parser.parse_args()
 
