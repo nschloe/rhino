@@ -25,6 +25,7 @@ def _main():
         mu = field_data['mu']
     else:
         mu = 0.2
+        print 'Using default mu=%g.' % mu
     # build the model evaluator
     ginla_modeleval = \
         pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh,
@@ -34,12 +35,15 @@ def _main():
 
     if not args.series:
         # compute the eigenvalues once
+        psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
         eigenvals, X = _compute_eigenvalues(args.operator,
                                             args.eigenvalue_type,
                                             args.num_eigenvalues,
                                             None,
+                                            psi0,
                                             ginla_modeleval
                                             )
+        print 'The following eigenvalues were computed:'
         print eigenvals
     else:
         # initial guess for the eigenvectors
@@ -52,7 +56,6 @@ def _main():
         #small_eigenvals_approx = []
         for mu in mus:
             ginla_modeleval.set_parameter(mu)
-
             eigenvals, X = _compute_eigenvalues(args.operator,
                                                 args.eigenvalue_type,
                                                 args.num_eigenvalues,
@@ -89,6 +92,7 @@ def _compute_eigenvalues(operator_type,
                          eigenvalue_type,
                          num_eigenvalues,
                          v0,
+                         psi,
                          ginla_modeleval
                          ):
     if operator_type == 'k':
@@ -112,8 +116,8 @@ def _compute_eigenvalues(operator_type,
     else:
         raise ValueError('Unknown operator \'', operator_type, '\'.')
 
-    print 'Compute %s eigenvalues of %s...' \
-          % (eigenvalue_type, operator_type)
+    print 'Compute the %s %d eigenvalues of %s...' \
+          % (eigenvalue_type, num_eigenvalues, operator_type)
     start_time = time.clock()
     eigenvals, X = eigs(A,
                         k = num_eigenvalues,

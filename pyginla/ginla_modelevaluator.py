@@ -98,7 +98,7 @@ class GinlaModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_precon(x):
             return (self._keo * x) / self.mesh.control_volumes \
-                + 2.0 * absPsi0Squared * x
+                 + 2.0 * absPsi0Squared * x
         # ----------------------------------------------------------------------
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.node_coords)
