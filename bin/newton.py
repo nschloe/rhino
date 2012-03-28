@@ -10,45 +10,51 @@ import pyginla.ginla_modelevaluator as gm
 import voropy
 # ==============================================================================
 def _main():
-    filename = _parse_input_arguments()
+    args = _parse_input_arguments()
 
     # read the mesh
     print 'Reading the mesh...',
-    mesh, point_data, field_data = voropy.read( filename )
-    point_data['psi'] = point_data['psi'][:,0] \
-                      + 1j * point_data['psi'][:,1]
+    mesh, point_data, field_data = voropy.read( args.filename )
     print 'done.'
 
     # build the model evaluator
-    mu = 0.2
-    ginla_modelval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+    if 'mu' in field_data:
+        mu = field_data['mu']
+        print 'Using mu=%g as found in file.' % mu
+    else:
+        mu = 0.2
+        print 'Using mu=%g.' % mu
+    ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
     num_nodes = len(mesh.node_coords)
-    #psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
-    #psi0 = np.reshape(point_data['psi'], (num_nodes,1))
-    psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
-    alpha = 0.3
-    kx = 2
-    ky = 0.5
-    for i, node in enumerate(mesh.node_coords):
-        psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    newton_out = newton(ginla_modelval, psi0)
+    if 'psi' in point_data:
+        point_data['psi'] = point_data['psi'][:,0] \
+                          + 1j * point_data['psi'][:,1]
+        psi0 = np.reshape(point_data['psi'], (num_nodes,1))
+    else:
+        psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
+        #alpha = 0.3
+        #kx = 2
+        #ky = 0.5
+        #for i, node in enumerate(mesh.node_coords):
+            #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
+    newton_out = newton(ginla_modeleval, psi0)
     # write the solution to a file
-    ginla_modelval.mesh.write('solution.e', {'psi': newton_out['x']})
+    ginla_modeleval.mesh.write('solution.e', {'psi': newton_out['x']})
     # energy of the state
-    print 'Energy of the final state: %g.' % ginla_modelval.energy( newton_out['x'] )
+    print 'Energy of the final state: %g.' % ginla_modeleval.energy( newton_out['x'] )
 
     return
 # ==============================================================================
-def newton(ginla_modelval, psi0, debug=True):
+def newton(ginla_modeleval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
     print 'Performing Newton iteration...'
     # perform newton iteration
     newton_out = nm.newton(psi0,
-                           ginla_modelval,
+                           ginla_modeleval,
                            linear_solver = nm.minres,
                            linear_solver_maxiter = 1000, #2*len(psi0),
                            linear_solver_extra_args = {},
@@ -74,7 +80,7 @@ def newton(ginla_modelval, psi0, debug=True):
 
     #print 'Performing Poor man's continuation...'
     #nm.poor_mans_continuation( psi0,
-                               #ginla_modelval,
+                               #ginla_modeleval,
                                #mu,
                                #initial_step_size = 1.0e-2,
                                #nonlinear_tol = 1.0e-8
@@ -105,13 +111,8 @@ def _parse_input_arguments():
                          help    = 'ExodusII file containing the geometry and initial state'
                        )
 
-    args = parser.parse_args()
-    
-    return args.filename
+    return parser.parse_args()
 # ==============================================================================
 if __name__ == '__main__':
     _main()
-
-    #import cProfile
-    #cProfile.run( '_main()', 'pfvm_profile.dat' )
 # ==============================================================================
