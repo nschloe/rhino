@@ -127,7 +127,7 @@ class GinlaModelEvaluator:
             rhs = self.mesh.control_volumes[:, None] * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             out = nm.cg(prec, rhs, x0,
-                        tol = 1.0e-12,
+                        tol = 1.0e-13,
                         M = amg_prec,
                         #explicit_residual = False
                         )
