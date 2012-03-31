@@ -24,7 +24,7 @@ def _main():
     args = _parse_input_arguments()
 
     for filename in args.filenames:
-        _solve_system( filename, args.timestep, args.use_preconditioner )
+        _solve_system(filename, args.timestep, args.use_preconditioner)
 
     return
 # ==============================================================================
@@ -634,7 +634,7 @@ def _parse_input_arguments():
                          metavar = 'FILE',
                          type    = str,
                          nargs   = '+',
-                         help    = 'ExodusII file containing the geometry and initial state'
+                         help    = 'ExodusII files containing the geometry and the state'
                        )
 
     parser.add_argument( '--timestep', '-t',
@@ -652,7 +652,7 @@ def _parse_input_arguments():
                          action='store_const',
                          const=False,
                          default=True,
-                         help='don\'t use a preconditioner (default: use keo)')
+                         help='don\'t use a preconditioner (default: use prec)')
 
     args = parser.parse_args()
 

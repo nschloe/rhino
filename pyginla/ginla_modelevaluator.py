@@ -36,7 +36,7 @@ class GinlaModelEvaluator:
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        res = (- self._keo * psi) / self.mesh.control_volumes  \
+        res = (- self._keo * psi) / self.mesh.control_volumes[:,None]  \
               + psi * ( 1.0-self._T - abs( psi )**2 )
 
         return res
@@ -54,7 +54,7 @@ class GinlaModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            x = (- self._keo * phi) / self.mesh.control_volumes \
+            x = (- self._keo * phi) / self.mesh.control_volumes[:,None] \
                 + alpha * phi \
                 - psi0Squared * phi.conj()
             return x
@@ -124,7 +124,7 @@ class GinlaModelEvaluator:
         import pyamg
         # ----------------------------------------------------------------------
         def _apply_inverse_prec_customcg(phi):
-            rhs = self.mesh.control_volumes * phi
+            rhs = self.mesh.control_volumes[:, None] * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             out = nm.cg(prec, rhs, x0,
                         tol = 1.0e-12,
@@ -139,7 +139,7 @@ class GinlaModelEvaluator:
             return out['xk']
         # ----------------------------------------------------------------------
         def _apply_inverse_prec_pyamgsolve(phi):
-            rhs = self.mesh.control_volumes * phi
+            rhs = self.mesh.control_volumes[:, None] * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             x = np.empty((num_nodes,1), dtype=complex)
             num_cycles = 1

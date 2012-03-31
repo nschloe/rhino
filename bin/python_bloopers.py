@@ -8,6 +8,12 @@ def _main():
     # note by Andre: this is somewhat 'more' consistent than MATLAB!
     # In MATLAB you can do ones(1,3)+1.0 but not ones(1,3)+ones(2,1).
 
+    a = np.ones((3,1))
+    b = np.ones((3,))
+    print a * b
+    print b * a
+    print np.multiply(a,b)
+
     #a = np.array([[1,2], [3,4]])
     #x = np.array([[1],[1]])
     #y = np.array([[2],[2]])

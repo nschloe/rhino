@@ -17,8 +17,11 @@ rc( 'font', **{'family':'sans-serif','sans-serif':['Helvetica']} )
 rc('text', usetex=True)
 # ==============================================================================
 def _main():
+    # Get file names from command line.
+    args = _parse_arguments()
+
     #_plot_continuation()
-    _state2png()
+    _state2png(args)
     return
 # ==============================================================================
 def _set_camera():
@@ -49,14 +52,12 @@ def _set_camera():
 
     return
 # ==============================================================================
-def _state2png():
-
-    args = _parse_arguments()
+def _state2png(args):
 
     #pv._DisableFirstRenderCameraReset()
 
     # Open the data file.
-    solution_e = pv.OpenDataFile( args.solution_file )
+    solution_e = pv.OpenDataFile( args.filename )
     #solution_e.FileRange = [0, 0]
     #solution_e.FilePrefix = args.solution_file
     #solution_e.XMLFileName = ''
@@ -101,9 +102,6 @@ def _state2png():
 # ==============================================================================
 def _plot_continuation():
     '''Main function.'''
-
-    # Get file names from command line.
-    args = _parse_arguments()
 
     pv._DisableFirstRenderCameraReset()
 
@@ -278,20 +276,18 @@ def _parse_arguments():
 
     parser = argparse.ArgumentParser( description='Prettyprint states and energy.' )
 
-    parser.add_argument( '-d', '--directory',
-                         dest     = 'solution_directory',
-                         default  = '.',
+    parser.add_argument( 'filename',
+                         metavar = 'FILE_OR_FOLDER',
                          type     = str,
-                         #required = True,
-                         help     = 'directory containing solution.e and continuationData.dat'
+                         help     = 'single file or directory containing solution.e and continuationData.dat'
                        )
 
-    parser.add_argument( '-f', '--file',
-                         dest     = 'solution_file',
-                         default  = 'solution.e',
-                         type     = str,
+    parser.add_argument( '-d', '--data',
+                         dest     = 'plot_data',
                          #required = True,
-                         help     = 'file that contains the solution states'
+                         action = 'store_true',
+                         default = False,
+                         help     = 'plot the data (default: false, just plot the grid)'
                        )
 
     return parser.parse_args()

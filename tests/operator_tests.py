@@ -22,7 +22,7 @@ class TestF(unittest.TestCase):
         # scale with D for compliance with the Ginla (C++) tests
         if mesh.control_volumes is None:
             mesh.compute_control_volumes()
-        r *= mesh.control_volumes
+        r *= mesh.control_volumes[:,None]
 
         tol = 1.0e-13
         # For C++ Ginla compatibility:
@@ -163,18 +163,17 @@ class TestJacobian(unittest.TestCase):
 
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones((num_unknowns,1), dtype=complex)
-
-        val = np.vdot( phi, mesh.control_volumes * (J*phi)).real
+        val = np.vdot( phi, mesh.control_volumes[:,None] * (J*phi)).real
         self.assertAlmostEqual( actual_values[0], val, delta=tol )
 
         # [1, 1, 1, ... ]
         phi = np.ones((num_unknowns,1), dtype=complex)
-        val = np.vdot( phi, mesh.control_volumes * (J*phi)).real
+        val = np.vdot( phi, mesh.control_volumes[:,None] * (J*phi)).real
         self.assertAlmostEqual( actual_values[1], val, delta=tol )
 
         # [i, i, i, ... ]
         phi = 1j * np.ones((num_unknowns,1), dtype=complex)
-        val = np.vdot( phi, mesh.control_volumes * (J*phi)).real
+        val = np.vdot( phi, mesh.control_volumes[:,None] * (J*phi)).real
         self.assertAlmostEqual( actual_values[2], val, delta=tol )
 
         return
