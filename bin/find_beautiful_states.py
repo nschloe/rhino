@@ -31,7 +31,7 @@ def find_beautiful_states( ginla_modeleval ):
 
     # Define search space.
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
-    Mu = np.linspace(0.1, 1.0, 10)
+    Mu = np.linspace(0.5, 8.0, 16)
     Alpha = np.linspace(0.1, 1.0, 10)
     Frequencies = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
 
