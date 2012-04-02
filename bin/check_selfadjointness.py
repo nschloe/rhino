@@ -3,7 +3,7 @@
 # ==============================================================================
 import numpy as np
 
-import mesh.mesh_io
+import voropy
 import pyginla.ginla_modelevaluator
 #import pyginla.numerical_methods as nm
 # ==============================================================================
@@ -12,15 +12,15 @@ def _main():
     '''
     args = _parse_input_arguments()
 
-    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh(args.filename,
-                                                             timestep=args.timestep
-                                                             )
+    mesh, point_data, field_data = voropy.read(args.filename,
+                                               timestep=args.timestep
+                                               )
     # build the model evaluator
-    mu = 1.0e-1
+    mu = 1.0
     ginla_modeleval = \
-        pyginla.ginla_modelevaluator.GinlaModelEvaluator(pyginlamesh, A, mu)
+        pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
-    N = len( pyginlamesh.nodes )
+    N = len( mesh.node_coords )
     current_psi = np.random.rand(N,1) + 1j * np.random.rand(N,1)
 
     print 'machine eps = %g' % np.finfo(np.complex).eps
@@ -31,13 +31,13 @@ def _main():
 
     # --------------------------------------------------------------------------
     def inner_product(phi0, phi1):
-        if ginla_modeleval.control_volumes is None:
-            ginla_modeleval._compute_control_volumes()
+        if mesh.control_volumes is None:
+            mesh._compute_control_volumes()
 
         if len(phi0.shape) == 1:
-            scaledPhi0 = ginla_modeleval.control_volumes[:,0] * phi0
+            scaledPhi0 = mesh.control_volumes * phi0
         elif len(phi0.shape) == 2:
-            scaledPhi0 = ginla_modeleval.control_volumes * phi0
+            scaledPhi0 = mesh.control_volumes[:,None] * phi0
         return np.dot(scaledPhi0.T.conj(), phi1)
     # --------------------------------------------------------------------------
     # check the preconditioner

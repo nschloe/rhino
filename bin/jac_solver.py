@@ -115,14 +115,14 @@ def _solve_system(filename, timestep, use_preconditioner):
     #print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     #start_time = time.clock()
     timer = False
-    out = nm.minres(ginla_jacobian, rhs,
+    out = nm.cg(ginla_jacobian, rhs,
                     phi0,
                     tol = 1.0e-12,
                     M = prec,
                     maxiter = 2*num_unknowns,
                     inner_product = ginla_modeleval.inner_product,
                     explicit_residual = True,
-                    timer=timer
+                    #timer=timer
                     #exact_solution = ref_sol
                     )
 
