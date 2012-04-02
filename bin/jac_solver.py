@@ -24,7 +24,10 @@ def _main():
     args = _parse_input_arguments()
 
     for filename in args.filenames:
-        _solve_system(filename, args.timestep, args.use_preconditioner)
+        relresvec = _solve_system(filename, args.timestep, args.use_preconditioner)
+        if args.show_relres:
+            pp.semilogy(relresvec, 'k')
+            pp.show()
 
     return
 # ==============================================================================
@@ -37,7 +40,7 @@ def _solve_system(filename, timestep, use_preconditioner):
     #print "done."
 
     # build the model evaluator
-    mu = 1.0e-1
+    mu = 1.0
     ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initialize the preconditioners
@@ -165,7 +168,7 @@ def _solve_system(filename, timestep, use_preconditioner):
 
     #matplotlib2tikz.save('inf.tex')
 
-    return
+    return out['relresvec']
 # ==============================================================================
 def _create_preconditioner_list( precs, num_unknowns ):
 
@@ -630,29 +633,37 @@ def _parse_input_arguments():
     parser = argparse.ArgumentParser( description = 'Solve the linearized Ginzburg--Landau problem.'
                                     )
 
-    parser.add_argument( 'filenames',
-                         metavar = 'FILE',
-                         type    = str,
-                         nargs   = '+',
-                         help    = 'ExodusII files containing the geometry and the state'
-                       )
+    parser.add_argument('filenames',
+                        metavar = 'FILE',
+                        type    = str,
+                        nargs   = '+',
+                        help    = 'ExodusII files containing the geometry and the state'
+                        )
 
-    parser.add_argument( '--timestep', '-t',
-                         metavar='TIMESTEP',
-                         dest='timestep',
-                         nargs='?',
-                         type=int,
-                         const=0,
-                         default=0,
-                         help='read a particular time step (default: 0)'
-                       )
+    parser.add_argument('--timestep', '-t',
+                        metavar='TIMESTEP',
+                        dest='timestep',
+                        nargs='?',
+                        type=int,
+                        const=0,
+                        default=0,
+                        help='read a particular time step (default: 0)'
+                        )
 
-    parser.add_argument( '--noprec', '-n',
-                         dest='use_preconditioner',
-                         action='store_const',
-                         const=False,
-                         default=True,
-                         help='don\'t use a preconditioner (default: use prec)')
+    parser.add_argument('--noprec', '-n',
+                        dest='use_preconditioner',
+                        action='store_const',
+                        const=False,
+                        default=True,
+                        help='don\'t use a preconditioner (default: use prec)'
+                        )
+
+    parser.add_argument('--show-relres', '-s',
+                        dest='show_relres',
+                        action='store_true',
+                        default=False,
+                        help='show the relative residuals (default: False)'
+                        )
 
     args = parser.parse_args()
 
