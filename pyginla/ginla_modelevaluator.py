@@ -230,9 +230,9 @@ class GinlaModelEvaluator:
             self.mesh.compute_control_volumes()
 
         if len(phi0.shape)==1:
-            scaledPhi0 = self.mesh.control_volumes[:,0] * phi0
-        elif len(phi0.shape)==2:
             scaledPhi0 = self.mesh.control_volumes * phi0
+        elif len(phi0.shape)==2:
+            scaledPhi0 = self.mesh.control_volumes[:,None] * phi0
 
         # np.vdot only works for vectors, so use np.dot(....T.conj()) here.
         return np.dot(scaledPhi0.T.conj(), phi1).real
