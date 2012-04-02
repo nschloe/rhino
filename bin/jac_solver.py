@@ -650,12 +650,11 @@ def _parse_input_arguments():
                         help='read a particular time step (default: 0)'
                         )
 
-    parser.add_argument('--noprec', '-n',
+    parser.add_argument('--prec', '-p',
                         dest='use_preconditioner',
-                        action='store_const',
-                        const=False,
-                        default=True,
-                        help='don\'t use a preconditioner (default: use prec)'
+                        action='store_true',
+                        default=False,
+                        help='use a preconditioner (default: False)'
                         )
 
     parser.add_argument('--show-relres', '-s',
