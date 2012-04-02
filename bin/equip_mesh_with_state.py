@@ -36,12 +36,12 @@ def _main():
     A = np.empty((num_nodes, 3), dtype=float)
     import pyginla.magnetic_vector_potentials as mvp
     for k, node in enumerate(mesh.node_coords):
-        A[k,:] = mvp.magnetic_dipole(x = np.array([node[0],node[1],0.0]),
-                                     x0 = np.array([0,0,1]),
-                                     m = np.array([0,0,1])
-                                     )
-        #A[k,:] = mvp.constant_z( node )
-        #A[k,:] = mvp.magnetic_dot(node, radius=2.0, height0=0.1, height1=1.1)
+        #A[k] = mvp.magnetic_dipole(x = node,
+        #                           x0 = np.array([0,0,6]),
+        #                           m = np.array([0,0,1])
+        #                           )
+        A[k] = mvp.constant_z( node )
+        #A[k] = mvp.magnetic_dot(node, radius=2.0, height0=0.1, height1=1.1)
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 

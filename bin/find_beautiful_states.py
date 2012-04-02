@@ -31,9 +31,9 @@ def find_beautiful_states( ginla_modeleval ):
 
     # Define search space.
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
-    Mu = np.linspace(0.5, 8.0, 16)
-    Alpha = np.linspace(0.1, 1.0, 10)
-    Frequencies = [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
+    Mu = np.linspace(1.0, 16.0, 16)
+    Alpha = np.linspace(0.2, 1.0, 5)
+    Frequencies = [0.0, 0.5, 1.0, 2.0]
 
     # initial guess
     num_nodes = len(ginla_modeleval.mesh.node_coords)
@@ -46,13 +46,16 @@ def find_beautiful_states( ginla_modeleval ):
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
         # Loop over initial states.
-        for alpha, kx, ky in ((a,b,c) for a in reversed(Alpha) for b in Frequencies for c in Frequencies):
+        for alpha, kx, ky, kz in ((a,b,c,d) for a in reversed(Alpha) for b in Frequencies for c in Frequencies for d in Frequencies):
             ginla_modeleval.set_parameter(mu)
-            print 'mu = %g, alpha = %g, kx = %g, ky = %g' % (mu, alpha, kx, ky)
+            print 'mu = %g, alpha = %g, kx = %g, ky = %g, kz = %g' % (mu, alpha, kx, ky, kz)
             # Set the intitial guess for Newton.
             #psi0 = alpha * np.ones((num_nodes,1), dtype=complex)
             for i, node in enumerate(ginla_modeleval.mesh.node_coords):
-                psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
+                psi0[i] = alpha \
+                        * np.cos(kx * np.pi * node[0]) \
+                        * np.cos(ky * np.pi * node[1]) \
+                        * np.cos(kz * np.pi * node[2])
             newton_out = newton(ginla_modeleval, psi0, debug=False)
             print 'Num MINRES iterations:', [len(resvec) for resvec in newton_out['linear relresvecs']]
             print 'Newton residuals:', newton_out['Newton residuals']
