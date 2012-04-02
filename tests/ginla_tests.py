@@ -227,6 +227,92 @@ class TestJacobian(unittest.TestCase):
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
 # ==============================================================================
+class TestInnerProduct(unittest.TestCase):
+    # --------------------------------------------------------------------------
+    def setUp(self):
+        return
+    # --------------------------------------------------------------------------
+    def _run_test(self, filename, control_values):
+        # read the mesh
+        mesh, point_data, field_data = voropy.read( filename )
+
+        # build the model evaluator
+        mu = 0.0
+        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+
+        tol = 1.0e-13
+
+        # For C++ Ginla compatibility:
+        # Compute 1-norm of vector (Re(psi[0]), Im(psi[0]), Re(psi[1]), ... )
+        N = len(mesh.node_coords)
+        phi0 = 1.0 * np.ones((N,1), dtype=complex)
+        phi1 = 1.0 * np.ones((N,1), dtype=complex)
+        alpha = ginla_modeleval.inner_product(phi0, phi1)[0][0]
+        self.assertAlmostEqual(control_values[0],
+                               alpha,
+                               delta=tol
+                               )
+
+        phi0 = np.empty((N,1), dtype=complex)
+        phi1 = np.empty((N,1), dtype=complex)
+        for k, node in enumerate(mesh.node_coords):
+            phi0[k] = np.cos(np.pi * node[0]) + 1j * np.sin(np.pi * node[1])
+            phi1[k] = np.sin(np.pi * node[0]) + 1j * np.cos(np.pi * node[1])
+        alpha = ginla_modeleval.inner_product(phi0, phi1)[0][0]
+        self.assertAlmostEqual(control_values[1],
+                               alpha,
+                               delta=tol
+                               )
+
+        phi0 = np.empty((N,1), dtype=complex)
+        phi1 = np.empty((N,1), dtype=complex)
+        for k, node in enumerate(mesh.node_coords):
+            phi0[k] = np.dot(node, node)
+            phi1[k] = np.exp(1j * np.dot(node, node))
+        alpha = ginla_modeleval.inner_product(phi0, phi1)[0][0]
+        self.assertAlmostEqual(control_values[2],
+                               alpha,
+                               delta=tol
+                               )
+
+        return
+    # --------------------------------------------------------------------------
+    def test_rectanglesmall(self):
+        filename = 'rectanglesmall.e'
+        control_values = [10.0,
+                          0.0,
+                          250.76609861896702
+                          ]
+        self._run_test(filename, control_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_pacman(self):
+        filename = 'pacman.e'
+        control_values = [302.52270072101049,
+                          8.8458601556211267,
+                          1261.5908800348018
+                          ]
+        self._run_test(filename, control_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_cubesmall(self):
+        filename = 'cubesmall.e'
+        control_values = [10.0,
+                          0.0,
+                          237.99535357630012
+                          ]
+        self._run_test(filename, control_values)
+        return
+    # --------------------------------------------------------------------------
+    def test_brick(self):
+        filename = 'brick-w-hole.e'
+        control_values = [388.68629169464111,
+                          30.434181122856277,
+                          -24.459076553128803
+                          ]
+        self._run_test(filename, control_values)
+        return
+# ==============================================================================
 if __name__ == '__main__':
     unittest.main()
 # ==============================================================================
