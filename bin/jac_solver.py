@@ -52,12 +52,11 @@ def _solve_system(filename, timestep, use_preconditioner):
 
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
+    current_psi = (point_data['psi'][:,0] + 1j * point_data['psi'][:,1]).reshape(-1,1)
     #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns, dtype = complex )
     #current_psi = np.random.rand(num_unknowns, 1) \
                 #+ 1j * np.random.rand(num_unknowns, 1)
-    current_psi = 1.0 * np.ones( (num_unknowns,1), dtype = complex )
-
-    #current_psi = psi
+    #current_psi = 1.0 * np.ones( (num_unknowns,1), dtype = complex )
 
     # generate random numbers within the unit circle
     #current_psi = np.empty( num_unknowns, dtype = complex )
@@ -118,8 +117,9 @@ def _solve_system(filename, timestep, use_preconditioner):
     timer = False
     out = nm.minres(ginla_jacobian, rhs,
                     phi0,
-                    tol = 1.0e-13,
+                    tol = 1.0e-12,
                     M = prec,
+                    maxiter = 2*num_unknowns,
                     inner_product = ginla_modeleval.inner_product,
                     explicit_residual = True,
                     timer=timer
