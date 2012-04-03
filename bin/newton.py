@@ -20,10 +20,10 @@ def _main():
     # build the model evaluator
     if 'mu' in field_data:
         mu = field_data['mu']
-        print 'Using mu=%g as found in file.' % mu
+        print 'Using  mu = %g  as found in file.' % mu
     else:
-        mu = 0.2
-        print 'Using mu=%g.' % mu
+        mu = 1.0
+        print 'No parameter \'mu\' found in file. Using  mu = %g.' % mu
     ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     # initial guess
@@ -40,6 +40,17 @@ def _main():
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
     newton_out = newton(ginla_modeleval, psi0)
+    print 'Newton residuals:', newton_out['Newton residuals']
+
+    if args.show:
+        import matplotlib.pyplot as pp
+        multiplot_data_series( newton_out['linear relresvecs'] )
+        #pp.xlim([0,45])
+        pp.show()
+
+    #import matplotlib2tikz
+    #matplotlib2tikz.save('minres-prec-defl.tex')
+
     # write the solution to a file
     ginla_modeleval.mesh.write('solution.e', {'psi': newton_out['x']})
     # energy of the state
@@ -59,7 +70,7 @@ def newton(ginla_modeleval, psi0, debug=True):
                            linear_solver_maxiter = 1000, #2*len(psi0),
                            linear_solver_extra_args = {},
                            nonlinear_tol = 1.0e-10,
-                           forcing_term = 'constant', #'constant', #'type 2'
+                           forcing_term = 'constant', #'constant', 'type1', 'type 2'
                            eta0 = 1.0e-10,
                            use_preconditioner = True,
                            deflation_generators = [ lambda x: 1j*x ],
@@ -68,23 +79,7 @@ def newton(ginla_modeleval, psi0, debug=True):
                            newton_maxiter = 30
                            )
     print ' done.'
-    print 'Newton residuals:', newton_out['Newton residuals']
     #assert( newton_out['info'] == 0 )
-
-    import matplotlib.pyplot as pp
-    multiplot_data_series( newton_out['linear relresvecs'] )
-    #pp.xlim([0,45])
-    pp.show()
-    #import matplotlib2tikz
-    #matplotlib2tikz.save('minres-prec-defl.tex')
-
-    #print 'Performing Poor man's continuation...'
-    #nm.poor_mans_continuation( psi0,
-                               #ginla_modeleval,
-                               #mu,
-                               #initial_step_size = 1.0e-2,
-                               #nonlinear_tol = 1.0e-8
-                             #)
 
     return newton_out
 # ==============================================================================
@@ -105,11 +100,18 @@ def _parse_input_arguments():
 
     parser = argparse.ArgumentParser( description = 'Find solutions to the Ginzburg--Landau equation.' )
 
-    parser.add_argument( 'filename',
-                         metavar = 'FILE',
-                         type    = str,
-                         help    = 'ExodusII file containing the geometry and initial state'
-                       )
+    parser.add_argument('filename',
+                        metavar = 'FILE',
+                        type    = str,
+                        help    = 'ExodusII file containing the geometry and initial state'
+                        )
+
+    parser.add_argument('--show', '-s',
+                        action = 'store_true',
+                        default = False,
+                        help    = 'show the relative residuals of each linear iteration (default: False)'
+                        )
+    
 
     return parser.parse_args()
 # ==============================================================================

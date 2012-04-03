@@ -23,10 +23,11 @@ def _main():
     print 'Creating psi...',
     start = time.time()
     X = np.empty( num_nodes, dtype = complex )
-    X[:] = complex( 1.0, 0.0 )
-    #for k, node in enumerate(mesh.node_coords):
+    #X[:] = complex( 1.0, 0.0 )
+    for k, node in enumerate(mesh.node_coords):
         #import random, cmath
         #X[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
+        X[k] = 0.9 * np.cos(0.5 * node[0])
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -56,7 +57,7 @@ def _main():
     # write the mesh
     print 'Writing mesh psi and A...',
     start = time.time()
-    mesh.write(args.outfile, {'psi':X, 'A':A})
+    mesh.write(args.outfile, {'psi': X, 'A': A}, {'mu': 1.0})
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
