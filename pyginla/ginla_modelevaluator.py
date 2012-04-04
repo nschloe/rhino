@@ -308,7 +308,8 @@ class GinlaModelEvaluator:
               - self.mesh.node_coords[self.mesh.edges['nodes'][:,0]]
 
         # Calculate the edge contributions cell by cell.
-        for vol, cell_edges in zip(vols, self.mesh.cells['edges']):
+        for vol, cell in zip(vols, self.mesh.cells):
+            cell_edge_gids = cell['edges']
             # Build the equation system:
             # The equation
             #
@@ -316,15 +317,24 @@ class GinlaModelEvaluator:
             #
             # has to hold for all vectors u in the plane spanned by the edges,
             # particularly by the edges themselves.
-            A = np.dot(edges[cell_edges], edges[cell_edges].T)
+            A = np.dot(edges[cell_edge_gids], edges[cell_edge_gids].T)
             # Careful here! As of NumPy 1.7, np.diag() returns a view.
             rhs = vol * np.diag(A).copy()
             A = A**2
 
             # Append the the resulting coefficients to the coefficient cache.
             # The system is posdef iff the simplex isn't degenerate.
-            self._edgecoeff_cache[cell_edges] += \
-                linalg.solve(A, rhs, sym_pos=True)
+            try:
+                self._edgecoeff_cache[cell_edge_gids] += \
+                    linalg.solve(A, rhs, sym_pos=True)
+            except np.linalg.linalg.LinAlgError:
+                # The matrix A appears to be singular,
+                # and the only circumstance that makes this
+                # happening is the cell being degenerate.
+                # Hence, it has volume 0, and so all the edge
+                # coefficients are 0, too.
+                # Hence, do nothing.
+                pass
 
         return
     # ==========================================================================
