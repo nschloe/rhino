@@ -31,14 +31,20 @@ def _main():
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
+    # If this is a 2D mesh, append the z-component 0 to each node
+    # to make sure that the magnetic vector potentials can be
+    # calculated.
+    points = mesh.node_coords.copy()
+    if points.shape[1] == 2:
+        points = np.column_stack((points, np.zeros(len(points))))
     # Add magnetic vector potential.
     print 'Creating A...',
     start = time.time()
     A = np.empty((num_nodes, 3), dtype=float)
     import pyginla.magnetic_vector_potentials as mvp
-    for k, node in enumerate(mesh.node_coords):
+    for k, node in enumerate(points):
         A[k] = mvp.magnetic_dipole(x = node,
-                                   x0 = np.array([0,0,6]),
+                                   x0 = np.array([0,0,1]),
                                    m = np.array([0,0,1])
                                    )
         #A[k] = mvp.constant_z( node )
