@@ -31,32 +31,63 @@ def find_beautiful_states( ginla_modeleval ):
 
     # Define search space.
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
-    Mu = np.linspace(1.0, 16.0, 16)
+    Mu = np.linspace(0.5, 10.0, 20)
     Alpha = np.linspace(0.2, 1.0, 5)
     Frequencies = [0.0, 0.5, 1.0, 2.0]
 
     # initial guess
     num_nodes = len(ginla_modeleval.mesh.node_coords)
 
+    # Compile the search space.
+    # If all nodes sit in x-y-plane, the frequency loop in z-direction
+    # can be ommitted.
+    if ginla_modeleval.mesh.node_coords.shape[1]==2:
+        search_space_k = [(a,b) for a in Frequencies for b in Frequencies]
+    elif ginla_modeleval.mesh.node_coords.shape[1] == 3:
+        search_space_k = [(a,b,c) for a in Frequencies for b in Frequencies for c in Frequencies]
+    search_space = [(a,k) for a in reversed(Alpha) for k in search_space_k]
+
     solution_id = 0
-    psi0 = np.empty((num_nodes,1), dtype=complex)
     # Loop over problem parameters in reversed order:
     # This way, we'll find the states with many nodes first.
     for mu in reversed(Mu):
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
         # Loop over initial states.
-        for alpha, kx, ky, kz in ((a,b,c,d) for a in reversed(Alpha) for b in Frequencies for c in Frequencies for d in Frequencies):
+        for alpha, k in search_space:
             ginla_modeleval.set_parameter(mu)
-            print 'mu = %g, alpha = %g, kx = %g, ky = %g, kz = %g' % (mu, alpha, kx, ky, kz)
+            print 'mu = %g, alpha = %g, k = %s' % (mu, alpha, k,)
             # Set the intitial guess for Newton.
-            #psi0 = alpha * np.ones((num_nodes,1), dtype=complex)
-            for i, node in enumerate(ginla_modeleval.mesh.node_coords):
-                psi0[i] = alpha \
-                        * np.cos(kx * np.pi * node[0]) \
-                        * np.cos(ky * np.pi * node[1]) \
-                        * np.cos(kz * np.pi * node[2])
-            newton_out = newton(ginla_modeleval, psi0, debug=False)
+            if len(k) == 2:
+                psi0 = alpha \
+                     * np.cos(k[0] * np.pi * ginla_modeleval.mesh.node_coords[:,0]) \
+                     * np.cos(k[1] * np.pi * ginla_modeleval.mesh.node_coords[:,1]) \
+                     + 1j * 0
+            elif len(k) == 3:
+                psi0 = alpha \
+                     * np.cos(k[0] * np.pi * ginla_modeleval.mesh.node_coords[:,0]) \
+                     * np.cos(k[1] * np.pi * ginla_modeleval.mesh.node_coords[:,1]) \
+                     * np.cos(k[2] * np.pi * ginla_modeleval.mesh.node_coords[:,2]) \
+                     + 1j * 0
+
+            print 'Performing Newton iteration...'
+            # perform newton iteration
+            newton_out = nm.newton(psi0[:,None],
+                                   ginla_modeleval,
+                                   linear_solver = nm.minres,
+                                   linear_solver_maxiter = 500, #2*len(psi0),
+                                   linear_solver_extra_args = {},
+                                   nonlinear_tol = 1.0e-10,
+                                   forcing_term = 'constant', #'constant', 'type1', 'type 2'
+                                   eta0 = 1.0e-10,
+                                   use_preconditioner = True,
+                                   deflation_generators = [ lambda x: 1j*x ],
+                                   num_deflation_vectors = 0,
+                                   debug=True,
+                                   newton_maxiter = 50
+                                   )
+            print ' done.'
+
             print 'Num MINRES iterations:', [len(resvec) for resvec in newton_out['linear relresvecs']]
             print 'Newton residuals:', newton_out['Newton residuals']
             if newton_out['info'] == 0:
@@ -91,36 +122,12 @@ def find_beautiful_states( ginla_modeleval ):
                         print 'Storing in %s.' % filename
                         ginla_modeleval.mesh.write(filename,
                                                   point_data={'psi': psi, 'A': ginla_modeleval._raw_magnetic_vector_potential},
-                                                  field_data={'mu': mu, 'alpha': alpha, 'kx': kx, 'ky': ky}
+                                                  field_data={'mu': mu, 'alpha': alpha, 'k': np.array(k)}
                                                   )
                         solution_id += 1
             print
 
     return
-# ==============================================================================
-def newton(ginla_modeleval, psi0, debug=True):
-    '''Solve with Newton.
-    '''
-
-    print 'Performing Newton iteration...'
-    # perform newton iteration
-    newton_out = nm.newton(psi0,
-                           ginla_modeleval,
-                           linear_solver = nm.minres,
-                           linear_solver_maxiter = 500, #2*len(psi0),
-                           linear_solver_extra_args = {},
-                           nonlinear_tol = 1.0e-10,
-                           forcing_term = 'constant', #'constant', #'type 2'
-                           eta0 = 1.0e-10,
-                           use_preconditioner = True,
-                           deflation_generators = [ lambda x: 1j*x ],
-                           num_deflation_vectors = 0,
-                           debug=debug,
-                           newton_maxiter = 50
-                           )
-    print ' done.'
-
-    return newton_out
 # ==============================================================================
 def _parse_input_arguments():
     '''Parse input arguments.

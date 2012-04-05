@@ -917,16 +917,16 @@ def qr(W, inner_product=_ipstd):
             R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])[0,0]
             Q[:,[i]] -= R[j,i] * Q[:,[j]]
         R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])[0,0]
-        if (R[i,i].imag > 1e-10):
+        if R[i,i].imag > 1e-10:
             print 'R[i,i].imag = %g > 1e-10' % R[i,i].imag
-        if (R[i,i].real < -1e-14):
+        if R[i,i].real < -1e-14:
             print 'R[i,i].real = %g < -1e-14' % R[i,i].real
+        if abs(R[i,i]) < 1.0e-14:
+            raise ZeroDivisionError('Input vectors linearly dependent?')
         R[i,i] = np.sqrt(abs(R[i,i]))
         Q[:,[i]] /= R[i,i]
 
     return Q, R
-
-
 # ==============================================================================
 def newton( x0,
             model_evaluator,
@@ -1005,9 +1005,15 @@ def newton( x0,
             return model_evaluator.inner_product(_apply(M,x), y)
 
         # Conditionally deflate the nearly-null vector i*x or others.
-        U = np.zeros( (len(x),len(deflation_generators)), dtype=x.dtype)
-        for i,deflation_generator in enumerate(deflation_generators):
+        # TODO Get a more sensible guess for the dtype here.
+        #      If x is real-valeus, deflation_generator(x) could indeed
+        #      be complex-valued.
+        #      Maybe get the lambda function along with its dtype
+        #      as input argument?
+        U = np.zeros((len(x), len(deflation_generators)), dtype=x.dtype)
+        for i, deflation_generator in enumerate(deflation_generators):
             U[:,[i]] = deflation_generator(x)
+
         # Attention: if the preconditioner is later solved inexactly
         #            then W will be orthonormal w.r.t. another inner
         #            product! This may affect the computation of ritz

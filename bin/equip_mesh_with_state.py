@@ -23,11 +23,11 @@ def _main():
     print 'Creating psi...',
     start = time.time()
     X = np.empty( num_nodes, dtype = complex )
-    #X[:] = complex( 1.0, 0.0 )
-    for k, node in enumerate(mesh.node_coords):
+    X[:] = complex( 1.0, 0.0 )
+    #for k, node in enumerate(mesh.node_coords):
         #import random, cmath
         #X[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
-        X[k] = 0.9 * np.cos(0.5 * node[0])
+        #X[k] = 0.9 * np.cos(0.5 * node[0])
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
@@ -37,11 +37,11 @@ def _main():
     A = np.empty((num_nodes, 3), dtype=float)
     import pyginla.magnetic_vector_potentials as mvp
     for k, node in enumerate(mesh.node_coords):
-        #A[k] = mvp.magnetic_dipole(x = node,
-        #                           x0 = np.array([0,0,6]),
-        #                           m = np.array([0,0,1])
-        #                           )
-        A[k] = mvp.constant_z( node )
+        A[k] = mvp.magnetic_dipole(x = node,
+                                   x0 = np.array([0,0,6]),
+                                   m = np.array([0,0,1])
+                                   )
+        #A[k] = mvp.constant_z( node )
         #A[k] = mvp.magnetic_dot(node, radius=2.0, height0=0.1, height1=1.1)
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
