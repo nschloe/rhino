@@ -40,14 +40,14 @@ def _main():
     # Add magnetic vector potential.
     print 'Creating A...',
     start = time.time()
-    A = np.empty((num_nodes, 3), dtype=float)
     import pyginla.magnetic_vector_potentials as mvp
-    for k, node in enumerate(points):
-        A[k] = mvp.magnetic_dipole(x = node,
-                                   x0 = np.array([0,0,1]),
-                                   m = np.array([0,0,1])
-                                   )
-        #A[k] = mvp.constant_z( node )
+    #A = mvp.constant_z(points)
+    A = mvp.magnetic_dipole(points,
+                            x0 = np.array([0,0,1]),
+                            m = np.array([0,0,1])
+                            )
+    #A = np.empty((num_nodes, 3), dtype=float)
+    #for k, node in enumerate(points):
         #A[k] = mvp.magnetic_dot(node, radius=2.0, height0=0.1, height1=1.1)
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed

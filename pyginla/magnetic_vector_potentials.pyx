@@ -7,15 +7,39 @@ cdef extern from "math.h":
 # ==============================================================================
 def constant_x( X ):
     '''Magnetic vector potential corresponding to the field B=(1,0,0).'''
-    return [ 0.0, -0.5*X[2], 0.5*X[1] ]
+    if len(X.shape) == 2:
+        # array of data points
+        return np.array([np.zeros(X.shape[0])
+                         -0.5 * X[:,2],
+                          0.5 * X[:,1]]
+                         ).T
+    else:
+        # Just one point.
+        return [ 0.0, -0.5*X[2], 0.5*X[1] ]
 # ==============================================================================
 def constant_y( X ):
     '''Magnetic vector potential corresponding to the field B=(0,1,0).'''
-    return [ 0.5*X[2], 0.0, -0.5*X[0] ]
+    if len(X.shape) == 2:
+        # array of data points
+        return np.array([ 0.5 * X[:,2],
+                         np.zeros(X.shape[0])
+                         -0.5 * X[:,0]]
+                         ).T
+    else:
+        # Just one point.
+        return [ 0.5*X[2], 0.0, -0.5*X[0] ]
 # ==============================================================================
 def constant_z( X ):
     '''Magnetic vector potential corresponding to the field B=(0,0,1).'''
-    return [ -0.5*X[1], 0.5*X[0], 0.0 ]
+    if len(X.shape) == 2:
+        # array of data points
+        return np.array([-0.5 * X[:,1],
+                          0.5 * X[:,0],
+                         np.zeros(X.shape[0])]
+                         ).T
+    else:
+        # Just one point.
+        return [ -0.5*X[1], 0.5*X[0], 0.0 ]
 # ==============================================================================
 def field2potential(X, B):
     '''Converts a spatially constant magnetic field B at X
@@ -42,7 +66,11 @@ def magnetic_dipole(x, x0, m):
    '''Magnetic vector potential for the static dipole at x0
    with orientation m.'''
    r = x - x0
-   return np.cross(m, r) / np.linalg.norm(r)**3
+   # npsum(...) = ||r||^3 row-wise;
+   # np.cross acts on rows by default;
+   # The ".T" magic makes sure that each row of np.cross(m, r)
+   # gets divided by the corresponding entry in ||r||^3.
+   return (np.cross(m, r).T / np.sum(np.abs(r)**2,axis=-1)**(3./2)).T
 # ==============================================================================
 def magnetic_dot(float x, float y,
                  float magnet_radius,
