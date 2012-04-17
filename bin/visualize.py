@@ -24,7 +24,7 @@ def _main():
     _state2png(args)
     return
 # ==============================================================================
-def _set_camera():
+def _set_camera(timestep):
     view = pv.GetRenderView()
     #view = pv.GetActiveView()
 
@@ -36,7 +36,7 @@ def _set_camera():
     view.ViewSize = [600, 600]
 
     # set the time step
-    view.ViewTime = 0
+    view.ViewTime = timestep
 
     # adjust camera angles
     #view.CameraParallelScale = 19.263253561273864
@@ -69,7 +69,7 @@ def _state2png(args):
     #AnimationScene1.EndTime = 5040.0
     #AnimationScene1.PlayMode = 'Snap To TimeSteps'
 
-    _set_camera()
+    _set_camera(args.timestep)
 
     filenames = {}
 
@@ -282,6 +282,13 @@ def _parse_arguments():
                          help     = 'single file or directory containing solution.e and continuationData.dat'
                        )
 
+    parser.add_argument( '-t', '--timestep',
+                         metavar = 'TIMESTEP',
+                         type     = int,
+                         default  = 0,
+                         help     = 'time step to plot (default: 0)'
+                       )
+
     parser.add_argument( '-d', '--data',
                          dest     = 'plot_data',
                          #required = True,
@@ -322,7 +329,7 @@ def _absarg2png( filenames ):
     #pv.Render()
 
     array_name = filenames.keys()[0]
-    # make backgroun gray
+    # make background gray
     view.Background =  [0.5, 0.5, 0.5]
     #data_representation.ScalarOpacityFunction = pv.CreatePiecewiseFunction()
     data_representation.ColorArrayName = array_name
