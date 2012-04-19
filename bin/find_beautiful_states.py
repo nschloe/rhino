@@ -31,7 +31,7 @@ def find_beautiful_states( ginla_modeleval ):
 
     # Define search space.
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
-    Mu = np.linspace(1.0, 20.0, 20)
+    Mu = np.linspace(1.0, 40.0, 40)
     Alpha = np.linspace(0.2, 1.0, 5)
     Frequencies = [0.0, 0.5, 1.0, 2.0]
 
@@ -56,7 +56,9 @@ def find_beautiful_states( ginla_modeleval ):
         # Loop over initial states.
         for alpha, k in search_space:
             ginla_modeleval.set_parameter(mu)
-            print 'mu = %g, alpha = %g, k = %s' % (mu, alpha, k,)
+            #mu = 20; alpha = 1; k = (0.0, 0.0, 1.0)
+            mu = 40; alpha = 1; k = (0.0, 2.0)
+            print 'mu = %g; alpha = %g; k = %s' % (mu, alpha, k,)
             # Set the intitial guess for Newton.
             if len(k) == 2:
                 psi0 = alpha \
@@ -105,7 +107,7 @@ def find_beautiful_states( ginla_modeleval ):
                              + repr(num_newton_iters).rjust(2,'0') \
                              + repr(solution_id).rjust(3,'0') \
                              + '.e'
-                    print 'Interesting!',
+                    print 'Interesting state found for mu=%g!' % mu,
                     # Check if we already stored that one.
                     already_found = False
                     for state in found_solutions:

@@ -8,6 +8,7 @@ from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.sputils import upcast
 import numpy as np
 import scipy
+import warnings
 # ==============================================================================
 def l2_condition_number( linear_operator ):
     from scipy.sparse.linalg import eigs
@@ -483,7 +484,7 @@ def minres(A, b, x0,
         ret['Hfull'] = Hfull[0:k+1,0:k]
     if timer:
         # properly cut down times
-        for key in times.keys():
+        for key in times:
             times[key] = times[key][:k]
         ret['times'] = times
     return ret
@@ -1010,15 +1011,29 @@ def newton( x0,
         #      be complex-valued.
         #      Maybe get the lambda function along with its dtype
         #      as input argument?
-        U = np.zeros((len(x), len(deflation_generators)), dtype=x.dtype)
+        U = np.empty((len(x), len(deflation_generators)), dtype=x.dtype)
         for i, deflation_generator in enumerate(deflation_generators):
             U[:,[i]] = deflation_generator(x)
+
+        # Gather up all deflation vectors.
+        WW = np.c_[W,U]
+
+        # Brief sanity test for the deflation vectors.
+        # If one of them is (too close to) 0, then qr below will cowardly bail
+        # out, so remove them from the list.
+        del_k = []
+        for col_index, w in enumerate(WW.T):
+            alpha = Minner_product(w[:,None], w[:,None])
+            if abs(alpha) < 1.0e-14:
+                warnings.warn( 'Deflation vector dropped due to low norm; <v, v> = %g.' % alpha )
+                del_k.append( col_index )
+        WW = np.delete(WW, del_k, 1)
 
         # Attention: if the preconditioner is later solved inexactly
         #            then W will be orthonormal w.r.t. another inner
         #            product! This may affect the computation of ritz
         #            pairs and their residuals.
-        W, _ = qr( np.c_[W,U], inner_product = Minner_product)
+        W, _ = qr(WW, inner_product = Minner_product)
 
         if W.shape[1] > 0:
             AW = jacobian * W
@@ -1064,9 +1079,9 @@ def newton( x0,
             print 'Warning (newton): solution from linear solver has info = %d != 0' % out['info']
 
         np.set_printoptions(linewidth=150)
-        if ('Vfull' in out.keys()) and ('Hfull' in out.keys()):
+        if ('Vfull' in out) and ('Hfull' in out):
             if debug:
-                MVfull = out['Pfull'] if ('Pfull' in out.keys()) else out['Vfull']
+                MVfull = out['Pfull'] if ('Pfull' in out) else out['Vfull']
                 print '||ip(Vfull,W)|| = %g' % \
                     np.linalg.norm(model_evaluator.inner_product(MVfull, W))
                 print '||I-ip(Vfull,Vfull)|| = %g' % \
