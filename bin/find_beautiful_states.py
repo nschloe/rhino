@@ -78,7 +78,7 @@ def find_beautiful_states( ginla_modeleval ):
                                    linear_solver_maxiter = 500, #2*len(psi0),
                                    linear_solver_extra_args = {},
                                    nonlinear_tol = 1.0e-10,
-                                   forcing_term = 'type1', #'constant', 'type1', 'type 2'
+                                   forcing_term = 'type 1', #'constant', 'type 1', 'type 2'
                                    eta0 = 1.0e-10,
                                    use_preconditioner = True,
                                    deflation_generators = [ lambda x: 1j*x ],
