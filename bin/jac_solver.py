@@ -25,6 +25,9 @@ def _main():
 
     for filename in args.filenames:
         relresvec = _solve_system(filename, args.timestep, args.use_preconditioner)
+        print 'relresvec:'
+        print relresvec
+        print 'num iters:', len(relresvec)-1
         if args.show_relres:
             pp.semilogy(relresvec, 'k')
             pp.show()
@@ -33,15 +36,21 @@ def _main():
 # ==============================================================================
 def _solve_system(filename, timestep, use_preconditioner):
     # read the mesh
-    #print "Reading the mesh...",
+    print "Reading the mesh...",
+    start = time.time()
     mesh, point_data, field_data = voropy.read(filename,
                                                timestep=timestep
                                                )
-    #print "done."
+    total = time.time() - start
+    print "done (%gs)." % total
 
     # build the model evaluator
     mu = 1.0
+    print 'Creating model evaluator...',
+    start = time.time()
     ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
+    end = time.time()
+    print "done. (%gs)" % (end - start)
 
     # initialize the preconditioners
     #precs = preconditioners.Preconditioners( ginla_modeleval )
@@ -66,19 +75,19 @@ def _solve_system(filename, timestep, use_preconditioner):
         #current_psi[ k ] = cmath.rect(radius[k], arg[k])
     # --------------------------------------------------------------------------
     # create the linear operator
-    #print 'Getting Jacobian...',
-    #start_time = time.clock()
+    print 'Getting Jacobian...',
+    start_time = time.clock()
     ginla_jacobian = ginla_modeleval.get_jacobian( current_psi )
-    #end_time = time.clock()
-    #print 'done. (%gs)' % (end_time - start_time)
+    end_time = time.clock()
+    print 'done. (%gs)' % (end_time - start_time)
 
     # create precondictioner obj
     if use_preconditioner:
-        #print 'Getting preconditioner...',
-        #start_time = time.clock()
+        print 'Getting preconditioner...',
+        start_time = time.clock()
         prec = ginla_modeleval.get_preconditioner_inverse( current_psi )
-        #end_time = time.clock()
-        #print 'done. (%gs)' % (end_time - start_time)
+        end_time = time.clock()
+        print 'done. (%gs)' % (end_time - start_time)
     else:
         prec = None
 
@@ -112,19 +121,23 @@ def _solve_system(filename, timestep, use_preconditioner):
         #print "no convergence.",
     #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
 
-    #print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
-    #start_time = time.clock()
+    print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
+    start_time = time.clock()
     timer = False
     out = nm.minres(ginla_jacobian, rhs,
                     phi0,
                     tol = 1.0e-12,
                     M = prec,
-                    maxiter = 2*num_unknowns,
+                    #maxiter = 2*num_unknowns,
+                    maxiter = 500,
                     inner_product = ginla_modeleval.inner_product,
-                    explicit_residual = True,
+                    #explicit_residual = True,
                     timer=timer
                     #exact_solution = ref_sol
                     )
+    end_time = time.clock()
+    print 'done. (%gs)' % (end_time - start_time)
+    print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
 
     # get the number of MG cycles
     # 'ginla_modeleval.num_cycles' contains the number of MG cycles executed
@@ -140,15 +153,6 @@ def _solve_system(filename, timestep, use_preconditioner):
     # remainder take every other one.
     nc = [0] + ginla_modeleval.num_cycles[2::2]
     nc_cumsum = np.cumsum(nc)
-
-    #end_time = time.clock()
-    #print 'done. (%gs)' % (end_time - start_time)
-    #if info == 0:
-        #print "success!",
-    #else:
-        #print "no convergence.",
-    #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
-    print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
 
     # compute actual residual
     #res = rhs - ginla_jacobian * out['xk']

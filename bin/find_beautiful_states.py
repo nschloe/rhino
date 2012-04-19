@@ -31,7 +31,7 @@ def find_beautiful_states( ginla_modeleval ):
 
     # Define search space.
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
-    Mu = np.linspace(0.5, 10.0, 20)
+    Mu = np.linspace(1.0, 20.0, 20)
     Alpha = np.linspace(0.2, 1.0, 5)
     Frequencies = [0.0, 0.5, 1.0, 2.0]
 
@@ -78,7 +78,7 @@ def find_beautiful_states( ginla_modeleval ):
                                    linear_solver_maxiter = 500, #2*len(psi0),
                                    linear_solver_extra_args = {},
                                    nonlinear_tol = 1.0e-10,
-                                   forcing_term = 'constant', #'constant', 'type1', 'type 2'
+                                   forcing_term = 'type1', #'constant', 'type1', 'type 2'
                                    eta0 = 1.0e-10,
                                    use_preconditioner = True,
                                    deflation_generators = [ lambda x: 1j*x ],

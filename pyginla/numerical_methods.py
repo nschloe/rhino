@@ -984,7 +984,7 @@ def newton( x0,
             eta = max( eta, gamma * eta_previous**alpha, eta_min )
             eta = min( eta, eta_max )
         else:
-            raise ValueError('Unknown forcing term \'%s\'. Abort.')
+            raise ValueError('Unknown forcing term \'%s\'. Abort.' % forcing_term)
         eta_previous = eta
         if debug:
             print 'New tolerance for linear solver is %g.' % eta
