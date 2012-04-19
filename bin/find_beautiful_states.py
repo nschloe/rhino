@@ -10,28 +10,33 @@ import pyginla.ginla_modelevaluator as gm
 import voropy
 # ==============================================================================
 def _main():
-    filename = _parse_input_arguments()
+    args = _parse_input_arguments()
 
     # read the mesh
     print 'Reading the mesh...',
-    mesh, point_data, field_data = voropy.read( filename )
+    mesh, point_data, field_data = voropy.read( args.filename )
     print 'done.'
 
     # build the model evaluator
     mu = 0.0
     ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
-    find_beautiful_states(ginla_modeleval)
+    mu_range = np.linspace(args.mu_range[1],
+                           args.mu_range[0],
+                           args.num_mu_steps)
+    print 'Looking for solutions for mu in'
+    print mu_range
+    print
+    find_beautiful_states(ginla_modeleval, mu_range, args.forcing_term)
     return
 # ==============================================================================
-def find_beautiful_states( ginla_modeleval ):
+def find_beautiful_states( ginla_modeleval, mu_range, forcing_term ):
     '''Loop through a set of parameters/initial states and try to find
     starting points that (quickly) lead to "interesting looking" solutions.
     Such solutions are filtered out only by their energy at the moment.'''
 
     # Define search space.
     # Don't use Mu=0 as the preconditioner is singular for mu=0, psi=0.
-    Mu = np.linspace(1.0, 40.0, 40)
     Alpha = np.linspace(0.2, 1.0, 5)
     Frequencies = [0.0, 0.5, 1.0, 2.0]
 
@@ -50,14 +55,12 @@ def find_beautiful_states( ginla_modeleval ):
     solution_id = 0
     # Loop over problem parameters in reversed order:
     # This way, we'll find the states with many nodes first.
-    for mu in reversed(Mu):
+    for mu in mu_range:
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
         # Loop over initial states.
         for alpha, k in search_space:
             ginla_modeleval.set_parameter(mu)
-            #mu = 20; alpha = 1; k = (0.0, 0.0, 1.0)
-            mu = 40; alpha = 1; k = (0.0, 2.0)
             print 'mu = %g; alpha = %g; k = %s' % (mu, alpha, k,)
             # Set the intitial guess for Newton.
             if len(k) == 2:
@@ -80,7 +83,7 @@ def find_beautiful_states( ginla_modeleval ):
                                    linear_solver_maxiter = 500, #2*len(psi0),
                                    linear_solver_extra_args = {},
                                    nonlinear_tol = 1.0e-10,
-                                   forcing_term = 'type 1', #'constant', 'type 1', 'type 2'
+                                   forcing_term = forcing_term,
                                    eta0 = 1.0e-10,
                                    use_preconditioner = True,
                                    deflation_generators = [ lambda x: 1j*x ],
@@ -144,9 +147,28 @@ def _parse_input_arguments():
                          help    = 'ExodusII file containing the geometry and initial state'
                        )
 
-    args = parser.parse_args()
+    parser.add_argument( '--mu-range', '-r',
+                         required = True,
+                         nargs = 2,
+                         type    = float,
+                         help    = 'Range for mu sweep'
+                       )
 
-    return args.filename
+    parser.add_argument( '--num-mu-steps', '-n',
+                         metavar = 'NUMSTEPS',
+                         required = True,
+		         type    = int,
+                         help    = 'Number of steps in mu'
+		       )
+
+    parser.add_argument( '--forcing-term', '-f',
+                         required = True,
+                         choices = ['constant', 'type 1', 'type 2'],
+		         type    = str,
+                         help    = 'Forcing term for Newton''s method'
+		       )
+
+    return parser.parse_args()
 # ==============================================================================
 if __name__ == '__main__':
     _main()
