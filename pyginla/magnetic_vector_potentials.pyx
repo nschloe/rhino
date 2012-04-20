@@ -32,11 +32,17 @@ def constant_y( X ):
 def constant_z( X ):
     '''Magnetic vector potential corresponding to the field B=(0,0,1).'''
     if len(X.shape) == 2:
-        # array of data points
-        return np.array([-0.5 * X[:,1],
-                          0.5 * X[:,0],
-                         np.zeros(X.shape[0])]
-                         ).T
+        if X.shape[1] == 2:
+            return np.array([-0.5 * X[:,1],
+                              0.5 * X[:,0]]
+                             ).T
+        elif X.shape[1] == 3:
+            return np.array([-0.5 * X[:,1],
+                              0.5 * X[:,0],
+                             np.zeros(X.shape[0])]
+                             ).T
+        else:
+            raise ValueError('Coordinate data not understood.')
     else:
         # Just one point.
         return [ -0.5*X[1], 0.5*X[0], 0.0 ]
