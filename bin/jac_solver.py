@@ -24,7 +24,7 @@ def _main():
     args = _parse_input_arguments()
 
     for filename in args.filenames:
-        relresvec = _solve_system(filename, args.timestep, args.use_preconditioner)
+        relresvec = _solve_system(filename, args.timestep, args.use_preconditioner, args.deflation)
         print 'relresvec:'
         print relresvec
         print 'num iters:', len(relresvec)-1
@@ -34,7 +34,7 @@ def _main():
 
     return
 # ==============================================================================
-def _solve_system(filename, timestep, use_preconditioner):
+def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     # read the mesh
     print "Reading the mesh...",
     start = time.time()
@@ -45,7 +45,7 @@ def _solve_system(filename, timestep, use_preconditioner):
     print "done (%gs)." % total
 
     # build the model evaluator
-    mu = 1.0
+    mu = 1.324421110949059e+00
     print 'Creating model evaluator...',
     start = time.time()
     ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
@@ -81,7 +81,7 @@ def _solve_system(filename, timestep, use_preconditioner):
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
 
-    # create precondictioner obj
+    # create precondictioner object
     if use_preconditioner:
         print 'Getting preconditioner...',
         start_time = time.clock()
@@ -96,7 +96,8 @@ def _solve_system(filename, timestep, use_preconditioner):
     phi0 = np.zeros( (num_unknowns,1), dtype=complex )
 
     # right hand side
-    rhs = np.ones( (num_unknowns,1), dtype=complex )
+    rhs = ginla_modeleval.compute_f( current_psi )
+    #rhs = np.ones( (num_unknowns,1), dtype=complex )
 
     #rhs = np.empty( num_unknowns, dtype = complex )
     #radius = np.random.rand( num_unknowns )
@@ -121,17 +122,29 @@ def _solve_system(filename, timestep, use_preconditioner):
         #print "no convergence.",
     #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
 
+    if use_deflation:
+        W = 1j * current_psi
+        AW = ginla_jacobian * W
+        P, x0new = nm.get_projection(W, AW, rhs, phi0,
+                                     inner_product = ginla_modeleval.inner_product
+                                     )
+    else:
+        #AW = np.zeros((len(current_psi),1), dtype=np.complex)
+        P = None
+        x0new = phi0
+
     print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     start_time = time.clock()
     timer = False
     out = nm.minres(ginla_jacobian, rhs,
-                    phi0,
-                    tol = 1.0e-12,
+                    x0new,
+                    tol = 1.0e-11,
+                    Mr = P,
                     M = prec,
                     #maxiter = 2*num_unknowns,
                     maxiter = 500,
                     inner_product = ginla_modeleval.inner_product,
-                    #explicit_residual = True,
+                    explicit_residual = True,
                     timer=timer
                     #exact_solution = ref_sol
                     )
@@ -192,6 +205,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                 matvec = precs.diagonal,
                                 dtype = complex
                               )
+
     test_preconditioners.append( { 'name': 'diag',
                                    'precondictioner': prec_diag,
                                    'inner product': 'real'
@@ -666,6 +680,13 @@ def _parse_input_arguments():
                         action='store_true',
                         default=False,
                         help='show the relative residuals (default: False)'
+                        )
+
+    parser.add_argument('--deflation-ix', '-d',
+                        dest='deflation',
+                        action='store_true',
+                        default=False,
+                        help='use deflation with i*x (default: False)'
                         )
 
     args = parser.parse_args()
