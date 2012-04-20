@@ -24,8 +24,8 @@ def _main():
     if 'mu' in field_data:
         mu = field_data['mu']
     else:
-        mu = 0.2
-        print 'Using default mu=%g.' % mu
+        mu = args.mu
+        print 'Using mu=%g from command line.' % mu
     # build the model evaluator
     ginla_modeleval = \
         pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh,
@@ -40,7 +40,7 @@ def _main():
                                             args.eigenvalue_type,
                                             args.num_eigenvalues,
                                             None,
-                                            psi0,
+                                            psi0[:,None],
                                             ginla_modeleval
                                             )
         print 'The following eigenvalues were computed:'
@@ -210,21 +210,17 @@ def _parse_input_arguments():
     parser.add_argument( '--timestep', '-t',
                          metavar='TIMESTEP',
                          dest='timestep',
-                         nargs='?',
                          type=int,
-                         const=0,
                          default=0,
                          help='read a particular time step (default: 0)'
                        )
 
     parser.add_argument( '--operator', '-o',
                          metavar='OPERATOR',
+                         required = True,
                          dest='operator',
-                         nargs='?',
-                         type=str,
-                         const='k',
-                         default='k',
-                         help='operator to compute the eigenvalues of (k, p, j, pj; default: k)'
+                         choices = ['k', 'p', 'j', 'pj'],
+                         help='operator to compute the eigenvalues of (default: k)'
                        )
 
     parser.add_argument('--numeigenvalues', '-k',
@@ -245,6 +241,13 @@ def _parse_input_arguments():
                         dest='eigenvalue_type',
                         default='SM',
                         help='the type of eigenvalues to compute (default: SM (smallest magnitude))'
+                        )
+
+    parser.add_argument('--mu', '-m',
+                        dest='mu',
+                        type = float,
+                        default = 1.0,
+                        help='magnetic vector potential multiplier (default: 1.0)'
                         )
 
     args = parser.parse_args()

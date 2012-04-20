@@ -54,9 +54,10 @@ class GinlaModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            x = (- self._keo * phi) / self.mesh.control_volumes[:,None] \
-                + alpha * phi \
-                - psi0Squared * phi.conj()
+            y = (- self._keo * phi)
+            x = y[:,None] / self.mesh.control_volumes[:,None] \
+                + alpha * phi[:,None] \
+                - psi0Squared * phi[:,None].conj()
             return x
         # ----------------------------------------------------------------------
         assert psi0 is not None
