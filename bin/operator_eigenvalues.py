@@ -105,7 +105,9 @@ def _compute_eigenvalues(operator_type,
     elif operator_type == 'p':
         A = ginla_modeleval.get_preconditioner(psi)
     elif operator_type == 'j':
-        A = ginla_modeleval.get_jacobian(psi)
+        jac = ginla_modeleval.get_jacobian(psi)
+        A =  _complex2real( jac )
+        #print np.linalg.norm(jac * (1j * psi))
     elif operator_type == 'pj':
         # build preconditioned operator
         prec_inv = ginla_modeleval.get_preconditioner_inverse(psi)
@@ -137,6 +139,24 @@ def _compute_eigenvalues(operator_type,
     assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
 
     return eigenvals.real, X
+# ==============================================================================
+def _complex2real( op ):
+    '''For a given complex-valued operator C^n -> C^n, returns the
+    corresponding real-valued operator R^{2n} -> R^{2n}.'''
+    def _jacobian_wrap_apply( x ):
+        # Build complex-valued representation.
+        z = x[0::2] + 1j * x[1::2]
+        z_out = op * z
+        # Build real-valued representation.
+        x_out = np.empty(x.shape)
+        x_out[0::2] = z_out.real
+        x_out[1::2] = z_out.imag
+        return x_out
+
+    return LinearOperator((2*op.shape[0], 2*op.shape[1]),
+                          _jacobian_wrap_apply,
+                          dtype = float
+                          )
 # ==============================================================================
 def _plot_eigenvalue_series(x, eigenvals_list):
     '''Plotting series of eigenvalues can be hard to make visually appealing.
