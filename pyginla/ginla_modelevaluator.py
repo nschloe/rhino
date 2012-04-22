@@ -54,23 +54,22 @@ class GinlaModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            y = (- self._keo * phi)
-            x = y[:,None] / self.mesh.control_volumes[:,None] \
-                + alpha * phi[:,None] \
-                - psi0Squared * phi[:,None].conj()
+            x = (- self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+                + alpha.reshape(phi.shape) * phi \
+                - psi0Squared.reshape(phi.shape) * phi.conj()
             return x
         # ----------------------------------------------------------------------
         assert psi0 is not None
-        num_unknowns = len(self.mesh.node_coords)
 
         if self._keo is None:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        alpha = ( 1.0-self._T - 2.0*(psi0.real**2 + psi0.imag**2) )
+        alpha = (1.0 - self._T - 2.0*(psi0.real**2 + psi0.imag**2))
         psi0Squared = psi0**2
 
+        num_unknowns = len(self.mesh.node_coords)
         return LinearOperator( (num_unknowns, num_unknowns),
                                _apply_jacobian,
                                dtype = self.dtype
@@ -97,9 +96,9 @@ class GinlaModelEvaluator:
         '''Return the preconditioner.
         '''
         # ----------------------------------------------------------------------
-        def _apply_precon(x):
-            return (self._keo * x) / self.mesh.control_volumes[:,None] \
-                 + 2.0 * absPsi0Squared * x
+        def _apply_precon(phi):
+            return (self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+                  + 2.0 * absPsi0Squared.reshape(phi.shape) * phi
         # ----------------------------------------------------------------------
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.node_coords)
@@ -110,6 +109,7 @@ class GinlaModelEvaluator:
             self.mesh.compute_control_volumes()
 
         absPsi0Squared = psi0.real**2 + psi0.imag**2
+
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_precon,
                               dtype = self.dtype

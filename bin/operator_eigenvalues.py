@@ -24,8 +24,12 @@ def _main():
     if 'mu' in field_data:
         mu = field_data['mu']
     else:
-        mu = args.mu
-        print 'Using mu=%g from command line.' % mu
+        if args.mu is None:
+            raise ValueError('Parameter ''mu'' not found in file. Please provide on command line.')
+        else:
+            mu = args.mu
+            print 'Using mu=%g from command line.' % mu
+
     # build the model evaluator
     ginla_modeleval = \
         pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh,
@@ -59,7 +63,7 @@ def _main():
             eigenvals, X = _compute_eigenvalues(args.operator,
                                                 args.eigenvalue_type,
                                                 args.num_eigenvalues,
-                                                X[:,0],
+                                                X[:, 0],
                                                 ginla_modeleval
                                                 )
             #small_eigenval, X = my_lobpcg( ginla_modeleval._keo,
@@ -114,7 +118,7 @@ def _compute_eigenvalues(operator_type,
                             dtype = complex
                             )
     else:
-        raise ValueError('Unknown operator \'', operator_type, '\'.')
+        raise ValueError('Unknown operator \'%s\'.' % operator_type)
 
     print 'Compute the %s %d eigenvalues of %s...' \
           % (eigenvalue_type, num_eigenvalues, operator_type)
@@ -246,7 +250,6 @@ def _parse_input_arguments():
     parser.add_argument('--mu', '-m',
                         dest='mu',
                         type = float,
-                        default = 1.0,
                         help='magnetic vector potential multiplier (default: 1.0)'
                         )
 
