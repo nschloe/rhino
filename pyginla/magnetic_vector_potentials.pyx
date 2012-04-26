@@ -2,8 +2,8 @@
 import numpy as np
 from math import cos, sin
 cdef extern from "math.h":
-    void sincosf(float x, float *sin, float *cos)
-    float sqrtf(float x)
+    void sincos(double x, double *sin, double *cos)
+    double sqrt(double x)
 # ==============================================================================
 def constant_x( X ):
     '''Magnetic vector potential corresponding to the field B=(1,0,0).'''
@@ -78,10 +78,10 @@ def magnetic_dipole(x, x0, m):
    # gets divided by the corresponding entry in ||r||^3.
    return (np.cross(m, r).T / np.sum(np.abs(r)**2,axis=-1)**(3./2)).T
 # ==============================================================================
-def magnetic_dot(float x, float y,
-                 float magnet_radius,
-                 float height0,
-                 float height1
+def magnetic_dot(double x, double y,
+                 double magnet_radius,
+                 double height0,
+                 double height1
                  ):
     '''Magnetic vector potential corresponding to the field that is induced
     by a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)),
@@ -93,7 +93,7 @@ def magnetic_dot(float x, float y,
 
     Support for input valued (x,y,z), z!=0, is pending.
     '''
-    cdef float pi = 3.141592653589793
+    cdef double pi = 3.141592653589793
 
     # Span a cartesian grid over the sample, and integrate over it.
 
@@ -102,11 +102,11 @@ def magnetic_dot(float x, float y,
     # Choose such that the quads at radius/2 are approximately squares.
     cdef int n_radius = int( round( n_phi / pi ) )
 
-    cdef float dr = magnet_radius / n_radius
+    cdef double dr = magnet_radius / n_radius
 
-    cdef float ax = 0.0
-    cdef float ay = 0.0
-    cdef float beta, rad, r, r_3D0, r_3D1, alpha, x0, y0, x_dist, y_dist, sin_beta, cos_beta
+    cdef double ax = 0.0
+    cdef double ay = 0.0
+    cdef double beta, rad, r, r_3D0, r_3D1, alpha, x0, y0, x_dist, y_dist, sin_beta, cos_beta
     cdef int i_phi, i_radius
 
     # What we want to have is the value of
@@ -129,7 +129,7 @@ def magnetic_dot(float x, float y,
     #
     for i_phi in range(n_phi):
         beta = 2.0*pi/n_phi * i_phi
-        sincosf(beta, &sin_beta, &cos_beta)
+        sincos(beta, &sin_beta, &cos_beta)
         for i_radius in range(n_radius):
             rad = magnet_radius / n_radius * (i_radius + 0.5)
             # r = squared distance between grid point X to the
@@ -139,9 +139,9 @@ def magnetic_dot(float x, float y,
             r = x_dist * x_dist + y_dist * y_dist
             if r > 1.0e-15:
                 # 3D distance to point on lower edge (xi,yi,height0)
-                r_3D0 = sqrtf( r + height0*height0 )
+                r_3D0 = sqrt( r + height0*height0 )
                 # 3D distance to point on upper edge (xi,yi,height1)
-                r_3D1 = sqrtf( r + height1*height1 )
+                r_3D1 = sqrt( r + height1*height1 )
                 # Volume of circle segment = pi*anglar_width * r^2,
                 # so the volume of a building brick of the discretization is
                 #   V = pi/n_phi * [(r+dr/2)^2 - (r-dr/2)^2]
@@ -152,4 +152,76 @@ def magnetic_dot(float x, float y,
                 ay -= x_dist * alpha
 
     return [ ax, ay, 0.0 ]
+# ==============================================================================
+def magnetic_dot2( X, magnet_radius, heights ):
+    '''Magnetic vector potential corresponding to the field that is induced
+    by a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)),
+    with the radius magnet_radius for objects in the x-y-plane.
+    The potential is derived by interpreting the dot as an infinitesimal
+    collection of magnetic dipoles, hence
+
+       A(x) = \int_{dot} A_{dipole}(x-r) dr.
+
+    Support for input valued (x,y,z), z!=0, is pending.
+    '''
+    # Span a cartesian grid over the sample, and integrate over it.
+    # For symmetry, choose a number that is divided by 4.
+    n_phi = 100
+    # Choose such that the quads at radius/2 are approximately squares.
+    n_radius = int( round( n_phi / np.pi ) )
+
+    dr = magnet_radius / n_radius
+
+    A = np.zeros((len(X), 3))
+
+    # What we want to have is the value of
+    #
+    #    I(X) := \int_{dot} \|X-XX\|^{-3/2} (m\times(X-XX)) dXX
+    #
+    # with
+    #
+    #    X := (x, y, z)^T,
+    #    XX := (xx, yy, zz)^T
+    #
+    # The integral in zz can be calculated analytically, such that
+    #
+    #    I = \int_{disk}
+    #           [ - (z-zz) / (r2D*sqrt(r3D)) ]_{zz=h_0}^{h_1} ( -(y-yy), x-xx, 0)^T dxx dyy.
+    #
+    # The integral over the disk is then approximated numerically by
+    # the summation over little disk segments.
+    # An alternative is to use cylindrical coordinates.
+    #
+    X_dist = np.empty(X.shape)
+    for i_phi in xrange(n_phi):
+        beta = 2.0 * np.pi / n_phi * i_phi
+        sin_beta = np.sin(beta)
+        cos_beta = np.cos(beta)
+        for i_radius in xrange(n_radius):
+            rad = magnet_radius / n_radius * (i_radius + 0.5)
+            # r = squared distance between grid point X to the
+            #     point (x,y) on the magnetic dot
+            X_dist[:,0] = X[:,0] - rad * cos_beta
+            X_dist[:,1] = X[:,1] - rad * sin_beta
+
+            # r = x_dist * x_dist + y_dist * y_dist
+            R = np.sum(X_dist**2, axis=1)
+            ind = np.nonzero(R > 1.0e-15)
+
+            # 3D distance to point on lower edge (xi,yi,height0)
+            R_3D0 = np.sqrt( R[ind] + heights[0]**2 )
+            # 3D distance to point on upper edge (xi,yi,height1)
+            R_3D1 = np.sqrt( R[ind] + heights[1]**2 )
+            # Volume of circle segment = pi*angular_width * r^2,
+            # so the volume of a building brick of the discretization is
+            #   V = pi/n_phi * [(r+dr/2)^2 - (r-dr/2)^2]
+            #     = pi/n_phi * 2 * r * dr.
+            Alpha = ( heights[1]/R_3D1 - heights[0]/R_3D0 ) / R[ind] \
+                  * np.pi / n_phi * (2.0*rad*dr) # volume
+            # ax += y_dist * alpha
+            # ay -= x_dist * alpha
+            A[ind,0] += X_dist[ind,1] * Alpha
+            A[ind,1] -= X_dist[ind,0] * Alpha
+
+    return A
 # ==============================================================================
