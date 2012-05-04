@@ -423,7 +423,7 @@ def minres(A, b, x0,
         if exact_solution is not None:
             xk = x0 + _apply(Mr, yk)
             errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
-        def compute_norm_r_exp(xk):
+        def compute_norm_r_exp(yk):
             xk = x0 + _apply(Mr, yk)
             r_exp = b - _apply(A, xk)
             r_exp = _apply(Ml, r_exp)
