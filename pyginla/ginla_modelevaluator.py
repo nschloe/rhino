@@ -193,7 +193,7 @@ class GinlaModelEvaluator:
 
         num_unknowns = len(psi0)
 
-        precon_type = 'pyamg solve'
+        precon_type = 'custom cg'
         if precon_type == 'custom cg':
             import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )

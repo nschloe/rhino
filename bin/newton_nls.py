@@ -6,7 +6,7 @@
 import numpy as np
 
 import pyginla.numerical_methods as nm
-import pyginla.ginla_modelevaluator as gm
+import pyginla.nls_modelevaluator as nls
 import voropy
 # ==============================================================================
 def _main():
@@ -18,13 +18,16 @@ def _main():
     print 'done.'
 
     # build the model evaluator
-    if 'mu' in field_data:
-        mu = field_data['mu']
-        print 'Using  mu = %g  as found in file.' % mu
+    if args.kappa is not None:
+        kappa = args.kappa
+        print 'Using parameter  kappa = %g.' % kappa
+    elif 'mu' in field_data:
+        kappa = field_data['kappa']
+        print 'Using  kappa = %g  as found in file.' % kappa
     else:
-        mu = 1.0
-        print 'No parameter \'mu\' found in file. Using  mu = %g.' % mu
-    ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+        raise RuntimeError('Parameter ''kappa'' not found in file or command line.')
+
+    model_eval = nls.NlsModelEvaluator(mesh, kappa)
 
     # initial guess
     num_nodes = len(mesh.node_coords)
@@ -34,12 +37,7 @@ def _main():
         psi0 = np.reshape(point_data['psi'], (num_nodes,1))
     else:
         psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
-        #alpha = 0.3
-        #kx = 2
-        #ky = 0.5
-        #for i, node in enumerate(mesh.node_coords):
-            #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    newton_out = newton(ginla_modeleval, psi0)
+    newton_out = newton(model_eval, psi0)
     print 'Newton residuals:', newton_out['Newton residuals']
 
     if args.show:
@@ -52,9 +50,9 @@ def _main():
     #matplotlib2tikz.save('minres-prec-defl.tex')
 
     # write the solution to a file
-    ginla_modeleval.mesh.write('solution.e', {'psi': newton_out['x']})
+    model_eval.mesh.write('solution.e', {'psi': newton_out['x']})
     # energy of the state
-    print 'Energy of the final state: %g.' % ginla_modeleval.energy( newton_out['x'] )
+    print 'Energy of the final state: %g.' % model_eval.energy( newton_out['x'] )
 
     return
 # ==============================================================================
@@ -111,7 +109,13 @@ def _parse_input_arguments():
                         default = False,
                         help    = 'show the relative residuals of each linear iteration (default: False)'
                         )
-    
+
+    parser.add_argument('--kappa', '-k',
+                        default = None,
+                        type = float,
+                        help = 'override value for kappa from FILE (default: None)'
+                        )
+
 
     return parser.parse_args()
 # ==============================================================================

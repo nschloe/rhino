@@ -40,12 +40,14 @@ def _main():
     # Add magnetic vector potential.
     print 'Creating A...',
     start = time.time()
+    #A = points # field A(X) = X -- test case
     import pyginla.magnetic_vector_potentials as mvp
-    A = mvp.constant_z(points)
-    #A = mvp.magnetic_dipole(points,
-                            #x0 = np.array([0,0,1]),
-                            #m = np.array([0,0,1])
-                            #)
+    #A = mvp.constant_z(points)
+    A = mvp.magnetic_dipole(points,
+                            x0 = np.array([0,0,0]),
+                            m = np.array([0,0,1])
+                            )
+    #A = mvp.magnetic_dot(points, radius=2.0, heights=[0.1, 1.1])
     #A = np.empty((num_nodes, 3), dtype=float)
     #for k, node in enumerate(points):
         #A[k] = mvp.magnetic_dot(node, radius=2.0, height0=0.1, height1=1.1)
@@ -80,7 +82,7 @@ def _parse_options():
                         type    = str,
                         help    = 'file that contains the mesh'
                         )
-    
+
     parser.add_argument('outfile',
                         metavar = 'OUFILE',
                         type    = str,

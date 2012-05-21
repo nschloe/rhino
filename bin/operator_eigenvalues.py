@@ -40,6 +40,18 @@ def _main():
     if not args.series:
         # compute the eigenvalues once
         psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
+        p0 = 1j * psi0
+        p0 /= np.sqrt(ginla_modeleval.inner_product(p0, p0))
+        y0 = ginla_modeleval.get_jacobian(psi0) * p0
+        print np.linalg.norm(y0)
+        grad_psi0 = mesh.compute_gradient(psi0)
+        x_tilde = np.array( [-mesh.node_coords[:,1], mesh.node_coords[:,0]] ).T
+        p1 = np.sum(x_tilde * grad_psi0, axis=1)
+        mesh.write('test.e', point_data={'x grad': p1})
+        nrm_p1 = np.sqrt(ginla_modeleval.inner_product(p1, p1))
+        p1 /= nrm_p1
+        y1 = ginla_modeleval.get_jacobian(psi0) * p1
+        print np.linalg.norm(y1)
         eigenvals, X = _compute_eigenvalues(args.operator,
                                             args.eigenvalue_type,
                                             args.num_eigenvalues,
@@ -48,7 +60,7 @@ def _main():
                                             ginla_modeleval
                                             )
         print 'The following eigenvalues were computed:'
-        print eigenvals
+        print sorted(eigenvals)
     else:
         # initial guess for the eigenvectors
         X = np.ones((len(mesh.node_coords), 1))
