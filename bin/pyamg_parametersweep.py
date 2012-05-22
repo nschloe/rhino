@@ -6,9 +6,10 @@ Solve the linearized Ginzburg--Landau problem.
 # ==============================================================================
 from solver_diagnostics import solver_diagnostics # pyamg
 from scipy.sparse import spdiags
+import numpy as np
 
-import mesh.mesh_io
-import pyginla.ginla_modelevaluator
+import voropy
+import pyginla.gp_modelevaluator
 # ==============================================================================
 def _main():
     '''Main function.
@@ -17,24 +18,29 @@ def _main():
 
     # read the mesh
     #print "Reading the mesh...",
-    pyginlamesh, psi0, A, field_data = \
-        mesh.mesh_io.read_mesh(args.filename, timestep=args.timestep)
-
+    mesh, point_data, field_data = voropy.read(args.filename, timestep=args.timestep)
+    psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
 
     # build the model evaluator
     mu = 1.0e-1
-    ginla_modelval = pyginla.ginla_modelevaluator.GinlaModelEvaluator(pyginlamesh, A, mu)
+    g = 1.0
+    num_nodes = len(mesh.node_coords)
+    V = -np.ones(num_nodes)
+    modeleval = pyginla.gp_modelevaluator.GrossPitaevskiiModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
 
     # build preconditioner
-    if ginla_modelval._keo is None:
-        ginla_modelval._assemble_keo()
-    if ginla_modelval.control_volumes is None:
-        ginla_modelval._compute_control_volumes()
-    num_nodes = len(ginla_modelval.control_volumes)
-    absPsi0Squared = psi0.real**2 + psi0.imag**2
-    D = spdiags(2 * absPsi0Squared.T * ginla_modelval.control_volumes.T, [0],
-                num_nodes, num_nodes)
-    prec = ginla_modelval._keo + D
+    if modeleval._keo is None:
+        modeleval._assemble_keo()
+    if mesh.control_volumes is None:
+        mesh.compute_control_volumes()
+
+    if modeleval._g > 0:
+        alpha = modeleval._g * 2.0 * (psi0.real**2 + psi0.imag**2)
+        a = alpha.T * mesh.control_volumes.T
+        D = spdiags(alpha.T * mesh.control_volumes.T, [0], num_nodes, num_nodes)
+        prec = modeleval._keo + D
+    else:
+        prec = modeleval._keo
 
     # https://code.google.com/p/pyamg/source/browse/trunk/Examples/SolverDiagnostics/solver_diagnostics.py
     solver_diagnostics(prec,
@@ -56,7 +62,7 @@ def _parse_input_arguments():
     parser.add_argument( 'filename',
                          metavar = 'FILE',
                          type    = str,
-                         help    = 'ExodusII file containing the geometry and initial state'
+                         help    = 'file containing the geometry and initial state'
                        )
 
     parser.add_argument( '--timestep', '-t',

@@ -33,6 +33,7 @@ class GrossPitaevskiiModelEvaluator:
             self._raw_magnetic_vector_potential = A
         self.mu = mu
         self._keo = None
+        self._prec = None
         self._D = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
@@ -67,7 +68,7 @@ class GrossPitaevskiiModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            x = (- self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+            x = (self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
                 + alpha.reshape(phi.shape) * phi \
                 + gPsi0Squared.reshape(phi.shape) * phi.conj()
             return x
@@ -78,9 +79,8 @@ class GrossPitaevskiiModelEvaluator:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
-
-        alpha = V + g * 2.0*(psi0.real**2 + psi0.imag**2)
-        gPsi0Squared = g * psi0**2
+        alpha = self._V.reshape(psi0.shape) + self._g * 2.0*(psi0.real**2 + psi0.imag**2)
+        gPsi0Squared = self._g * psi0**2
 
         num_unknowns = len(self.mesh.node_coords)
         return LinearOperator( (num_unknowns, num_unknowns),
@@ -194,7 +194,7 @@ class GrossPitaevskiiModelEvaluator:
 
         num_unknowns = len(psi0)
 
-        precon_type = 'custom cg'
+        precon_type = 'pyamg solve'
         if precon_type == 'custom cg':
             import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
