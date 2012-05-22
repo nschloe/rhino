@@ -14,7 +14,7 @@ import matplotlib.pyplot as pp
 #rc( 'font', family = 'serif' )
 
 import voropy
-import pyginla.ginla_modelevaluator
+import pyginla.gp_modelevaluator
 #import pyginla.preconditioners
 import pyginla.numerical_methods as nm
 # ==============================================================================
@@ -48,7 +48,9 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     mu = 1.324421110949059e+00
     print 'Creating model evaluator...',
     start = time.time()
-    ginla_modeleval = pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
+    g = 1.0
+    V = -np.ones(len(mesh.node_coords))
+    modeleval = pyginla.gp_modelevaluator.GrossPitaevskiiModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
     end = time.time()
     print "done. (%gs)" % (end - start)
 
@@ -77,7 +79,7 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     # create the linear operator
     print 'Getting Jacobian...',
     start_time = time.clock()
-    ginla_jacobian = ginla_modeleval.get_jacobian( current_psi )
+    jacobian = modeleval.get_jacobian( current_psi )
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
 
@@ -85,7 +87,7 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     if use_preconditioner:
         print 'Getting preconditioner...',
         start_time = time.clock()
-        prec = ginla_modeleval.get_preconditioner_inverse( current_psi )
+        prec = modeleval.get_preconditioner_inverse( current_psi )
         end_time = time.clock()
         print 'done. (%gs)' % (end_time - start_time)
     else:
@@ -96,7 +98,7 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     phi0 = np.zeros( (num_unknowns,1), dtype=complex )
 
     # right hand side
-    rhs = ginla_modeleval.compute_f( current_psi )
+    rhs = modeleval.compute_f( current_psi )
     #rhs = np.ones( (num_unknowns,1), dtype=complex )
 
     #rhs = np.empty( num_unknowns, dtype = complex )
@@ -108,11 +110,11 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     # Get reference solution
     #print "Get reference solution (dim = %d)..." % (2*num_unknowns),
     #start_time = time.clock()
-    #ref_sol, info, relresvec, errorvec = nm.minres_wrap( ginla_jacobian, rhs,
+    #ref_sol, info, relresvec, errorvec = nm.minres_wrap( jacobian, rhs,
                                           #x0 = phi0,
                                           #tol = 1.0e-14,
                                           #M = prec,
-                                          #inner_product = ginla_modeleval.inner_product,
+                                          #inner_product = modeleval.inner_product,
                                           #explicit_residual = True
                                         #)
     #end_time = time.clock()
@@ -124,9 +126,9 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
 
     if use_deflation:
         W = 1j * current_psi
-        AW = ginla_jacobian * W
+        AW = jacobian * W
         P, x0new = nm.get_projection(W, AW, rhs, phi0,
-                                     inner_product = ginla_modeleval.inner_product
+                                     inner_product = modeleval.inner_product
                                      )
     else:
         #AW = np.zeros((len(current_psi),1), dtype=np.complex)
@@ -136,14 +138,14 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
     start_time = time.clock()
     timer = False
-    out = nm.minres(ginla_jacobian, rhs,
+    out = nm.minres(jacobian, rhs,
                     x0new,
                     tol = 1.0e-11,
                     Mr = P,
                     M = prec,
                     #maxiter = 2*num_unknowns,
                     maxiter = 500,
-                    inner_product = ginla_modeleval.inner_product,
+                    inner_product = modeleval.inner_product,
                     explicit_residual = True,
                     timer=timer
                     #exact_solution = ref_sol
@@ -153,7 +155,7 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
 
     # get the number of MG cycles
-    # 'ginla_modeleval.num_cycles' contains the number of MG cycles executed
+    # 'modeleval.num_cycles' contains the number of MG cycles executed
     # for all AMG calls run.
     # In nm.minres, two calls to the precondictioner are done prior to the
     # actual iteration for the normalization of the residuals.
@@ -164,12 +166,12 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     # calls for the initialization.
     # Hence, cut of the first two and replace it by 0, and out of the
     # remainder take every other one.
-    nc = [0] + ginla_modeleval.num_cycles[2::2]
+    nc = [0] + modeleval.num_cycles[2::2]
     nc_cumsum = np.cumsum(nc)
 
     # compute actual residual
-    #res = rhs - ginla_jacobian * out['xk']
-    #print '||b-Ax|| = %g' % np.sqrt(ginla_modeleval.inner_product(res, res))
+    #res = rhs - jacobian * out['xk']
+    #print '||b-Ax|| = %g' % np.sqrt(modeleval.inner_product(res, res))
 
     if timer:
         # pretty-print timings
@@ -294,9 +296,9 @@ def _create_preconditioner_list( precs, num_unknowns ):
 
     return test_preconditioners
 # ==============================================================================
-def _run_one_mu( ginla_modeleval,
+def _run_one_mu( modeleval,
                  precs,
-                 ginla_jacobian,
+                 jacobian,
                  rhs,
                  psi0,
                  test_preconditioners
@@ -305,12 +307,12 @@ def _run_one_mu( ginla_modeleval,
     # build the kinetic energy operator
     print "Building the KEO..."
     start_time = time.clock()
-    ginla_modeleval._assemble_kinetic_energy_operator()
+    modeleval._assemble_kinetic_energy_operator()
     end_time = time.clock()
     print "done.", end_time - start_time
     # --------------------------------------------------------------------------
     # Run the preconditioners and gather the relative residuals.
-    relresvecs = _run_preconditioners( ginla_jacobian,
+    relresvecs = _run_preconditioners( jacobian,
                                        rhs,
                                        psi0,
                                        test_preconditioners
@@ -325,9 +327,9 @@ def _run_one_mu( ginla_modeleval,
     pp.show()
     return
 # ==============================================================================
-def _run_along_top( ginla_modeleval,
+def _run_along_top( modeleval,
                     precs,
-                    ginla_jacobian,
+                    jacobian,
                     rhs,
                     psi0,
                     test_preconditioners
@@ -351,16 +353,16 @@ def _run_along_top( ginla_modeleval,
         print " mu =", mu
         # ----------------------------------------------------------------------
         # build the kinetic energy operator
-        ginla_modeleval.set_parameter( mu )
+        modeleval.set_parameter( mu )
         precs.set_parameter( mu )
         print "Building the KEO..."
         start_time = time.clock()
-        ginla_modeleval._assemble_kinetic_energy_operator()
+        modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print "done. (", end_time - start_time, "s)."
         # ----------------------------------------------------------------------
         # Run the preconditioners and gather the relative residuals.
-        relresvecs = _run_preconditioners( ginla_jacobian,
+        relresvecs = _run_preconditioners( jacobian,
                                            rhs,
                                            psi0,
                                            test_preconditioners
@@ -394,7 +396,7 @@ def _run_along_top( ginla_modeleval,
 
     return
 # ==============================================================================
-def _run_different_meshes( ginla_modeleval,
+def _run_different_meshes( modeleval,
                            precs
                          ):
     mesh_files = [
@@ -421,7 +423,7 @@ def _run_different_meshes( ginla_modeleval,
                  ]
 
     mu = 1.0e-0
-    ginla_modeleval.set_parameter( mu )
+    modeleval.set_parameter( mu )
     precs.set_parameter( mu )
 
     # --------------------------------------------------------------------------
@@ -440,7 +442,7 @@ def _run_different_meshes( ginla_modeleval,
         except AttributeError:
             raise IOError( "Could not read from file ", mesh_file, "." )
         print " done."
-        ginla_modeleval.set_mesh( mesh )
+        modeleval.set_mesh( mesh )
         precs.set_mesh( mesh )
         # ----------------------------------------------------------------------
         # recreate all the objects necessary to perform the precondictioner run
@@ -449,8 +451,8 @@ def _run_different_meshes( ginla_modeleval,
         nums_unknowns.append( num_unknowns )
 
         # create the linear operator
-        ginla_jacobian = LinearOperator( (num_unknowns, num_unknowns),
-                                         matvec = ginla_modeleval.compute_jacobian,
+        jacobian = LinearOperator( (num_unknowns, num_unknowns),
+                                         matvec = modeleval.compute_jacobian,
                                          dtype = complex
                                        )
 
@@ -463,7 +465,7 @@ def _run_different_meshes( ginla_modeleval,
                               )
         for k in range( num_unknowns ):
             current_psi[ k ] = cmath.rect(radius[k], arg[k])
-        ginla_modeleval.set_current_psi( current_psi )
+        modeleval.set_current_psi( current_psi )
 
         # create right hand side and initial guess
         rhs  =  np.random.rand( num_unknowns ) \
@@ -480,12 +482,12 @@ def _run_different_meshes( ginla_modeleval,
         # build the kinetic energy operator
         print "Building the KEO..."
         start_time = time.clock()
-        ginla_modeleval._assemble_kinetic_energy_operator()
+        modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print "done. (", end_time - start_time, "s)."
         # ----------------------------------------------------------------------
         # Run the preconditioners and gather the relative residuals.
-        relresvecs = _run_preconditioners( ginla_jacobian,
+        relresvecs = _run_preconditioners( jacobian,
                                            rhs,
                                            psi0,
                                            test_preconditioners
