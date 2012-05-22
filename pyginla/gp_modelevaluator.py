@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Provide tools for solving the nonlinear Schrödinger equation.
+Provide information around the Gross--Pitaevskii equations.
 '''
 import numpy as np
 from scipy import sparse, linalg
@@ -9,32 +9,48 @@ from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import spdiags
 import cmath
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-class NlsModelEvaluator:
-    '''Nonlinear Schr"odinger model evaluator class.
+class GrossPitaevskiiModelEvaluator:
+    '''Gross-Pitaevskii model evaluator class.
+    Incorporates
+       * Ginzburg--Landau: g=1.0, V==-1.0, and some magnetic potential A.
+       * Nonlinear Schrödinger: g=1.0, V==0.0, A==0.0.
     '''
     # ==========================================================================
-    def __init__(self, mesh, kappa):
+    def __init__(self, mesh, g=0.0, V=None, A=None, mu=0.0 ):
         '''Initialization. Set mesh.
         '''
         self.dtype = complex
         self.mesh = mesh
-        self.kappa = kappa
-        self._laplacian = None
+        n = len(mesh.node_coords)
+        self._g = g
+        if V is None:
+            self._V = np.zeros(n)
+        else:
+            self._V = V
+        if A is None:
+            self._raw_magnetic_vector_potential = np.zeros((n,3))
+        else:
+            self._raw_magnetic_vector_potential = A
+        self.mu = mu
+        self._keo = None
         self._D = None
         self._edgecoeff_cache = None
+        self._mvp_edge_cache = None
         self.num_cycles = []
         return
     # ==========================================================================
-    def compute_f( self, psi ):
-        '''Computes the nonlinear Schr"odinger residual for a state psi.
+    def compute_f(self, psi):
+        '''Computes the Gross--Pitaevskii residual
+
+            GP(psi) = K*psi + (V + g*|psi|^2) * psi
         '''
-        if self._laplacian is None:
-            self._assemble_laplacian()
+        if self._keo is None:
+            self._assemble_keo()
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        res = (- 0.5 * self._laplacian * psi) / self.mesh.control_volumes[:,None]  \
-              + self.kappa * abs(psi)**2 * psi
+        res = (self._keo * psi) / self.mesh.control_volumes[:,None]  \
+            + (self._V.reshape(psi.shape) + self._g * abs(psi)**2) * psi
 
         return res
     # ==========================================================================
@@ -46,25 +62,25 @@ class NlsModelEvaluator:
 
         with
 
-            A = K + 2*|psi|^2,
-            B = diag( psi^2 ).
+            A = K + I * (V + g * 2*|psi|^2),
+            B = g * diag( psi^2 ).
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            x = (- 0.5 * self._laplacian * phi) / self.mesh.control_volumes.reshape(phi.shape) \
-                + kAlpha.reshape(phi.shape) * phi \
-                + kPsi0Squared.reshape(phi.shape) * phi.conj()
+            x = (- self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+                + alpha.reshape(phi.shape) * phi \
+                + gPsi0Squared.reshape(phi.shape) * phi.conj()
             return x
         # ----------------------------------------------------------------------
         assert psi0 is not None
 
-        if self._laplacian is None:
-            self._assemble_laplacian()
+        if self._keo is None:
+            self._assemble_keo()
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        kAlpha = self.kappa * 2.0*(psi0.real**2 + psi0.imag**2)
-        kPsi0Squared = self.kappa * psi0**2
+        alpha = V + g * 2.0*(psi0.real**2 + psi0.imag**2)
+        gPsi0Squared = g * psi0**2
 
         num_unknowns = len(self.mesh.node_coords)
         return LinearOperator( (num_unknowns, num_unknowns),
@@ -77,18 +93,21 @@ class NlsModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_precon(phi):
-            return (- 0.5 * self._laplacian * phi) / self.mesh.control_volumes.reshape(phi.shape) \
-                   + 2.0 * absPsi0Squared.reshape(phi.shape) * phi
+            return (self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+                  + alpha.reshape(phi.shape) * phi
         # ----------------------------------------------------------------------
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.node_coords)
 
-        if self._laplacian is None:
-            self._assemble_laplacian()
+        if self._keo is None:
+            self._assemble_keo()
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        absPsi0Squared = psi0.real**2 + psi0.imag**2
+        if self._g > 0.0:
+            alpha = self._g * 2.0 * (psi0.real**2 + psi0.imag**2)
+        else:
+            alpha = np.zeros((len(psi0),1))
 
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_precon,
@@ -138,17 +157,19 @@ class NlsModelEvaluator:
             self.num_cycles += [num_cycles]
             return x
         # ----------------------------------------------------------------------
-        if self._laplacian is None:
-            self._assemble_laplacian()
+        if self._keo is None:
+            self._assemble_keo()
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
         num_nodes = len(self.mesh.node_coords)
-        absPsi0Squared = psi0.real**2 + psi0.imag**2
-        D = spdiags(2.0 * absPsi0Squared.T * self.mesh.control_volumes.T, [0],
-                    num_nodes, num_nodes)
-
-        prec = - 0.5 * self._laplacian + D
+        if self._g > 0.0:
+            alpha = self._g * 2.0 * (psi0.real**2 + psi0.imag**2)
+            D = spdiags(alpha.T * self.mesh.control_volumes.T, [0],
+                        num_nodes, num_nodes)
+            prec = self._keo + D
+        else:
+            prec = self._keo
 
         # The preconditioner assumes the eigenvalue 0 iff mu=0 and psi=0.
         # This may lead to problems if mu=0 and the Newton iteration
@@ -173,7 +194,7 @@ class NlsModelEvaluator:
 
         num_unknowns = len(psi0)
 
-        precon_type = 'pyamg solve'
+        precon_type = 'custom cg'
         if precon_type == 'custom cg':
             import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
@@ -229,23 +250,27 @@ class NlsModelEvaluator:
 
         return alpha.real / self.mesh.control_volumes.sum()
     # ==========================================================================
-    def set_parameter(self, kappa):
+    def set_parameter(self, mu):
         '''Update the parameter.
         '''
-        self.kappa = kappa
+        self.mu = mu
+        self._keo = None
+        self._mvp_edge_cache = None
         return
     # ==========================================================================
-    def _assemble_laplacian( self ):
+    def _assemble_keo( self ):
         '''Assemble the kinetic energy operator.'''
 
         # Create the matrix structure.
         num_nodes = len(self.mesh.node_coords)
-        self._laplacian = sparse.lil_matrix((num_nodes, num_nodes),
-                                            dtype = complex
-                                           )
+        self._keo = sparse.lil_matrix((num_nodes, num_nodes),
+                                      dtype = complex
+                                      )
         # Build caches.
         if self._edgecoeff_cache is None:
             self._build_edgecoeff_cache()
+        if self._mvp_edge_cache is None:
+            self._build_mvp_edge_cache()
         if self.mesh.edges is None:
             self.mesh.create_adjacent_entities()
 
@@ -253,14 +278,15 @@ class NlsModelEvaluator:
         for k, node_indices in enumerate(self.mesh.edges['nodes']):
             # Fetch the cached values.
             alpha = self._edgecoeff_cache[k]
+            alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[k])
             # Sum them into the matrix.
-            self._laplacian[node_indices[0], node_indices[0]] -= alpha
-            self._laplacian[node_indices[0], node_indices[1]] += alpha
-            self._laplacian[node_indices[1], node_indices[0]] += alpha
-            self._laplacian[node_indices[1], node_indices[1]] -= alpha
+            self._keo[node_indices[0], node_indices[0]] += alpha
+            self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conj()
+            self._keo[node_indices[1], node_indices[0]] -= alphaExp0
+            self._keo[node_indices[1], node_indices[1]] += alpha
 
         # transform the matrix into the more efficient CSR format
-        self._laplacian = self._laplacian.tocsr()
+        self._keo = self._keo.tocsr()
 
         return
     # ==========================================================================
@@ -313,5 +339,81 @@ class NlsModelEvaluator:
                 pass
 
         return
+    # ==========================================================================
+    def _build_mvp_edge_cache( self ):
+        '''Builds the cache for the magnetic vector potential.'''
+
+        # make sure the mesh has edges
+        if self.mesh.edges is None:
+            self.mesh.create_adjacent_entities()
+
+        # Approximate the integral
+        #
+        #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
+        #
+        # numerically by the midpoint rule, i.e.,
+        #
+        #    I ~ (xj-x0) . A( 0.5*(xj+x0) )
+        #      ~ (xj-x0) . 0.5*( A(xj) + A(x0) )
+        #
+        # The following computes the dot-products of all those
+        # edges[i], mvp[i], and put the result in the cache.
+        edges = self.mesh.node_coords[self.mesh.edges['nodes'][:,1]] \
+              - self.mesh.node_coords[self.mesh.edges['nodes'][:,0]]
+        mvp = 0.5 * (self._get_mvp(self.mesh.edges['nodes'][:,1]) \
+                    +self._get_mvp(self.mesh.edges['nodes'][:,0]))
+        self._mvp_edge_cache = np.sum(edges * mvp, 1)
+
+        return
+    # ==========================================================================
+    def _get_mvp(self, index):
+        return self.mu * self._raw_magnetic_vector_potential[index]
+    # ==========================================================================
+    #def keo_smallest_eigenvalue_approximation( self ):
+        #'''Returns
+           #<v,Av> / <v,v>
+        #with v = ones and A = KEO - Laplace.
+        #This is linear approximation for the smallest magnitude eigenvalue
+        #of KEO.
+        #'''
+        #num_nodes = len( self.mesh.nodes )
+
+        ## compute the FVM entities for the mesh
+        #if self._edge_lengths is None or self._coedge_edge_ratios is None:
+            #self._create_fvm_entities()
+
+        #k = 0
+        #sum = 0.0
+        #for element in self.mesh.cells:
+            ## loop over the edges
+            #l = 0
+            #for edge in element.edges:
+                ## --------------------------------------------------------------
+                ## Compute the integral
+                ##
+                ##    I = \int_{x0}^{xj} (xj-x0).A(x) dx
+                ##
+                ## numerically by the midpoint rule, i.e.,
+                ##
+                ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
+                ##
+                #node0 = self.mesh.nodes[ edge[0] ]
+                #node1 = self.mesh.nodes[ edge[1] ]
+                #midpoint = 0.5 * ( node0 + node1 )
+
+                ## Instead of projecting onto the normalized edge and then
+                ## multiplying with the edge length for the approximation of the
+                ## integral, just project on the not normalized edge.
+                #a_integral = np.dot( node1 - node0,
+                                     #self._magnetic_vector_potential( midpoint )
+                                   #)
+
+                ## sum it in
+                #sum += 2.0 * self._coedge_edge_ratios[k][l] * \
+                       #( 1.0 - math.cos( a_integral ) )
+                #l += 1
+            #k += 1
+
+        #return sum / len( self.mesh.nodes )
     # ==========================================================================
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=

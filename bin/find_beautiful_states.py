@@ -6,7 +6,7 @@
 import numpy as np
 
 import pyginla.numerical_methods as nm
-import pyginla.ginla_modelevaluator as gm
+import pyginla.gp_modelevaluator as gm
 import voropy
 # ==============================================================================
 def _main():
@@ -19,7 +19,9 @@ def _main():
 
     # build the model evaluator
     mu = 0.0
-    ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+    V = -np.ones(len(mesh.node_coords))
+    ginla_modeleval = \
+        gm.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
 
     mu_range = np.linspace(args.mu_range[1],
                            args.mu_range[0],
