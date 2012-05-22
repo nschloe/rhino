@@ -29,11 +29,11 @@ def l2_condition_number( linear_operator ):
 # ==============================================================================
 def _ipstd( X, Y ):
     '''Euclidean inner product
-    
+
     np.vdot only works for vectors and np.dot does not use the conjugate
     transpose. In Octave/MATLAB notation _ipstd(X,Y) == X'*Y.
 
-    Arguments: 
+    Arguments:
         X:  array of shape [N,m]
         Y:  array of shape [N,n]
 
@@ -188,17 +188,17 @@ def minres(A, b, x0,
     '''Preconditioned MINRES
 
     This MINRES solves M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y
-    where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the 
+    where Ml and Mr have to be such that Ml*A*Mr is self-adjoint in the
     inner_product. M has to be self-adjoint and positive-definite w.r.t.
-    inner_product. 
-    
+    inner_product.
+
     Details:
-    The Lanczos procedure is used with the operator M*Ml*A*Mr and the 
-    inner product defined by inner_product(M^{-1}x,y). The initial vector 
+    The Lanczos procedure is used with the operator M*Ml*A*Mr and the
+    inner product defined by inner_product(M^{-1}x,y). The initial vector
     for Lanczos is r0 = M*Ml*(b - A*x0) -- note that Mr is not used for
     the initial vector!
-    
-    Stopping criterion is 
+
+    Stopping criterion is
     ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
     '''
     info = 0
@@ -245,7 +245,7 @@ def minres(A, b, x0,
     MMlr0 = _apply(M, Mlr0)
     norm_MMlr0 = _norm(Mlr0, MMlr0, inner_product = inner_product)
 
-    # initial relative residual norm 
+    # initial relative residual norm
     relresvec = [norm_MMlr0 / norm_MMlb]
 
     # compute error?
@@ -324,7 +324,7 @@ def minres(A, b, x0,
                 # here we can (and should) orthogonalize against ALL THE
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
-                # 
+                #
                 for i in xrange(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
@@ -340,7 +340,7 @@ def minres(A, b, x0,
             #        z = z - ip * deflW[:,[i]]
         if timer:
             times['reortho'][k] = time.time()-start
-        
+
         # needed for QR-update:
         R = _apply(G1, [0, tsold])
         R = np.append(R, [0.0, 0.0])
@@ -371,7 +371,7 @@ def minres(A, b, x0,
         if timer:
             times['extend Krylov'][k] = time.time()-start
 
-        
+
         # store new vectors in full basis
         if timer:
             start = time.time()
@@ -513,14 +513,14 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     Returns:
         P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in
-            MINRES). The preconditioned operator A*P is self-adjoint w.r.t. 
+            MINRES). The preconditioned operator A*P is self-adjoint w.r.t.
             inner_product.
             P(x)=x + W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)
-        x0new: an adapted initial guess s.t. the deflated iterative solver 
+        x0new: an adapted initial guess s.t. the deflated iterative solver
             does not break down (in exact arithmetics).
         AW: AW=A*W. This is returned in order to reduce the total number of
             matrix-vector multiplications with A.
-    
+
     For nW = W.shape[1] = AW.shape[1] the computational cost is
     cost(get_projection): 2*cost(Pfun) + (nW^2)*IP
     cost(Pfun): nW*IP + (2/3)*nW^3 + nW*AXPY
@@ -530,7 +530,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
         '''Computes x - W * E\<AW,x>.'''
         return x - np.dot(W, _direct_solve(E, inner_product(AW, x)))
     # --------------------------------------------------------------------------
-    
+
     # cost: (nW^2)*IP
     E = inner_product(W, AW)
 
@@ -552,8 +552,8 @@ def get_ritz(W, AW, Vfull, Hfull,
              M=None, Minv=None,
              inner_product = _ipstd,
              debug = False):
-    """Compute Ritz pairs from a (possibly deflated) Lanczos procedure. 
-    
+    """Compute Ritz pairs from a (possibly deflated) Lanczos procedure.
+
     Arguments
         W:  a Nxk array. W's columns must be orthonormal w.r.t. the
             M-inner-product (inner_product(M^{-1} W, W) = I_k).
@@ -577,16 +577,16 @@ def get_ritz(W, AW, Vfull, Hfull,
 
     Returns:
         ritz_vals: an array with n+k Ritz values.
-        ritz_vecs: a Nx(n+k) array where the ritz_vecs[:,i] is the 
+        ritz_vecs: a Nx(n+k) array where the ritz_vecs[:,i] is the
             Ritz vector for the Ritz value ritz_vals[i]. The Ritz vectors
             also are orthonormal w.r.t. the M-inner-product, that is
                 inner_product( M^{-1}*ritz_vecs, ritz_vecs ) = I_{k+n}.
-        norm_ritz_res: an array with n+k residual norms. norm_ritz_res[i] is 
+        norm_ritz_res: an array with n+k residual norms. norm_ritz_res[i] is
             the M^{-1}-norm of the residual
                 M*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].
-            ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the 
+            ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
             residual norms are ascending.
-    
+
     Under the above assumptions, [W, Vfull] is orthonormal w.r.t. the
     M-inner-product. Then the Ritz pairs w.r.t. the operator M*A, the basis [W,
     Vfull[:,0:-1]] and the M-inner-product are computed. Also the M-norm of the
@@ -615,30 +615,30 @@ def get_ritz(W, AW, Vfull, Hfull,
         N = W.shape[0]
         Einv = np.zeros( (0,0) )
         MAW = np.zeros( (N,0) )
-    
+
     # Stack matrices appropriately: [E, B; B', Hfull(1:end-1,:) + B'*Einv*B].
     ritzmat = np.r_[    np.c_[E,B],
-                        np.c_[B.T.conj(), Hfull[0:-1,:] + np.dot(B.T.conj(), np.dot(Einv, B))] 
+                        np.c_[B.T.conj(), Hfull[0:-1,:] + np.dot(B.T.conj(), np.dot(Einv, B))]
                    ]
 
     # Compute Ritz values / vectors.
     from scipy.linalg import eigh
     lam, U = eigh(ritzmat)
-    
+
     norm_ritz_res = np.zeros(lam.shape[0])
 
     # cost: (nW^2)*IP
     D1 = np.eye(nW)
     D = inner_product(AW, MAW)
     zeros = np.zeros((nW,nVfull))
-    # Attention: CC should be HPD. However, this only holds if the 
-    #            preconditioner was solved exactly 
+    # Attention: CC should be HPD. However, this only holds if the
+    #            preconditioner was solved exactly
     #            (then inner_product(Minv*W,W)=I)
-    #            If the preconditioner is solved exactly, the 
+    #            If the preconditioner is solved exactly, the
     #            computation seems to be stable.
     CC = np.r_[ np.c_[ D1,             E,           zeros],
                 np.c_[ E.T.conj(),     D,           B1],
-                np.c_[ zeros.T.conj(), B1.T.conj(), np.eye(nVfull)] 
+                np.c_[ zeros.T.conj(), B1.T.conj(), np.eye(nVfull)]
               ]
 
     for i in xrange(0,ritzmat.shape[0]):
@@ -646,8 +646,8 @@ def get_ritz(W, AW, Vfull, Hfull,
         v = U[W.shape[1]:,[i]]
         mu = lam[i]
 
-        z = np.r_[ -mu*w, 
-                    w + np.dot( Einv, np.dot(B, v)), 
+        z = np.r_[ -mu*w,
+                    w + np.dot( Einv, np.dot(B, v)),
                     np.dot(Hfull, v) - np.r_[mu*v, np.zeros((1,1))] ]
         z = np.reshape(z, (z.shape[0],1))
         CCz = np.dot(CC, z)
@@ -694,12 +694,12 @@ def gmres( A, b, x0,
          ):
     '''Preconditioned GMRES
 
-    Solves   M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y. 
+    Solves   M*Ml*A*Mr*y = M*Ml*b,  x=Mr*y.
     M has to be self-adjoint and positive-definite w.r.t. inner_product.
-    
+
     Stopping criterion is
     ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}} / ||M*Ml*b||_{M^{-1}} <= tol
-    
+
     Memory consumption is about maxiter+1 vectors for the Arnoldi basis.
     If M is used the memory consumption is 2*(maxiter+1).
     '''
@@ -740,8 +740,8 @@ def gmres( A, b, x0,
     H = np.zeros([maxiter+1, maxiter], dtype=xtype) # Hessenberg matrix
 
     if M is not None:
-        P = np.zeros([N,maxiter+1], dtype=xtype) # V=M*P 
-    
+        P = np.zeros([N,maxiter+1], dtype=xtype) # V=M*P
+
     if return_basis:
         Horig = np.zeros([maxiter+1,maxiter], dtype=xtype)
 
@@ -801,7 +801,7 @@ def gmres( A, b, x0,
         V[:, [k+1]] = Mz / H[k+1, k]
         if return_basis:
             Horig[0:k+2, [k]] = H[0:k+2, [k]]
-        
+
         # Apply previous Givens rotations.
         for i in xrange(k):
             H[i:i+2, k] = _apply(G[i], H[i:i+2, k])
@@ -903,7 +903,7 @@ def orth_vec(v, W, inner_product=_ipstd):
 # ==============================================================================
 def qr(W, inner_product=_ipstd):
     '''QR-decomposition w.r.t. given inner-product
-    
+
     [Q,R] = qr(W, inner_product) yields Q and R such that W=dot(Q,R) and
     inner_product(Q,Q)=I.
     '''
@@ -1027,7 +1027,8 @@ def newton( x0,
             if abs(alpha) < 1.0e-14:
                 warnings.warn( 'Deflation vector dropped due to low norm; <v, v> = %g.' % alpha )
                 del_k.append( col_index )
-        WW = np.delete(WW, del_k, 1)
+        if del_k:
+            WW = np.delete(WW, del_k, 1)
 
         # Attention: if the preconditioner is later solved inexactly
         #            then W will be orthonormal w.r.t. another inner
@@ -1047,7 +1048,7 @@ def newton( x0,
             AW = np.zeros((len(x), 0))
             P = None
             x0new = initial_guess
-        
+
         if num_deflation_vectors > 0:
             return_basis = True
 
@@ -1289,9 +1290,9 @@ def poor_mans_continuation( x0,
 
         parameter_value += current_step_size
         model_evaluator.set_parameter( parameter_value )
-        
+
     stats_file.close()
-    
+
     print "done."
     return
 # ==============================================================================

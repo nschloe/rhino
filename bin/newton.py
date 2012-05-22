@@ -44,7 +44,7 @@ def _main():
         #ky = 0.5
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    newton_out = newton(ginla_modeleval, psi0)
+    newton_out = my_newton(ginla_modeleval, psi0)
     print 'Newton residuals:', newton_out['Newton residuals']
 
     if args.show:
@@ -63,11 +63,11 @@ def _main():
 
     return
 # ==============================================================================
-def newton(ginla_modeleval, psi0, debug=True):
+def my_newton(ginla_modeleval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
-    print 'Performing Newton iteration...'
+    print 'Performing Newton iteration...', 2 * len(psi0)
     # perform newton iteration
     newton_out = nm.newton(psi0,
                            ginla_modeleval,
