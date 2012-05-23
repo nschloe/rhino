@@ -18,12 +18,13 @@ class TestF(unittest.TestCase):
         modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
 
         # compute the ginzburg-landau residual
-        r = modeleval.compute_f(point_data['psi'])
+        psi = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
+        r = modeleval.compute_f(psi)
 
         # scale with D for compliance with the Ginla (C++) tests
         if mesh.control_volumes is None:
             mesh.compute_control_volumes()
-        r *= mesh.control_volumes[:,None]
+        r *= mesh.control_volumes.reshape(r.shape)
 
         tol = 1.0e-13
         # For C++ Ginla compatibility:
@@ -165,8 +166,8 @@ class TestJacobian(unittest.TestCase):
         tol = 1.0e-12
 
         # [1+i, 1+i, 1+i, ... ]
-        phi = (1+1j) * np.ones((num_unknowns,1), dtype=complex)
-        val = np.vdot( phi, mesh.control_volumes[:,None] * (J*phi)).real
+        phi = (1+1j) * np.ones(num_unknowns, dtype=complex)
+        val = np.vdot( phi, mesh.control_volumes.reshape(phi.shape) * (J*phi)).real
         self.assertAlmostEqual( actual_values[0], val, delta=tol )
 
         # [1, 1, 1, ... ]

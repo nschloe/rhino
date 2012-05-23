@@ -31,6 +31,18 @@ def _main():
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 
+    # create values
+    print 'Creating V...',
+    start = time.time()
+    V = np.empty(num_nodes)
+    V[:] = -1.0
+    #for k, node in enumerate(mesh.node_coords):
+        #import random, cmath
+        #X[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
+        #X[k] = 0.9 * np.cos(0.5 * node[0])
+    elapsed = time.time()-start
+    print 'done. (%gs)' % elapsed
+
     # If this is a 2D mesh, append the z-component 0 to each node
     # to make sure that the magnetic vector potentials can be
     # calculated.
@@ -42,11 +54,12 @@ def _main():
     start = time.time()
     #A = points # field A(X) = X -- test case
     import pyginla.magnetic_vector_potentials as mvp
-    #A = mvp.constant_z(points)
-    A = mvp.magnetic_dipole(points,
-                            x0 = np.array([0,0,0]),
-                            m = np.array([0,0,1])
-                            )
+    #A = np.zeros((num_nodes,3))
+    A = mvp.constant_z(points)
+    #A = mvp.magnetic_dipole(points,
+                            #x0 = np.array([0,0,0]),
+                            #m = np.array([0,0,1])
+                            #)
     #A = mvp.magnetic_dot(points, radius=2.0, heights=[0.1, 1.1])
     #A = np.empty((num_nodes, 3), dtype=float)
     #for k, node in enumerate(points):
@@ -65,7 +78,7 @@ def _main():
     # write the mesh
     print 'Writing mesh psi and A...',
     start = time.time()
-    mesh.write(args.outfile, {'psi': X, 'A': A}, {'mu': 1.0})
+    mesh.write(args.outfile, {'psi': X, 'V': V, 'A': A}, {'mu': 0.0, 'g': 1.0})
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 

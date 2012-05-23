@@ -50,7 +50,7 @@ class GrossPitaevskiiModelEvaluator:
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        res = (self._keo * psi) / self.mesh.control_volumes[:,None]  \
+        res = (self._keo * psi) / self.mesh.control_volumes.reshape(psi.shape)  \
             + (self._V.reshape(psi.shape) + self._g * abs(psi)**2) * psi
 
         return res
@@ -124,7 +124,7 @@ class GrossPitaevskiiModelEvaluator:
         import pyamg
         # ----------------------------------------------------------------------
         def _apply_inverse_prec_customcg(phi):
-            rhs = self.mesh.control_volumes[:, None] * phi
+            rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             out = nm.cg(prec, rhs, x0,
                         tol = 1.0e-13,
@@ -139,7 +139,7 @@ class GrossPitaevskiiModelEvaluator:
             return out['xk']
         # ----------------------------------------------------------------------
         def _apply_inverse_prec_pyamgsolve(phi):
-            rhs = self.mesh.control_volumes[:, None] * phi
+            rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             x = np.empty((num_nodes,1), dtype=complex)
             num_cycles = 1
@@ -234,7 +234,7 @@ class GrossPitaevskiiModelEvaluator:
         if len(phi0.shape)==1:
             scaledPhi0 = self.mesh.control_volumes * phi0
         elif len(phi0.shape)==2:
-            scaledPhi0 = self.mesh.control_volumes[:,None] * phi0
+            scaledPhi0 = self.mesh.control_volumes.reshape(phi0.shape) * phi0
 
         # np.vdot only works for vectors, so use np.dot(....T.conj()) here.
         return np.dot(scaledPhi0.T.conj(), phi1).real

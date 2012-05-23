@@ -29,23 +29,23 @@ class TestF(unittest.TestCase):
         points = mesh.node_coords.copy()
         if points.shape[1] == 2:
             points = np.column_stack((points, np.zeros(len(points))))
-        
+
         A = mvp.magnetic_dipole(points,
                                 x0 = np.array([0,0,10]),
                                 m = np.array([0,0,1])
                                 )
         integral = np.sum(mesh.control_volumes * np.sum(A**2, axis=1))
         self.assertAlmostEqual(control_values['dipole'], integral, delta = tol)
-        
 
-        import time
-        start = time.time()
-        A = mvp.magnetic_dot3(mesh.node_coords, 2.0, [10.0, 11.0])
-        #A = np.empty((len(points), 3), dtype=float)
-        #for k, node in enumerate(points):
-            #A[k] = mvp.magnetic_dot(node[0], node[1], 2.0, 10.0, 11.0)
-        end = time.time()
-        print end - start
+
+        #import time
+        #start = time.time()
+        #A = mvp.magnetic_dot(mesh.node_coords, 2.0, [10.0, 11.0])
+        A = np.empty((len(points), 3), dtype=float)
+        for k, node in enumerate(points):
+            A[k] = mvp.magnetic_dot(node[0], node[1], 2.0, 10.0, 11.0)
+        #end = time.time()
+        #print end-start
         integral = np.sum(mesh.control_volumes * np.sum(A**2, axis=1))
         self.assertAlmostEqual(control_values['dot'], integral, delta = tol)
 
