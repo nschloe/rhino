@@ -1,5 +1,5 @@
 import voropy
-import pyginla.ginla_modelevaluator as gm
+import pyginla.gp_modelevaluator as gp
 import numpy as np
 import unittest
 from scipy.sparse import spdiags
@@ -14,10 +14,11 @@ class TestF(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+        V = -np.ones(len(mesh.node_coords))
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
 
         # compute the ginzburg-landau residual
-        r = ginla_modeleval.compute_f(point_data['psi'])
+        r = modeleval.compute_f(point_data['psi'])
 
         # scale with D for compliance with the Ginla (C++) tests
         if mesh.control_volumes is None:
@@ -97,22 +98,23 @@ class TestKeo(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+        V = -np.ones(len(mesh.node_coords))
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
 
         # Assemble the KEO.
-        ginla_modeleval._assemble_keo()
+        modeleval._assemble_keo()
 
         tol = 1.0e-13
 
         # Check that the matrix is Hermitian.
-        KK = ginla_modeleval._keo  - ginla_modeleval._keo.H
+        KK = modeleval._keo  - modeleval._keo.H
         self.assertAlmostEqual( 0.0,
                                 KK.sum(),
                                 delta=tol )
 
         # Check the matrix sum.
         self.assertAlmostEqual( actual_control_sum_real,
-                                ginla_modeleval._keo.sum(),
+                                modeleval._keo.sum(),
                                 delta=tol )
         return
     # --------------------------------------------------------------------------
@@ -154,10 +156,11 @@ class TestJacobian(unittest.TestCase):
         psi = psi.reshape(num_unknowns,1)
 
         # build the model evaluator
-        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+        V = -np.ones(len(mesh.node_coords))
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
 
         # Get the Jacobian
-        J = ginla_modeleval.get_jacobian(psi)
+        J = modeleval.get_jacobian(psi)
 
         tol = 1.0e-12
 
@@ -181,49 +184,49 @@ class TestJacobian(unittest.TestCase):
     def test_rectanglesmall(self):
         filename = 'rectanglesmall.e'
         mu = 1.0e-2
-        actual_values = [ -20.0126243424616,
-                          -20.0063121712308,
-                          -0.00631217123080606 ]
+        actual_values = [ 20.0126243424616,
+                          20.0063121712308,
+                          0.00631217123080606 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        actual_values = [ -605.786286731452,
-                          -605.415844086736,
-                          -0.370442644715631 ]
+        actual_values = [ 605.786286731452,
+                          605.415844086736,
+                          0.370442644715631 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_cubesmall(self):
         filename = 'cubesmall.e'
         mu = 1.0e-2
-        actual_values = [ -20.0084442850419,
-                          -20.0042221425209,
-                          -0.00422214252093753 ]
+        actual_values = [ 20.0084442850419,
+                          20.0042221425209,
+                          0.00422214252093753 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_brick(self):
         filename = 'brick-w-hole.e'
         mu = 1.0e-2
-        actual_values = [ -777.70784890951165,
-                          -777.54021614939688,
-                          -0.16763276011468597 ]
+        actual_values = [ 777.70784890951165,
+                          777.54021614939688,
+                          0.16763276011468597 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_tet(self):
         filename = 'tetrahedron.e'
         mu = 1.0e-2
-        actual_values = [ -128.31647020294287,
-                          -128.30826364717944,
-                          -0.0082065557634346201 ]
+        actual_values = [ 128.31647020294287,
+                          128.30826364717944,
+                          0.0082065557634346201 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_tetsmall(self):
         filename = 'tet.e'
         mu = 1.0e-2
-        actual_values = [ -128.31899139647672,
-                          -128.30952517576091,
-                          -0.0094662207158164313 ]
+        actual_values = [ 128.31899139647672,
+                          128.30952517576091,
+                          0.0094662207158164313 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
 # ==============================================================================
@@ -238,7 +241,7 @@ class TestInnerProduct(unittest.TestCase):
 
         # build the model evaluator
         mu = 0.0
-        ginla_modeleval = gm.GinlaModelEvaluator(mesh, point_data['A'], mu)
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, point_data['A'], mu)
 
         tol = 1.0e-13
 
@@ -247,7 +250,7 @@ class TestInnerProduct(unittest.TestCase):
         N = len(mesh.node_coords)
         phi0 = 1.0 * np.ones((N,1), dtype=complex)
         phi1 = 1.0 * np.ones((N,1), dtype=complex)
-        alpha = ginla_modeleval.inner_product(phi0, phi1)[0][0]
+        alpha = modeleval.inner_product(phi0, phi1)[0][0]
         self.assertAlmostEqual(control_values[0],
                                alpha,
                                delta=tol
@@ -258,7 +261,7 @@ class TestInnerProduct(unittest.TestCase):
         for k, node in enumerate(mesh.node_coords):
             phi0[k] = np.cos(np.pi * node[0]) + 1j * np.sin(np.pi * node[1])
             phi1[k] = np.sin(np.pi * node[0]) + 1j * np.cos(np.pi * node[1])
-        alpha = ginla_modeleval.inner_product(phi0, phi1)[0][0]
+        alpha = modeleval.inner_product(phi0, phi1)[0][0]
         self.assertAlmostEqual(control_values[1],
                                alpha,
                                delta=tol
@@ -269,7 +272,7 @@ class TestInnerProduct(unittest.TestCase):
         for k, node in enumerate(mesh.node_coords):
             phi0[k] = np.dot(node, node)
             phi1[k] = np.exp(1j * np.dot(node, node))
-        alpha = ginla_modeleval.inner_product(phi0, phi1)[0][0]
+        alpha = modeleval.inner_product(phi0, phi1)[0][0]
         self.assertAlmostEqual(control_values[2],
                                alpha,
                                delta=tol
