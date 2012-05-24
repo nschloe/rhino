@@ -9,7 +9,7 @@ import matplotlib2tikz
 import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
-import pyginla.ginla_modelevaluator
+import pyginla.gp_modelevaluator as gp
 # ==============================================================================
 def _main():
     '''Main function.
@@ -21,43 +21,53 @@ def _main():
                                                timestep=args.timestep
                                                )
 
-    if 'mu' in field_data:
+    if not args.mu is None:
+        mu = args.mu
+        print 'Using mu=%g from command line.' % mu
+    elif 'mu' in field_data:
         mu = field_data['mu']
     else:
-        if args.mu is None:
-            raise ValueError('Parameter ''mu'' not found in file. Please provide on command line.')
-        else:
-            mu = args.mu
-            print 'Using mu=%g from command line.' % mu
+        raise ValueError('Parameter ''mu'' not found in file. Please provide on command line.')
+
+    if not args.g is None:
+        g = args.g
+        print 'Using g=%g from command line.' % g
+    elif 'g' in field_data:
+        g = field_data['g']
+    else:
+        raise ValueError('Parameter ''g'' not found in file. Please provide on command line.')
 
     # build the model evaluator
-    ginla_modeleval = \
-        pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh,
-                                                         point_data['A'],
-                                                         mu
-                                                         )
+    modeleval = gp.GrossPitaevskiiModelEvaluator(mesh,
+                                                 g = g,
+                                                 V = point_data['V'],
+                                                 A = point_data['A'],
+                                                 mu = mu
+                                                 )
 
     if not args.series:
         # compute the eigenvalues once
         psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
         p0 = 1j * psi0
-        p0 /= np.sqrt(ginla_modeleval.inner_product(p0, p0))
-        y0 = ginla_modeleval.get_jacobian(psi0) * p0
+        p0 /= np.sqrt(modeleval.inner_product(p0, p0))
+        y0 = modeleval.get_jacobian(psi0) * p0
         print np.linalg.norm(y0)
+        # Check with the rotation vector.
         grad_psi0 = mesh.compute_gradient(psi0)
         x_tilde = np.array( [-mesh.node_coords[:,1], mesh.node_coords[:,0]] ).T
         p1 = np.sum(x_tilde * grad_psi0, axis=1)
         mesh.write('test.e', point_data={'x grad': p1})
-        nrm_p1 = np.sqrt(ginla_modeleval.inner_product(p1, p1))
+        nrm_p1 = np.sqrt(modeleval.inner_product(p1, p1))
         p1 /= nrm_p1
-        y1 = ginla_modeleval.get_jacobian(psi0) * p1
+        y1 = modeleval.get_jacobian(psi0) * p1
         print np.linalg.norm(y1)
+
         eigenvals, X = _compute_eigenvalues(args.operator,
                                             args.eigenvalue_type,
                                             args.num_eigenvalues,
                                             None,
                                             psi0[:,None],
-                                            ginla_modeleval
+                                            modeleval
                                             )
         print 'The following eigenvalues were computed:'
         print sorted(eigenvals)
@@ -71,21 +81,21 @@ def _main():
         eigenvals_list = []
         #small_eigenvals_approx = []
         for mu in mus:
-            ginla_modeleval.set_parameter(mu)
+            modeleval.set_parameter(mu)
             eigenvals, X = _compute_eigenvalues(args.operator,
                                                 args.eigenvalue_type,
                                                 args.num_eigenvalues,
                                                 X[:, 0],
-                                                ginla_modeleval
+                                                modeleval
                                                 )
-            #small_eigenval, X = my_lobpcg( ginla_modeleval._keo,
+            #small_eigenval, X = my_lobpcg( modeleval._keo,
                                           #X,
                                           #tolerance = 1.0e-5,
                                           #maxiter = len(pyginlamesh.nodes),
                                           #verbosity = 1
                                         #)
             #print 'Calculated values: ', small_eigenval
-            #alpha = ginla_modeleval.keo_smallest_eigenvalue_approximation()
+            #alpha = modeleval.keo_smallest_eigenvalue_approximation()
             #print 'Linear approximation: ', alpha
             #small_eigenvals_approx.append( alpha )
             #print
@@ -109,24 +119,24 @@ def _compute_eigenvalues(operator_type,
                          num_eigenvalues,
                          v0,
                          psi,
-                         ginla_modeleval
+                         modeleval
                          ):
     if operator_type == 'k':
-        ginla_modeleval._assemble_keo()
-        A = ginla_modeleval._keo
+        modeleval._assemble_keo()
+        A = modeleval._keo
     elif operator_type == 'p':
-        A = ginla_modeleval.get_preconditioner(psi)
+        A = modeleval.get_preconditioner(psi)
     elif operator_type == 'j':
-        jac = ginla_modeleval.get_jacobian(psi)
+        jac = modeleval.get_jacobian(psi)
         A =  _complex2real( jac )
         #print np.linalg.norm(jac * (1j * psi))
     elif operator_type == 'pj':
         # build preconditioned operator
-        prec_inv = ginla_modeleval.get_preconditioner_inverse(psi)
-        jacobian = ginla_modeleval.get_jacobian(psi)
+        prec_inv = modeleval.get_preconditioner_inverse(psi)
+        jacobian = modeleval.get_jacobian(psi)
         def _apply_prec_jacobian(phi):
             return prec_inv * (jacobian * phi)
-        num_unknowns = len(ginla_modeleval.mesh.node_coords)
+        num_unknowns = len(modeleval.mesh.node_coords)
         A = LinearOperator((num_unknowns, num_unknowns),
                             _apply_prec_jacobian,
                             dtype = complex
@@ -282,7 +292,13 @@ def _parse_input_arguments():
     parser.add_argument('--mu', '-m',
                         dest='mu',
                         type = float,
-                        help='magnetic vector potential multiplier (default: 1.0)'
+                        help='magnetic vector potential multiplier'
+                        )
+
+    parser.add_argument('--g', '-g',
+                        dest='g',
+                        type = float,
+                        help='coupling parameter'
                         )
 
     args = parser.parse_args()

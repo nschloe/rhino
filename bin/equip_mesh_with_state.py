@@ -35,7 +35,7 @@ def _main():
     print 'Creating V...',
     start = time.time()
     V = np.empty(num_nodes)
-    V[:] = -1.0
+    V[:] = 0.0
     #for k, node in enumerate(mesh.node_coords):
         #import random, cmath
         #X[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
@@ -54,8 +54,8 @@ def _main():
     start = time.time()
     #A = points # field A(X) = X -- test case
     import pyginla.magnetic_vector_potentials as mvp
-    #A = np.zeros((num_nodes,3))
-    A = mvp.constant_z(points)
+    A = np.zeros((num_nodes,3))
+    #A = mvp.constant_z(points)
     #A = mvp.magnetic_dipole(points,
                             #x0 = np.array([0,0,0]),
                             #m = np.array([0,0,1])
