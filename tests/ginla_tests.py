@@ -14,8 +14,7 @@ class TestF(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        V = -np.ones(len(mesh.node_coords))
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
 
         # compute the ginzburg-landau residual
         psi = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
@@ -62,9 +61,9 @@ class TestF(unittest.TestCase):
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        control_values = {'one': 0.713664749303348,
-                          'two': 0.12552206461432219,
-                          'inf': 0.055859321274632785
+        control_values = {'one': 0.71366475047893463,
+                          'two': 0.12552206259336218,
+                          'inf': 0.055859319123267033
                           }
         self._run_test(filename, mu, control_values)
         return
@@ -72,9 +71,9 @@ class TestF(unittest.TestCase):
     def test_cubesmall(self):
         filename = 'cubesmall.e'
         mu = 1.0e-2
-        control_values = {'one': 0.28999063035759653,
-                          'two': 0.15062204533498347,
-                          'inf': 0.095254500561777741
+        control_values = {'one': 8.3541623156163313e-05,
+                          'two': 2.9536515963905867e-05,
+                          'inf': 1.0468744547749431e-05
                           }
         self._run_test(filename, mu, control_values)
         return
@@ -82,9 +81,9 @@ class TestF(unittest.TestCase):
     def test_brick(self):
         filename = 'brick-w-hole.e'
         mu = 1.0e-2
-        control_values = {'one': 1.8084716162552725,
-                          'two': 0.15654267591639234,
-                          'inf': 0.030744236169795706
+        control_values = {'one': 1.8084716102419285,
+                          'two': 0.15654267585120338,
+                          'inf': 0.03074423493622647
                           }
         self._run_test(filename, mu, control_values)
         return
@@ -94,13 +93,12 @@ class TestKeo(unittest.TestCase):
     def setUp(self):
         return
     # --------------------------------------------------------------------------
-    def _run_test(self, filename, mu, actual_control_sum_real):
+    def _run_test(self, filename, mu, control_values):
         # read the mesh
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        V = -np.ones(len(mesh.node_coords))
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
 
         # Assemble the KEO.
         modeleval._assemble_keo()
@@ -114,34 +112,52 @@ class TestKeo(unittest.TestCase):
                                 delta=tol )
 
         # Check the matrix sum.
-        self.assertAlmostEqual( actual_control_sum_real,
+        self.assertAlmostEqual( control_values['sum real'],
                                 modeleval._keo.sum(),
+                                delta=tol )
+
+        # Check the 1-norm of the matrix |Re(K)| + |Im(K)|.
+        # This equals the 1-norm of the matrix defined by the block
+        # structure
+        #   Re(K) -Im(K)
+        #   Im(K)  Re(K).
+        K = abs(modeleval._keo.real) + abs(modeleval._keo.imag)
+        self.assertAlmostEqual( control_values['norm 1'],
+                                np.max(K.sum(0)),
                                 delta=tol )
         return
     # --------------------------------------------------------------------------
     def test_rectanglesmall(self):
         filename = 'rectanglesmall.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.0063121712308067401
-        self._run_test(filename, mu, actual_control_sum_real)
+        control_values = {'sum real': 0.0063121712308067401,
+                          'norm 1': 10.224658806561596
+                          }
+        self._run_test(filename, mu, control_values)
     # --------------------------------------------------------------------------
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.37044264471562194
-        self._run_test(filename, mu, actual_control_sum_real)
+        control_values = {'sum real': 0.37044264296585938,
+                          'norm 1': 10.000520856079092
+                          }
+        self._run_test(filename, mu, control_values)
     # --------------------------------------------------------------------------
     def test_cubesmall(self):
         filename = 'cubesmall.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.0042221425209372221
-        self._run_test(filename, mu, actual_control_sum_real)
+        control_values = {'sum real': 8.3541623155714007e-05,
+                          'norm 1': 10.058364522531498
+                          }
+        self._run_test(filename, mu, control_values)
     # --------------------------------------------------------------------------
     def test_brick(self):
         filename = 'brick-w-hole.e'
         mu = 1.0e-2
-        actual_control_sum_real = 0.16763276011469475
-        self._run_test(filename, mu, actual_control_sum_real)
+        control_values = {'sum real': 0.16763276012920181,
+                          'norm 1': 15.131119904340618
+                          }
+        self._run_test(filename, mu, control_values)
 # ==============================================================================
 class TestJacobian(unittest.TestCase):
     # --------------------------------------------------------------------------
@@ -157,13 +173,12 @@ class TestJacobian(unittest.TestCase):
         psi = psi.reshape(num_unknowns,1)
 
         # build the model evaluator
-        V = -np.ones(len(mesh.node_coords))
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A=point_data['A'], mu=mu)
+        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
 
         # Get the Jacobian
         J = modeleval.get_jacobian(psi)
 
-        tol = 1.0e-12
+        tol = 1.0e-13
 
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones(num_unknowns, dtype=complex)
@@ -193,41 +208,41 @@ class TestJacobian(unittest.TestCase):
     def test_pacman(self):
         filename = 'pacman.e'
         mu = 1.0e-2
-        actual_values = [ 605.786286731452,
-                          605.415844086736,
-                          0.370442644715631 ]
+        actual_values = [ 605.78628672795264,
+                          605.41584408498682,
+                          0.37044264296586299 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_cubesmall(self):
         filename = 'cubesmall.e'
         mu = 1.0e-2
-        actual_values = [ 20.0084442850419,
-                          20.0042221425209,
-                          0.00422214252093753 ]
+        actual_values = [ 20.000167083246311,
+                          20.000083541623155,
+                          8.3541623155658495e-05 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_brick(self):
         filename = 'brick-w-hole.e'
         mu = 1.0e-2
-        actual_values = [ 777.70784890951165,
-                          777.54021614939688,
-                          0.16763276011468597 ]
+        actual_values = [ 777.70784890954064,
+                          777.54021614941144,
+                          0.16763276012921419 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_tet(self):
         filename = 'tetrahedron.e'
         mu = 1.0e-2
-        actual_values = [ 128.31647020294287,
-                          128.30826364717944,
-                          0.0082065557634346201 ]
+        actual_values = [ 128.31647020288861,
+                          128.3082636471523,
+                          0.0082065557362998032 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
     def test_tetsmall(self):
         filename = 'tet.e'
         mu = 1.0e-2
-        actual_values = [ 128.31899139647672,
-                          128.30952517576091,
-                          0.0094662207158164313 ]
+        actual_values = [ 128.31899139655067,
+                          128.30952517579789,
+                          0.0094662207527960365 ]
         self._run_test(filename, mu, actual_values)
     # --------------------------------------------------------------------------
 # ==============================================================================

@@ -50,7 +50,7 @@ class GrossPitaevskiiModelEvaluator:
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes()
 
-        res = (self._keo * psi) / self.mesh.control_volumes.reshape(psi.shape)  \
+        res = (self._keo * psi) / self.mesh.control_volumes.reshape(psi.shape) \
             + (self._V.reshape(psi.shape) + self._g * abs(psi)**2) * psi
 
         return res
