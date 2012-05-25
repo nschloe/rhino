@@ -189,7 +189,7 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0,
                                 delta=tol )
         # Check if Lanczos relation holds
-        res = A*out['Vfull'][:,0:-1] - out['Vfull'] * out['Hfull']
+        res = A*out['Vfull'][:,0:-1] - np.dot(out['Vfull'], out['Hfull'])
         self.assertAlmostEqual( np.linalg.norm(res), 0.0, delta=1e-8 )
         # Check if Lanczos basis is orthonormal w.r.t. inner product
         max_independent = min([num_unknowns,out['Vfull'].shape[1]])
