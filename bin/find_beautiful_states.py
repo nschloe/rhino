@@ -115,7 +115,7 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                              + repr(num_newton_iters).rjust(2,'0') \
                              + repr(solution_id).rjust(3,'0') \
                              + '.e'
-                    print 'Interesting state found for mu=%g!' % mu,
+                    print 'Interesting state found for %s=%g!' % (param_name, p),
                     # Check if we already stored that one.
                     already_found = False
                     for state in found_solutions:
@@ -141,7 +141,9 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                                                          'psi0': psi0,
                                                          'V': modeleval._V,
                                                          'A': modeleval._raw_magnetic_vector_potential},
-                                             field_data={'g': modeleval._g, 'mu': modeleval.mu, 'psi0(X)': function_string }
+                                             field_data={'g': modeleval._g,
+                                                         'mu': modeleval.mu,
+                                                         'psi0(X)': function_string }
                                              )
                         solution_id += 1
             print
