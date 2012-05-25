@@ -77,6 +77,8 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                      * np.cos(k[1] * np.pi * modeleval.mesh.node_coords[:,1]) \
                      * np.cos(k[2] * np.pi * modeleval.mesh.node_coords[:,2]) \
                      + 1j * 0
+            else:
+                raise RuntimeError('Illegal k.')
 
             print 'Performing Newton iteration...'
             # perform newton iteration
@@ -128,11 +130,18 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                     else:
                         found_solutions.append(psi)
                         print 'Storing in %s.' % filename
+                        if len(k) == 2:
+                            function_string = 'psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y)' % (alpha, k[0], k[1])
+                        elif len(k) == 3:
+                            function_string = 'psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y) * cos(%g*pi*z)' % (alpha, k[0], k[1], k[3])
+                        else:
+                            raise RuntimeError('Illegal k.')
                         modeleval.mesh.write(filename,
                                              point_data={'psi': psi,
+                                                         'psi0': psi0,
                                                          'V': modeleval._V,
                                                          'A': modeleval._raw_magnetic_vector_potential},
-                                             field_data={'g': modeleval._g, 'mu': modeleval.mu, 'alpha': alpha, 'k': np.array(k)}
+                                             field_data={'g': modeleval._g, 'mu': modeleval.mu, 'psi0(X)': function_string }
                                              )
                         solution_id += 1
             print
