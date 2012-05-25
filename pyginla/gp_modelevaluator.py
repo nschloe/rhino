@@ -250,12 +250,17 @@ class GrossPitaevskiiModelEvaluator:
 
         return alpha.real / self.mesh.control_volumes.sum()
     # ==========================================================================
-    def set_parameter(self, mu):
+    def set_parameter(self, param_name, value):
         '''Update the parameter.
         '''
-        self.mu = mu
-        self._keo = None
-        self._mvp_edge_cache = None
+        if param_name == 'mu':
+            self.mu = value
+            self._keo = None
+            self._mvp_edge_cache = None
+        elif param_name == 'g':
+            self._g = value
+        else:
+            raise ValueError('Unknown parameter ''%s''.' % param_name)
         return
     # ==========================================================================
     def _assemble_keo( self ):

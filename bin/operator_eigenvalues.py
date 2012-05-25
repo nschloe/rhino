@@ -62,6 +62,11 @@ def _main():
         y1 = modeleval.get_jacobian(psi0) * p1
         print np.linalg.norm(y1)
 
+        J = modeleval.get_jacobian(psi0)
+        K = modeleval._keo
+        x = np.random.rand(len(psi0))
+        print 'x', np.linalg.norm(J*x - K*x/ mesh.control_volumes.reshape(x.shape))
+
         eigenvals, X = _compute_eigenvalues(args.operator,
                                             args.eigenvalue_type,
                                             args.num_eigenvalues,
@@ -144,8 +149,8 @@ def _compute_eigenvalues(operator_type,
     else:
         raise ValueError('Unknown operator \'%s\'.' % operator_type)
 
-    print 'Compute the %s %d eigenvalues of %s...' \
-          % (eigenvalue_type, num_eigenvalues, operator_type)
+    print 'Compute the %d %s eigenvalues of %s...' \
+          % (num_eigenvalues, eigenvalue_type, operator_type)
     start_time = time.clock()
     eigenvals, X = eigs(A,
                         k = num_eigenvalues,
