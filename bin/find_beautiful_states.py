@@ -114,7 +114,7 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                     filename = 'interesting-' \
                              + repr(num_newton_iters).rjust(2,'0') \
                              + repr(solution_id).rjust(3,'0') \
-                             + '.e'
+                             + '.vtu'
                     print 'Interesting state found for %s=%g!' % (param_name, p),
                     # Check if we already stored that one.
                     already_found = False
@@ -140,10 +140,12 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                                              point_data={'psi': psi,
                                                          'psi0': psi0,
                                                          'V': modeleval._V,
-                                                         'A': modeleval._raw_magnetic_vector_potential},
+                                                         'A': modeleval._raw_magnetic_vector_potential
+                                                         },
                                              field_data={'g': modeleval._g,
                                                          'mu': modeleval.mu,
-                                                         'psi0(X)': function_string }
+                                                         'psi0(X)': function_string
+                                                        }
                                              )
                         solution_id += 1
             print
