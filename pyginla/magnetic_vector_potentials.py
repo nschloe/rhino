@@ -46,7 +46,7 @@ def constant_z( X ):
         # Just one point.
         return [ -0.5*X[1], 0.5*X[0], 0.0 ]
 # ==============================================================================
-def field2potential(X, B):
+def constant_field(X, B):
     '''Converts a spatially constant magnetic field B at X
     into a corresponding potential.'''
     # This is one particular choice that works.
@@ -60,12 +60,10 @@ def spherical( X, phi, theta ):
            mvp_x = mvp_spherical( ., 0   , 0    ),
            mvp_y = mvp_spherical( ., 0   , pi/2 ),
            mvp_z = mvp_spherical( ., pi/2, *    ).'''
-    return [ -0.5 * np.sin(theta)               * X[1]
-             +0.5 * np.cos(theta) * np.sin(phi) * X[2],
-              0.5 * np.sin(theta)               * X[0]
-             -0.5 * np.cos(theta) * np.cos(phi) * X[2],
-              0.5 * np.cos(theta) * np.cos(phi) * X[1]
-             -0.5 * np.cos(theta) * np.sin(phi) * X[0] ]
+    B = np.array([np.cos(theta) * np.cos(phi),
+                  np.cos(theta) * np.sin(phi),
+                  np.sin(theta)])
+    return field2potential(X, B)
 # ==============================================================================
 def magnetic_dipole(x, x0, m):
    '''Magnetic vector potential for the static dipole at x0

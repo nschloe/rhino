@@ -64,11 +64,11 @@ def _main():
         #A = points # field A(X) = X -- test case
         import pyginla.magnetic_vector_potentials as mvp
         #A = np.zeros((num_nodes,3))
-        #A = mvp.constant_z(points)
-        A = mvp.magnetic_dipole(points,
-                                x0 = np.array([0,0,2]),
-                                m = np.array([0,0,1])
-                                )
+        A = mvp.constant_field(points, np.array([0,0,1]))
+        #A = mvp.magnetic_dipole(points,
+                                #x0 = np.array([0,0,2]),
+                                #m = np.array([0,0,1])
+                                #)
         #A = mvp.magnetic_dot(points, radius=2.0, heights=[0.1, 1.1])
         #A = np.empty((num_nodes, 3), dtype=float)
         #for k, node in enumerate(points):
