@@ -133,7 +133,7 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                         if len(k) == 2:
                             function_string = 'psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y)' % (alpha, k[0], k[1])
                         elif len(k) == 3:
-                            function_string = 'psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y) * cos(%g*pi*z)' % (alpha, k[0], k[1], k[3])
+                            function_string = 'psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y) * cos(%g*pi*z)' % (alpha, k[0], k[1], k[2])
                         else:
                             raise RuntimeError('Illegal k.')
                         modeleval.mesh.write(filename,
