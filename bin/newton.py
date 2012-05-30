@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-'''Solve the Ginzburg--Landau equation.
+'''Solve nonlinear Schr\"odinger equations.
 '''
 # ==============================================================================
 import numpy as np
@@ -27,16 +27,19 @@ def _main():
     else:
         raise RuntimeError('Parameter ''mu'' not found in file or command line.')
 
-    V = -np.ones(len(mesh.node_coords))
-    ginla_modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=V, A = point_data['A'], mu=mu)
+    modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh,
+                                                  g = field_data['g'],
+                                                  V = point_data['V'],
+                                                  A = point_data['A'],
+                                                  mu = mu)
     #nls_modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh, g=1.0)
 
     # initial guess
     num_nodes = len(mesh.node_coords)
-    if 'psi' in point_data:
-        point_data['psi'] = point_data['psi'][:,0] \
-                          + 1j * point_data['psi'][:,1]
-        psi0 = np.reshape(point_data['psi'], (num_nodes,1))
+    psi0Name = 'psi0'
+    if psi0Name in point_data:
+        psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
+                          (num_nodes,1))
     else:
         psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
         #alpha = 0.3
@@ -44,36 +47,35 @@ def _main():
         #ky = 0.5
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    newton_out = my_newton(ginla_modeleval, psi0)
+    newton_out = my_newton(modeleval, psi0)
     print 'Newton residuals:', newton_out['Newton residuals']
 
     if args.show:
         import matplotlib.pyplot as pp
         multiplot_data_series( newton_out['linear relresvecs'] )
         #pp.xlim([0,45])
+        import matplotlib2tikz
+        matplotlib2tikz.save('minres-prec-defl.tex')
         pp.show()
 
-    #import matplotlib2tikz
-    #matplotlib2tikz.save('minres-prec-defl.tex')
-
     # write the solution to a file
-    ginla_modeleval.mesh.write('solution.e', {'psi': newton_out['x']})
+    modeleval.mesh.write('solution.e', {'psi': newton_out['x']})
     # energy of the state
-    print 'Energy of the final state: %g.' % ginla_modeleval.energy( newton_out['x'] )
+    print 'Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
 
     return
 # ==============================================================================
-def my_newton(ginla_modeleval, psi0, debug=True):
+def my_newton(modeleval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
-    print 'Performing Newton iteration...', 2 * len(psi0)
+    print 'Performing Newton iteration (dim=%d)...' % (2 * len(psi0))
     # perform newton iteration
     newton_out = nm.newton(psi0,
-                           ginla_modeleval,
+                           modeleval,
                            linear_solver = nm.minres,
                            linear_solver_maxiter = 1000, #2*len(psi0),
-                           linear_solver_extra_args = {},
+                           linear_solver_extra_args = {'explicit_residual': True},
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
                            eta0 = 1.0e-10,
@@ -103,12 +105,12 @@ def _parse_input_arguments():
     '''
     import argparse
 
-    parser = argparse.ArgumentParser( description = 'Find solutions to the Ginzburg--Landau equation.' )
+    parser = argparse.ArgumentParser( description = 'Find solutions to nonlinear Schrödinger equations.' )
 
     parser.add_argument('filename',
                         metavar = 'FILE',
                         type    = str,
-                        help    = 'ExodusII file containing the geometry and initial state'
+                        help    = 'Mesh file containing the geometry and initial state'
                         )
 
     parser.add_argument('--show', '-s',

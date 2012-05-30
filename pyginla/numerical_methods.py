@@ -1069,7 +1069,6 @@ def newton( x0,
                             tol = eta,
                             inner_product = model_evaluator.inner_product,
                             return_basis = return_basis,
-                            explicit_residual = False,
                             **linear_solver_extra_args
                             )
         if debug:
