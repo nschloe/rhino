@@ -52,6 +52,7 @@ def _main():
         p0 /= np.sqrt(modeleval.inner_product(p0, p0))
         y0 = modeleval.get_jacobian(psi0) * p0
         print '||(ipsi) J (ipsi)|| =', np.linalg.norm(y0)
+
         # Check with the rotation vector.
         grad_psi0 = mesh.compute_gradient(psi0)
         x_tilde = np.array( [-mesh.node_coords[:,1], mesh.node_coords[:,0]] ).T
@@ -61,6 +62,27 @@ def _main():
         p1 /= nrm_p1
         y1 = modeleval.get_jacobian(psi0) * p1
         print '||(grad) J (grad)|| =', np.linalg.norm(y1)
+
+        # Check the equality
+        #    grad(|psi|^2 psi) = 2 |psi|^2 grad(psi) + psi^2 grad(psi)*.
+        #
+        #p2 = mesh.compute_gradient(psi0 * abs(psi0)**2)
+        #gradPsi0 = mesh.compute_gradient(psi0)
+        #p2d = 2 * np.multiply(abs(psi0)**2, gradPsi0.T).T \
+        #    + np.multiply(psi0**2, gradPsi0.conjugate().T).T
+        #mesh.write('diff.vtu',
+                   #point_data = {'psi': psi0, 'p2': p2, 'p2d': p2d, 'diff': diff}
+                   #)
+
+        # Check the equality
+        #    grad(|psi|^2) = 2 Re(psi* grad(psi)).
+        #
+        p2 = mesh.compute_gradient(abs(psi0)**2)
+        p2d = 2 * np.multiply(psi0.conjugate(), mesh.compute_gradient(psi0).T).T.real
+        diff = p2 - p2d
+        mesh.write('diff.vtu',
+                   point_data = {'psi': psi0, 'p2': p2, 'p2d': p2d, 'diff': diff}
+                   )
 
         #J = modeleval.get_jacobian(psi0)
         #K = modeleval._keo
