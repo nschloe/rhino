@@ -8,6 +8,8 @@ import numpy as np
 import pyginla.numerical_methods as nm
 import pyginla.gp_modelevaluator as gpm
 import voropy
+import matplotlib.pyplot as pp
+import matplotlib2tikz
 # ==============================================================================
 def _main():
     args = _parse_input_arguments()
@@ -47,15 +49,17 @@ def _main():
         #ky = 0.5
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    newton_out = my_newton(modeleval, psi0)
+    newton_out = my_newton(args, modeleval, psi0)
     print 'Newton residuals:', newton_out['Newton residuals']
 
+    # Get output.
+    multiplot_data_series( newton_out['linear relresvecs'] )
+    pp.title('Krylov: %s    Prec: %r    Defl: %r' %
+             (args.krylov_method, args.use_preconditioner, args.use_deflation)
+             )
+    #pp.xlim([0,45])
+    matplotlib2tikz.save(args.tikz)
     if args.show:
-        import matplotlib.pyplot as pp
-        multiplot_data_series( newton_out['linear relresvecs'] )
-        #pp.xlim([0,45])
-        import matplotlib2tikz
-        matplotlib2tikz.save('minres-prec-defl.tex')
         pp.show()
 
     # write the solution to a file
@@ -65,22 +69,35 @@ def _main():
 
     return
 # ==============================================================================
-def my_newton(modeleval, psi0, debug=True):
+def my_newton(args, modeleval, psi0, debug=True):
     '''Solve with Newton.
     '''
+
+    if args.krylov_method == 'cg':
+        lin_solve = nm.cg
+    elif args.krylov_method == 'minres':
+        lin_solve = nm.minres
+    elif args.krylov_method == 'gmres':
+        lin_solve = nm.gmres
+    else:
+        raise ValueError('Unknown Krylov solver ''%s''.' % args.krylov_method)
+
+    defl = []
+    if args.use_deflation:
+        defl.append( lambda x: 1j*x )
 
     print 'Performing Newton iteration (dim=%d)...' % (2 * len(psi0))
     # perform newton iteration
     newton_out = nm.newton(psi0,
                            modeleval,
-                           linear_solver = nm.minres,
+                           linear_solver = lin_solve,
                            linear_solver_maxiter = 1000, #2*len(psi0),
                            linear_solver_extra_args = {'explicit_residual': True},
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
-                           eta0 = 1.0e-10,
-                           use_preconditioner = True,
-                           deflation_generators = [ lambda x: 1j*x ],
+                           eta0 = 1.0e-15,
+                           use_preconditioner = args.use_preconditioner,
+                           deflation_generators = defl,
                            num_deflation_vectors = 0,
                            debug=debug,
                            newton_maxiter = 30
@@ -113,6 +130,33 @@ def _parse_input_arguments():
                         help    = 'Mesh file containing the geometry and initial state'
                         )
 
+    parser.add_argument('--tikz', '-t',
+                        metavar = 'TIKZFILE',
+                        required = True,
+                        default = None,
+                        const = None,
+                        type = str,
+                        help    = 'TikZ file to store the results'
+                        )
+
+    parser.add_argument('--krylov-method', '-k',
+                        choices = ['cg', 'minres', 'gmres'],
+                        default = 'minres',
+                        help    = 'which Krylov method to use (default: False)'
+                        )
+
+    parser.add_argument('--use-preconditioner', '-p',
+                        action = 'store_true',
+                        default = False,
+                        help    = 'use preconditioner (default: False)'
+                        )
+
+    parser.add_argument('--use-deflation', '-d',
+                        action = 'store_true',
+                        default = False,
+                        help    = 'use deflation (default: False)'
+                        )
+
     parser.add_argument('--show', '-s',
                         action = 'store_true',
                         default = False,
@@ -124,7 +168,6 @@ def _parse_input_arguments():
                         type = float,
                         help = 'override value for mu from FILE (default: None)'
                         )
-
 
     return parser.parse_args()
 # ==============================================================================

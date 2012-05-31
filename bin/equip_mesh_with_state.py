@@ -67,11 +67,11 @@ def _main():
         #B = np.array([np.cos(theta) * np.cos(phi),
                       #np.cos(theta) * np.sin(phi),
                       #np.sin(theta)])
-        A = mvp.constant_field(points, np.array([1,1,1]) / np.sqrt(3))
-        #A = mvp.magnetic_dipole(points,
-                                #x0 = np.array([0,0,2]),
-                                #m = np.array([0,0,1])
-                                #)
+        #A = mvp.constant_field(points, np.array([1,1,1]) / np.sqrt(3))
+        A = mvp.magnetic_dipole(points,
+                                x0 = np.array([0,0,2]),
+                                m = np.array([0,0,1])
+                                )
         #A = mvp.magnetic_dot(points, radius=2.0, heights=[0.1, 1.1])
         #A = np.empty((num_nodes, 3), dtype=float)
         #for k, node in enumerate(points):

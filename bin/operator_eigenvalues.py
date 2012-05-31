@@ -51,7 +51,7 @@ def _main():
         p0 = 1j * psi0
         p0 /= np.sqrt(modeleval.inner_product(p0, p0))
         y0 = modeleval.get_jacobian(psi0) * p0
-        print np.linalg.norm(y0)
+        print '||(ipsi) J (ipsi)|| =', np.linalg.norm(y0)
         # Check with the rotation vector.
         grad_psi0 = mesh.compute_gradient(psi0)
         x_tilde = np.array( [-mesh.node_coords[:,1], mesh.node_coords[:,0]] ).T
@@ -60,12 +60,12 @@ def _main():
         nrm_p1 = np.sqrt(modeleval.inner_product(p1, p1))
         p1 /= nrm_p1
         y1 = modeleval.get_jacobian(psi0) * p1
-        print np.linalg.norm(y1)
+        print '||(grad) J (grad)|| =', np.linalg.norm(y1)
 
-        J = modeleval.get_jacobian(psi0)
-        K = modeleval._keo
-        x = np.random.rand(len(psi0))
-        print 'x', np.linalg.norm(J*x - K*x/ mesh.control_volumes.reshape(x.shape))
+        #J = modeleval.get_jacobian(psi0)
+        #K = modeleval._keo
+        #x = np.random.rand(len(psi0))
+        #print 'x', np.linalg.norm(J*x - K*x/ mesh.control_volumes.reshape(x.shape))
 
         eigenvals, X = _compute_eigenvalues(args.operator,
                                             args.eigenvalue_type,
@@ -76,6 +76,28 @@ def _main():
                                             )
         print 'The following eigenvalues were computed:'
         print sorted(eigenvals)
+
+        # Check those.
+        for k in xrange(len(eigenvals)):
+            # Convert to complex representation.
+            z = X[0::2,k] + 1j * X[1::2,k]
+            z /= np.sqrt(modeleval.inner_product(z, z))
+            y0 = modeleval.get_jacobian(psi0) * z
+            print np.linalg.norm(y0 - eigenvals[k] * z)
+
+        # Normalize and store all eigenvectors & values.
+        print 'Storing corresponding eigenstates...',
+        k = 0
+        for k in xrange(len(eigenvals)):
+            filename = 'eigen%d.vtu' % k
+            # Convert to complex representation.
+            z = X[0::2,k] + 1j * X[1::2,k]
+            z /= np.sqrt(modeleval.inner_product(z, z))
+            mesh.write(filename,
+                       point_data = {'psi': point_data['psi'], 'A': point_data['A'], 'V': point_data['V'], 'eigen': z },
+                       field_data = {'g': g, 'mu': mu, 'eigenvalue': eigenvals[k] }
+                       )
+        print 'done.'
     else:
         # initial guess for the eigenvectors
         X = np.ones((len(mesh.node_coords), 1))

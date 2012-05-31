@@ -85,12 +85,18 @@ def cg(A, rhs, x0,
        tol = 1.0e-5,
        maxiter = None,
        M = None,
+       Mr = None,
        explicit_residual = False,
        inner_product = _ipstd,
-       exact_solution = None
+       exact_solution = None,
+       return_basis = False,
+       Mr = None
        ):
     '''Conjugate gradient method with different inner product.
     '''
+    if return_basis:
+        raise RuntimeError('return_basis not implemented for CG.')
+
     xtype = upcast( A.dtype, rhs.dtype, x0.dtype )
     if M:
         xtype = upcast( xtype, M.dtype )
