@@ -334,7 +334,7 @@ def minres(A, b, x0,
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
-                    z = z - ip * Pfull[:,[i]]
+                    z -= ip * Pfull[:,[i]]
             ## ortho against additional (deflation) vectors?
             ## cost: ndeflW*(IP + AXPY)
             #if deflW is not None:
@@ -764,8 +764,8 @@ def gmres( A, b, x0,
         norm_MMlr0 = _norm(Mlr0, MMlr0, inner_product=inner_product)
     else:
         x0 = np.zeros( (N,1) )
-        Mlr0 = Mlb
-        MMlr0 = MMlb
+        Mlr0 = Mlb.copy()
+        MMlr0 = MMlb.copy()
         norm_MMlr0 = norm_MMlb
 
     out['relresvec'] = np.empty(maxiter+1)
@@ -795,10 +795,10 @@ def gmres( A, b, x0,
         for i in xrange(k+1):
             if M is not None:
                 H[i, k] += inner_product(V[:, [i]], z)[0,0]
-                z = z - H[i, k] * P[:, [i]]
+                z -= H[i, k] * P[:, [i]]
             else:
                 H[i, k] += inner_product(V[:, [i]], z)[0,0]
-                z = z - H[i, k] * V[:, [i]]
+                z -= H[i, k] * V[:, [i]]
         Mz = _apply(M, z);
         H[k+1, k] = _norm(z, Mz, inner_product=inner_product)
         if M is not None:
@@ -998,7 +998,9 @@ def newton( x0,
         # Setup linear problem.
         jacobian = model_evaluator.get_jacobian( x )
         initial_guess = np.zeros( (len(x),1) )
-        rhs = -Fx
+        # The .copy() is redundant as Python copies on "-Fx" anyways,
+        # but leave it here for clarity.
+        rhs = -Fx.copy()
 
         if use_preconditioner:
             M = model_evaluator.get_preconditioner(x)
@@ -1052,7 +1054,7 @@ def newton( x0,
         else:
             AW = np.zeros((len(x), 0))
             P = None
-            x0new = initial_guess
+            x0new = initial_guess.copy()
 
         if num_deflation_vectors > 0:
             return_basis = True
