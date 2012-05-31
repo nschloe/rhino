@@ -61,7 +61,8 @@ def _main():
              )
     # Plot Newton residuals.
     pp.subplot(122)
-    plot.semilogy(newton_out['Newton residuals'])
+    pp.semilogy(newton_out['Newton residuals'])
+    pp.title('Newton residuals')
 
     matplotlib2tikz.save(args.tikz)
     if args.show:
