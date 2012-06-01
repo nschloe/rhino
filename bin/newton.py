@@ -56,8 +56,8 @@ def _main():
     import matplotlib.pyplot as pp
     #pp.subplot(121)
     multiplot_data_series( newton_out['linear relresvecs'] )
-    pp.title('Krylov: %s    Prec: %r    Defl: %r    Newton iters: %d' %
-             (args.krylov_method, args.use_preconditioner, args.use_deflation, len(newton_out['Newton residuals'])-1)
+    pp.title('Krylov: %s    Prec: %r    Defl: %r   ExpRes: %r     Newton iters: %d' %
+             (args.krylov_method, args.use_preconditioner, args.use_deflation, args.resexp, len(newton_out['Newton residuals'])-1)
              )
     # Plot Newton residuals.
     #pp.subplot(122)

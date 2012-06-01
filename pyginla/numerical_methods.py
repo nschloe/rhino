@@ -148,11 +148,11 @@ def cg(A, b, x0,
 
     # initial relative residual norm
     relresvec = [norm_MMlr0 / norm_MMlb]
-    
+
     # compute error?
     if exact_solution is not None:
         errvec = [_norm(exact_solution - x0, inner_product = inner_product)]
-    
+
     # Allocate and initialize the 'large' memory blocks.
     if return_basis or full_reortho:
         raise RuntimeError('return_basis/full_reortho not implemented for CG.')
@@ -167,7 +167,7 @@ def cg(A, b, x0,
     out['info'] = 0
 
     rho_old = norm_MMlr0**2
-    
+
     Mlr = Mlr0.copy()
     MMlr = MMlr0.copy()
     p = MMlr.copy()
@@ -198,7 +198,7 @@ def cg(A, b, x0,
         if exact_solution is not None:
             xk = x0 + _apply(Mr, yk)
             errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
-        
+
         if explicit_residual:
             xk, Mlr, MMlr, norm_MMlr = _norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product=inner_product)
             relresvec.append( norm_MMlr / norm_MMlb )
@@ -1130,6 +1130,7 @@ def newton( x0,
                             return_basis = return_basis,
                             **linear_solver_extra_args
                             )
+
         if debug:
             print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
 
