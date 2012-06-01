@@ -84,7 +84,7 @@ def my_newton(args, modeleval, psi0, debug=True):
         lin_solve = nm.cg
     elif args.krylov_method == 'minres':
         lin_solve = nm.minres
-    elif args.krylov_method == 'minres-fo':
+    elif args.krylov_method == 'minresfo':
         lin_solve = nm.minres
         lin_solve_args.update({'full_reortho': True})
     elif args.krylov_method == 'gmres':
@@ -105,7 +105,7 @@ def my_newton(args, modeleval, psi0, debug=True):
                            linear_solver_extra_args = lin_solve_args,
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
-                           eta0 = 1.0e-10,
+                           eta0 = 1.0e-16,
                            use_preconditioner = args.use_preconditioner,
                            deflation_generators = defl,
                            num_deflation_vectors = 0,
@@ -150,7 +150,7 @@ def _parse_input_arguments():
                         )
 
     parser.add_argument('--krylov-method', '-k',
-                        choices = ['cg', 'minres', 'minres-fo', 'gmres'],
+                        choices = ['cg', 'minres', 'minresfo', 'gmres'],
                         default = 'gmres',
                         help    = 'which Krylov method to use (default: False)'
                         )
