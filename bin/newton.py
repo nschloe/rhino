@@ -70,12 +70,13 @@ def _main():
     #pp.semilogy(newton_out['Newton residuals'])
     #pp.title('Newton residuals')
 
-    pp.savefig(args.imgfile)
-    matplotlib2tikz.save(args.tikz)
-
-    # write the solution to a file
-    if args.solution_file:
-        modeleval.mesh.write(args.solution_file, {'psi': newton_out['x']})
+    # Write the info out to files.
+    if args.imgfile:
+        pp.savefig(args.imgfile)
+    if args.tikzfile:
+        matplotlib2tikz.save(args.tikzfile)
+    if args.solutionfile:
+        modeleval.mesh.write(args.solutionfile, {'psi': newton_out['x']})
 
     return
 # ==============================================================================
@@ -144,8 +145,8 @@ def _parse_input_arguments():
                         help    = 'Mesh file containing the geometry and initial state'
                         )
 
-    parser.add_argument('--savefig', '-s',
-                        metavar = 'IMGFILE',
+    parser.add_argument('--imgfile', '-i',
+                        metavar = 'IMG_FILE',
                         required = True,
                         default = None,
                         const = None,
@@ -153,8 +154,8 @@ def _parse_input_arguments():
                         help = 'Image file to store the results'
                         )
 
-    parser.add_argument('--savetikz', '-t',
-                        metavar = 'TIKZFILE',
+    parser.add_argument('--tikzfile', '-t',
+                        metavar = 'TIKZ_FILE',
                         required = True,
                         default = None,
                         const = None,
@@ -162,7 +163,7 @@ def _parse_input_arguments():
                         help = 'TikZ file to store the results'
                         )
 
-    parser.add_argument('--savesol', '-o',
+    parser.add_argument('--solutionfile', '-s',
                         metavar = 'SOLUTION_FILE',
                         default = None,
                         const = None,
