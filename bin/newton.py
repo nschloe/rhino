@@ -8,6 +8,10 @@ import numpy as np
 import pyginla.numerical_methods as nm
 import pyginla.gp_modelevaluator as gpm
 import voropy
+import matplotlib
+# Use the AGG backend to make sure that we don't need
+# $DISPLAY to plot something (to files).
+matplotlib.use('agg')
 import matplotlib.pyplot as pp
 import matplotlib2tikz
 # ==============================================================================
@@ -52,11 +56,13 @@ def _main():
     newton_out = my_newton(args, modeleval, psi0)
     print 'Newton residuals:', newton_out['Newton residuals']
 
+    # energy of the state
+    print 'Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
+
     # Get output.
-    import matplotlib.pyplot as pp
     #pp.subplot(121)
     multiplot_data_series( newton_out['linear relresvecs'] )
-    pp.title('Krylov: %s    Prec: %r    Defl: %r   ExpRes: %r     Newton iters: %d' %
+    pp.title('Krylov: %s    Prec: %r    Defl: %r    ExpRes: %r    Newton iters: %d' %
              (args.krylov_method, args.use_preconditioner, args.use_deflation, args.resexp, len(newton_out['Newton residuals'])-1)
              )
     # Plot Newton residuals.
@@ -64,14 +70,12 @@ def _main():
     #pp.semilogy(newton_out['Newton residuals'])
     #pp.title('Newton residuals')
 
+    pp.savefig(args.imgfile)
     matplotlib2tikz.save(args.tikz)
-    if args.show:
-        pp.show()
 
     # write the solution to a file
-    modeleval.mesh.write('solution.e', {'psi': newton_out['x']})
-    # energy of the state
-    print 'Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
+    if args.solution_file:
+        modeleval.mesh.write(args.solution_file, {'psi': newton_out['x']})
 
     return
 # ==============================================================================
@@ -140,13 +144,30 @@ def _parse_input_arguments():
                         help    = 'Mesh file containing the geometry and initial state'
                         )
 
-    parser.add_argument('--tikz', '-t',
+    parser.add_argument('--savefig', '-s',
+                        metavar = 'IMGFILE',
+                        required = True,
+                        default = None,
+                        const = None,
+                        type = str,
+                        help = 'Image file to store the results'
+                        )
+
+    parser.add_argument('--savetikz', '-t',
                         metavar = 'TIKZFILE',
                         required = True,
                         default = None,
                         const = None,
                         type = str,
-                        help    = 'TikZ file to store the results'
+                        help = 'TikZ file to store the results'
+                        )
+
+    parser.add_argument('--savesol', '-o',
+                        metavar = 'SOLUTION_FILE',
+                        default = None,
+                        const = None,
+                        type = str,
+                        help = 'Mesh file to store the final solution'
                         )
 
     parser.add_argument('--krylov-method', '-k',
@@ -165,12 +186,6 @@ def _parse_input_arguments():
                         action = 'store_true',
                         default = False,
                         help    = 'use deflation (default: False)'
-                        )
-
-    parser.add_argument('--show', '-s',
-                        action = 'store_true',
-                        default = False,
-                        help    = 'show the relative residuals of each linear iteration (default: False)'
                         )
 
     parser.add_argument('--mu', '-m',
