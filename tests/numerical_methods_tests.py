@@ -92,6 +92,24 @@ class TestLinearSolvers(unittest.TestCase):
         res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
     # --------------------------------------------------------------------------
+    def test_cg_sparse_prec(self):
+        # Create sparse problem.
+        num_unknowns = 100
+        A = self._create_sparse_hpd_matrix( num_unknowns )
+        M = self._create_spd_matrix( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
+
+        # Solve using CG.
+        tol = 1.0e-11
+        out = nm.cg(A, rhs, x0, tol=tol, maxiter=2*num_unknowns, M=M)
+
+        # Make sure the method converged.
+        #self.assertEqual(info, 0)
+        # Check the residual.
+        res = rhs - A * out['xk']
+        self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+    # --------------------------------------------------------------------------
     def test_minres_dense(self):
         # Create regular dense problem.
         num_unknowns = 5
