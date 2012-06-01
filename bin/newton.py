@@ -54,15 +54,15 @@ def _main():
 
     # Get output.
     import matplotlib.pyplot as pp
-    pp.subplot(121)
+    #pp.subplot(121)
     multiplot_data_series( newton_out['linear relresvecs'] )
-    pp.title('Krylov: %s    Prec: %r    Defl: %r' %
-             (args.krylov_method, args.use_preconditioner, args.use_deflation)
+    pp.title('Krylov: %s    Prec: %r    Defl: %r    Newton iters: %d' %
+             (args.krylov_method, args.use_preconditioner, args.use_deflation, len(newton_out['Newton residuals'])-1)
              )
     # Plot Newton residuals.
-    pp.subplot(122)
-    pp.semilogy(newton_out['Newton residuals'])
-    pp.title('Newton residuals')
+    #pp.subplot(122)
+    #pp.semilogy(newton_out['Newton residuals'])
+    #pp.title('Newton residuals')
 
     matplotlib2tikz.save(args.tikz)
     if args.show:
@@ -79,10 +79,14 @@ def my_newton(args, modeleval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
+    lin_solve_args = {'explicit_residual': True}
     if args.krylov_method == 'cg':
         lin_solve = nm.cg
     elif args.krylov_method == 'minres':
         lin_solve = nm.minres
+    elif args.krylov_method == 'minres-fo':
+        lin_solve = nm.minres
+        lin_solve_args.update({'full_reortho': True})
     elif args.krylov_method == 'gmres':
         lin_solve = nm.gmres
     else:
@@ -98,10 +102,10 @@ def my_newton(args, modeleval, psi0, debug=True):
                            modeleval,
                            linear_solver = lin_solve,
                            linear_solver_maxiter = 1000, #2*len(psi0),
-                           linear_solver_extra_args = {'explicit_residual': True, 'full_reortho': True},
+                           linear_solver_extra_args = lin_solve_args,
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
-                           eta0 = 1.0e-4,
+                           eta0 = 1.0e-10,
                            use_preconditioner = args.use_preconditioner,
                            deflation_generators = defl,
                            num_deflation_vectors = 0,
@@ -146,8 +150,8 @@ def _parse_input_arguments():
                         )
 
     parser.add_argument('--krylov-method', '-k',
-                        choices = ['cg', 'minres', 'gmres'],
-                        default = 'minres',
+                        choices = ['cg', 'minres', 'minres-fo', 'gmres'],
+                        default = 'gmres',
                         help    = 'which Krylov method to use (default: False)'
                         )
 
