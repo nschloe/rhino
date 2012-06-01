@@ -8,20 +8,22 @@ class TestLinearSolvers(unittest.TestCase):
     def setUp(self):
         return
     # --------------------------------------------------------------------------
-    def _create_sym_matrix( self, num_unknowns ):
-        A = np.random.rand(num_unknowns, num_unknowns)
-        A = 0.5 * ( A + A.transpose() )
+    def _create_herm_matrix( self, num_unknowns ):
+        # create hermitian toeplitz matrix
+        c = np.r_[num_unknowns, np.array(range(num_unknowns-1,0,-1)) * (1+1j)/ (np.sqrt(2)*num_unknowns) ]
+        import scipy.linalg
+        A = scipy.linalg.toeplitz(c)
         return A
     # --------------------------------------------------------------------------
-    def _create_spd_matrix( self, num_unknowns ):
-        A = self._create_sym_matrix( num_unknowns )
+    def _create_hpd_matrix( self, num_unknowns ):
+        A = self._create_herm_matrix( num_unknowns )
         # Make sure that the lowest eigenvalue is 1.
-        D,V = np.linalg.eig( A )
+        D = np.linalg.eigvalsh( A )
         A = A + (1.0-min(D)) * np.eye( num_unknowns )
         return A
     # --------------------------------------------------------------------------
     def _create_sym_indef_matrix( self, num_unknowns ):
-        A = self._create_sym_matrix( num_unknowns )
+        A = self._create_herm_matrix( num_unknowns )
         # Make sure that the lowest eigenvalue is -1 and the largest 1.
         D,V = np.linalg.eig( A )
         I = np.eye( num_unknowns )
@@ -61,7 +63,7 @@ class TestLinearSolvers(unittest.TestCase):
     def test_cg_dense(self):
         # Create dense problem.
         num_unknowns = 5
-        A = self._create_spd_matrix( num_unknowns )
+        A = self._create_hpd_matrix( num_unknowns )
         rhs = np.ones( (num_unknowns,1) )
         x0 = np.zeros( (num_unknowns,1) )
 
@@ -96,7 +98,7 @@ class TestLinearSolvers(unittest.TestCase):
         # Create sparse problem.
         num_unknowns = 100
         A = self._create_sparse_hpd_matrix( num_unknowns )
-        M = self._create_spd_matrix( num_unknowns )
+        M = self._create_hpd_matrix( num_unknowns )
         rhs = np.ones( (num_unknowns,1) )
         x0 = np.zeros( (num_unknowns,1) )
 
@@ -182,6 +184,38 @@ class TestLinearSolvers(unittest.TestCase):
         # Check the residual.
         res = rhs - A * out['xk']
         self.assertAlmostEqual( np.linalg.norm(res)/np.linalg.norm(rhs), 0.0, delta=tol )
+        # Check error.
+        self.assertAlmostEqual( np.linalg.norm(xexact - out['xk']) - out['errvec'][-1], 0.0, delta=1e-10 )
+    # --------------------------------------------------------------------------
+    def test_minres_sparse_indef_precon(self):
+        # Create sparse symmetric problem.
+        num_unknowns = 100
+        A = self._create_sparse_herm_indef_matrix(num_unknowns)
+        M = self._create_hpd_matrix( num_unknowns )
+        rhs = np.ones( (num_unknowns,1) )
+        x0 = np.zeros( (num_unknowns,1) )
+
+        # Solve using spsolve.
+        xexact = scipy.sparse.linalg.spsolve(A, rhs)
+        xexact = np.reshape(xexact, (len(xexact),1))
+        # Solve using MINRES.
+        tol = 1.0e-10
+        out = nm.minres( A, rhs, x0, tol=tol, maxiter=100*num_unknowns, explicit_residual=True, exact_solution=xexact, M=M)
+
+        # Make sure the method converged.
+        self.assertEqual(out['info'], 0)
+
+        # compute M-norm of residual
+        res = rhs - A * out['xk']
+        Mres = np.dot(M, res)
+        norm_res = np.sqrt(np.vdot(res, Mres))
+
+        # compute M-norm of rhs
+        Mrhs = np.dot(M, rhs)
+        norm_rhs = np.sqrt(np.vdot(rhs, Mrhs))
+
+        # Check the residual.
+        self.assertAlmostEqual( norm_res/norm_rhs, 0.0, delta=tol )
         # Check error.
         self.assertAlmostEqual( np.linalg.norm(xexact - out['xk']) - out['errvec'][-1], 0.0, delta=1e-10 )
     # --------------------------------------------------------------------------
