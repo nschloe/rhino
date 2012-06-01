@@ -79,7 +79,7 @@ def my_newton(args, modeleval, psi0, debug=True):
     '''Solve with Newton.
     '''
 
-    lin_solve_args = {'explicit_residual': True}
+    lin_solve_args = {'explicit_residual': args.resexp}
     if args.krylov_method == 'cg':
         lin_solve = nm.cg
     elif args.krylov_method == 'minres':
@@ -183,6 +183,12 @@ def _parse_input_arguments():
                         default = 1e-10,
                         type = float,
                         help = 'override value for linear solver tolerance (default: 1e-10)'
+                        )
+
+    parser.add_argument('--resexp', '-r',
+                        action = 'store_true',
+                        default = False,
+                        help = 'compute explicit residual norms (default: False)'
                         )
 
     return parser.parse_args()
