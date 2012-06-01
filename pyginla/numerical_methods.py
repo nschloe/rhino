@@ -81,24 +81,53 @@ def _apply( A, x ):
     else:
         raise ValueError( 'Unknown operator type "%s".' % type(A) )
 # ==============================================================================
-def cg(A, rhs, x0,
+def _norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = _ipstd):
+    xk = x0 + _apply(Mr, yk)
+    r = b - _apply(A, xk)
+    Mlr = _apply(Ml, r)
+    # normalize residual before applying the preconditioner here.
+    # otherwise MMlr can become 0 exactly (pyamg doesnt respect relative
+    # residual)
+    # TODO for testing: 2-norm
+    norm_Mlr = _norm(Mlr)
+    if norm_Mlr == 0:
+        MMlr = np.zeros( Mlr.shape )
+        norm_MMlr = 0
+    else:
+        nMlr = Mlr / norm_Mlr
+        nMMlr = _apply(M, nMlr)
+        MMlr = nMMlr * norm_Mlr
+        norm_MMlr = _norm(Mlr, MMlr, inner_product=inner_product)
+    # return xk and ||M*Ml*(b-A*(x0+Mr*yk))||_{M^{-1}}
+    return xk, Mlr, MMlr, norm_MMlr
+# ==============================================================================
+def cg(A, b, x0,
        tol = 1.0e-5,
        maxiter = None,
        M = None,
-       explicit_residual = False,
+       Ml = None,
+       Mr = None,
        inner_product = _ipstd,
-       exact_solution = None,
+       explicit_residual = False,
        return_basis = False,
-       Mr = None
+       full_reortho = False,
+       exact_solution = None
        ):
     '''Conjugate gradient method with different inner product.
     '''
     if return_basis:
         raise RuntimeError('return_basis not implemented for CG.')
 
-    xtype = upcast( A.dtype, rhs.dtype, x0.dtype )
-    if M:
+    info = 0
+    N = len(b)
+
+    xtype = upcast( A.dtype, b.dtype, x0.dtype )
+    if M is not None:
         xtype = upcast( xtype, M.dtype )
+    if Ml is not None:
+        xtype = upcast( xtype, Ml.dtype )
+    if Mr is not None:
+        xtype = upcast( xtype, Mr.dtype )
 
     x = xtype(x0.copy())
     # If len(x)==1, then xtype strips off the np.array frame around the value.
@@ -106,24 +135,42 @@ def cg(A, rhs, x0,
     if len(x0) == 1:
         x = np.array( [x] )
 
-    r = rhs - _apply(A, x)
+    # Compute M-norm of M*Ml*b.
+    Mlb = _apply(Ml, b)
+    MMlb = _apply(M, Mlb)
+    norm_MMlb = _norm(Mlb, MMlb, inner_product = inner_product)
 
-    Mr = _apply(M, r)
-    rho_old = _norm_squared(r, Mr, inner_product = inner_product)
-    p = Mr.copy()
+    # Init Lanczos and CG
+    r0 = b - _apply(A, x0)
+    Mlr0 = _apply(Ml, r0)
+    MMlr0 = _apply(M, Mlr0)
+    norm_MMlr0 = _norm(Mlr0, MMlr0, inner_product = inner_product)
+
+    # initial relative residual norm
+    relresvec = [norm_MMlr0 / norm_MMlb]
+    
+    # compute error?
+    if exact_solution is not None:
+        errvec = [_norm(exact_solution - x0, inner_product = inner_product)]
+    
+    # Allocate and initialize the 'large' memory blocks.
+    if return_basis or full_reortho:
+        raise RuntimeError('return_basis/full_reortho not implemented for CG.')
+
+    # resulting approximation is xk = x0 + Mr*yk
+    yk = np.zeros((N,1), dtype=xtype)
 
     if maxiter is None:
-        maxiter = len(rhs)
+        maxiter = N
 
     out = {}
     out['info'] = 0
 
-    # Store rho0 = ||rhs||_M^2.
-    Mrhs = _apply(M, rhs)
-    rho0 = _norm_squared( rhs, Mrhs, inner_product = inner_product )
-
-    out['relresvec'] = np.empty(maxiter+1)
-    out['relresvec'][0] = 1.0
+    rho_old = norm_MMlr0**2
+    
+    Mlr = Mlr0.copy()
+    MMlr = MMlr0.copy()
+    p = MMlr.copy()
 
     if exact_solution is not None:
         out['errorvec'] = np.empty(maxiter+1)
@@ -132,50 +179,66 @@ def cg(A, rhs, x0,
                                            )
 
     k = 0
-    while out['relresvec'][k] > tol and k < maxiter:
+    while relresvec[k] > tol and k < maxiter:
         if k > 0:
             # update the search direction
-            p = Mr + rho_new/rho_old * p
+            p = MMlr + rho_new/rho_old * p
             rho_old = rho_new
-
-        Ap = _apply(A, p)
+        Ap = _apply(Mr, p)
+        Ap = _apply(A, Ap)
+        Ap = _apply(Ml, Ap)
 
         # update current guess and residual
         alpha = rho_old / inner_product( p, Ap )
-        x += alpha * p
+        if abs(alpha.imag) > 1e-12:
+            print 'Warning (iter %d): abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag))
+        alpha = alpha.real
+        yk += alpha * p
 
         if exact_solution is not None:
-            out['errorvec'][k+1] = _norm_squared(x-exact_solution,
-                                                 inner_product = inner_product
-                                                 )
-
+            xk = x0 + _apply(Mr, yk)
+            errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
+        
         if explicit_residual:
-            r = rhs - _apply(A, x)
+            xk, Mlr, MMlr, norm_MMlr = _norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product=inner_product)
+            relresvec.append( norm_MMlr / norm_MMlb )
+            rho_new = norm_MMlr**2
         else:
-            r -= alpha * Ap
+            Mlr -= alpha * Ap
+            MMlr = _apply(M, Mlr)
+            rho_new = _norm_squared( Mlr, MMlr, inner_product = inner_product )
+            relresvec.append( np.sqrt(rho_new) / norm_MMlb )
 
-        Mr = _apply(M, r)
-        rho_new = _norm_squared( r, Mr, inner_product = inner_product )
-
-        out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
-        if not explicit_residual and out['relresvec'][k+1] < tol:
-            # Compute exact residual
-            r = rhs - _apply(A, x)
-            Mr = _apply(M, r)
-            rho_new = _norm_squared( r, Mr, inner_product = inner_product )
-            out['relresvec'][k+1] = np.sqrt(rho_new / rho0)
+        # Compute residual explicitly if updated residual is below tolerance.
+        if relresvec[-1] <= tol or k+1 == maxiter:
+            norm_r_upd = relresvec[-1]
+            # Compute the exact residual norm (if not yet done above)
+            if not explicit_residual:
+                xk, Mlr, MMlr, norm_MMlr = _norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = inner_product)
+                relresvec[-1] = norm_MMlr / norm_MMlb
+            # No convergence of explicit residual?
+            if relresvec[-1] > tol:
+                # Was this the last iteration?
+                if k+1 == maxiter:
+                    print 'Warning (iter %d): No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
+                        % (k+1, relresvec[-1], tol, norm_r_upd)
+                    info = 1
+                else:
+                    print ( 'Info (iter %d): Updated residual is below tolerance, '
+                          + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
+                          + 'resup=%g)\n' \
+                          ) % (k+1, relresvec[-1], tol, norm_r_upd)
 
         k += 1
 
-    if out['relresvec'][k] > tol:
-        out['info'] = 1
-
-    out['xk'] = x
-    out['relresvec'] = out['relresvec'][:k+1]
+    ret = { 'xk': xk,
+            'info': info,
+            'relresvec': relresvec
+            }
     if exact_solution is not None:
-        out['errorvec'] = out['errorvec'][:k+1]
+        ret['errvec'] = errvec
 
-    return out
+    return ret
 # ==============================================================================
 def minres(A, b, x0,
            tol = 1e-5,
@@ -231,12 +294,12 @@ def minres(A, b, x0,
         start = time.time()
 
     xtype = upcast( A.dtype, b.dtype, x0.dtype )
-    if M:
-        xtype = upcast( xtype, M )
-    if Ml:
-        xtype = upcast( xtype, Ml )
-    if Mr:
-        xtype = upcast( xtype, Mr )
+    if M is not None:
+        xtype = upcast( xtype, M.dtype )
+    if Ml is not None:
+        xtype = upcast( xtype, Ml.dtype )
+    if Mr is not None:
+        xtype = upcast( xtype, Mr.dtype )
 
     # Compute M-norm of M*Ml*b.
     Mlb = _apply(Ml, b)
@@ -277,7 +340,7 @@ def minres(A, b, x0,
     k = 0
 
     # resulting approximation is xk = x0 + Mr*yk
-    yk = np.zeros((N,1))
+    yk = np.zeros((N,1), dtype=xtype)
     xk = x0.copy()
 
     if timer:
@@ -397,7 +460,7 @@ def minres(A, b, x0,
             start = time.time()
         R[2:4] = [td, ts]
         R[1:3] = _apply(G2, R[1:3])
-        G1 = G2
+        G1 = G2.copy()
         # compute new givens rotation.
         gg = np.linalg.norm( R[2:4] )
         gc = R[2] / gg
@@ -428,31 +491,20 @@ def minres(A, b, x0,
         if exact_solution is not None:
             xk = x0 + _apply(Mr, yk)
             errvec.append(_norm(exact_solution - xk, inner_product=inner_product))
-        def compute_norm_r_exp(yk):
-            xk = x0 + _apply(Mr, yk)
-            r_exp = b - _apply(A, xk)
-            r_exp = _apply(Ml, r_exp)
-            # normalize residual before applying the preconditioner here.
-            # otherwise norm_r_exp can become 0 exactly (pyamg seems to miss a
-            # normalization step somewhere).
-            r_exp /= norm_MMlb
-            Mr_exp = _apply(M, r_exp)
-            norm_r_exp = _norm(r_exp, Mr_exp, inner_product=inner_product)
-            return xk, norm_r_exp
 
         if explicit_residual:
-            xk, norm_r_exp = compute_norm_r_exp(yk)
-            relresvec.append( norm_r_exp )
+            xk, _, _, norm_MMlr = _norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = inner_product)
+            relresvec.append( norm_MMlr / norm_MMlb )
         else:
-            relresvec.append(abs(y[0]) / norm_MMlb)
+            relresvec.append( abs(y[0]) / norm_MMlb )
 
         # Compute residual explicitly if updated residual is below tolerance.
         if relresvec[-1] <= tol or k+1 == maxiter:
             norm_r_upd = relresvec[-1]
             # Compute the exact residual norm (if not yet done above)
             if not explicit_residual:
-                xk, norm_r_exp = compute_norm_r_exp(yk)
-                relresvec[-1] = norm_r_exp
+                xk, _, _, norm_MMlr = _norm_MMlr(M, Ml, A, Mr, b, x0, yk, inner_product = inner_product)
+                relresvec[-1] = norm_MMlr / norm_MMlb
             # No convergence of explicit residual?
             if relresvec[-1] > tol:
                 # Was this the last iteration?
