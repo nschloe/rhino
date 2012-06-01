@@ -105,7 +105,7 @@ def my_newton(args, modeleval, psi0, debug=True):
                            linear_solver_extra_args = lin_solve_args,
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
-                           eta0 = 1.0e-16,
+                           eta0 = args.eta,
                            use_preconditioner = args.use_preconditioner,
                            deflation_generators = defl,
                            num_deflation_vectors = 0,
@@ -177,6 +177,12 @@ def _parse_input_arguments():
                         default = None,
                         type = float,
                         help = 'override value for mu from FILE (default: None)'
+                        )
+
+    parser.add_argument('--eta', '-e',
+                        default = 1e-10,
+                        type = float,
+                        help = 'override value for linear solver tolerance (default: 1e-10)'
                         )
 
     return parser.parse_args()
