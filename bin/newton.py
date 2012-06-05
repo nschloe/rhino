@@ -113,7 +113,7 @@ def my_newton(args, modeleval, psi0, debug=True):
                            eta0 = args.eta,
                            use_preconditioner = args.use_preconditioner,
                            deflation_generators = defl,
-                           num_deflation_vectors = 0,
+                           num_deflation_vectors = args.num_extra_defl_vectors,
                            debug=debug,
                            newton_maxiter = 30
                            )
@@ -205,6 +205,11 @@ def _parse_input_arguments():
                         action = 'store_true',
                         default = False,
                         help = 'compute explicit residual norms (default: False)'
+                        )
+
+    parser.add_argument('--num-extra-defl-vectors', '-n',
+                        default = 0,
+                        help = 'number of extra deflation vectors (default: 0)'
                         )
 
     return parser.parse_args()
