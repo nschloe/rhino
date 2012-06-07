@@ -106,7 +106,7 @@ def my_newton(args, modeleval, psi0, debug=True):
     newton_out = nm.newton(psi0,
                            modeleval,
                            linear_solver = lin_solve,
-                           linear_solver_maxiter = 1000, #2*len(psi0),
+                           linear_solver_maxiter = 500, #2*len(psi0),
                            linear_solver_extra_args = lin_solve_args,
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
@@ -209,6 +209,7 @@ def _parse_input_arguments():
 
     parser.add_argument('--num-extra-defl-vectors', '-n',
                         default = 0,
+                        type = int,
                         help = 'number of extra deflation vectors (default: 0)'
                         )
 

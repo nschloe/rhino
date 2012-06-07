@@ -226,16 +226,19 @@ class GrossPitaevskiiModelEvaluator:
                               dtype = self.dtype
                               )
     # ==========================================================================
-    def inner_product( self, phi0, phi1 ):
+    def inner_product(self, phi0, phi1):
         '''The natural inner product of the problem.
         '''
+        assert phi0.shape[0] == phi1.shape[0], \
+               ('Input vectors not matching.', phi0.shape, phi1.shape)
+
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         if len(phi0.shape)==1:
             scaledPhi0 = self.mesh.control_volumes * phi0
         elif len(phi0.shape)==2:
-            scaledPhi0 = self.mesh.control_volumes.reshape(phi0.shape) * phi0
+            scaledPhi0 = self.mesh.control_volumes.reshape((phi0.shape[0],1)) * phi0
 
         # np.vdot only works for vectors, so use np.dot(....T.conj()) here.
         return np.dot(scaledPhi0.T.conj(), phi1).real

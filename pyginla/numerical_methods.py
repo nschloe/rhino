@@ -1016,7 +1016,7 @@ def newton( x0,
     Fx = model_evaluator.compute_f( x )
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
-    W = np.zeros( (len(x),0 ) )
+    W = np.zeros((len(x), 0))
     linear_relresvecs = []
     while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
         if debug:
