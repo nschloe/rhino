@@ -38,6 +38,7 @@ class GrossPitaevskiiModelEvaluator:
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
         self.num_cycles = []
+        self.cv_variant = 'voronoi'
         return
     # ==========================================================================
     def compute_f(self, psi):
@@ -48,7 +49,7 @@ class GrossPitaevskiiModelEvaluator:
         if self._keo is None:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes()
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         res = (self._keo * psi) / self.mesh.control_volumes.reshape(psi.shape) \
             + (self._V.reshape(psi.shape) + self._g * abs(psi)**2) * psi
@@ -78,7 +79,7 @@ class GrossPitaevskiiModelEvaluator:
         if self._keo is None:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes()
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
         alpha = self._V.reshape(psi0.shape) + self._g * 2.0*(psi0.real**2 + psi0.imag**2)
         gPsi0Squared = self._g * psi0**2
 
@@ -102,7 +103,7 @@ class GrossPitaevskiiModelEvaluator:
         if self._keo is None:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes()
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         if self._g > 0.0:
             alpha = self._g * 2.0 * (psi0.real**2 + psi0.imag**2)
@@ -160,7 +161,7 @@ class GrossPitaevskiiModelEvaluator:
         if self._keo is None:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes()
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         num_nodes = len(self.mesh.node_coords)
         if self._g > 0.0:
@@ -229,7 +230,7 @@ class GrossPitaevskiiModelEvaluator:
         '''The natural inner product of the problem.
         '''
         if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes()
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         if len(phi0.shape)==1:
             scaledPhi0 = self.mesh.control_volumes * phi0
@@ -244,7 +245,7 @@ class GrossPitaevskiiModelEvaluator:
         Not really a norm, but a good measure for our purposes here.
         '''
         if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes()
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         alpha = -self.inner_product(psi**2, psi**2)
 
@@ -306,9 +307,9 @@ class GrossPitaevskiiModelEvaluator:
         num_edges = len(self.mesh.edges)
         self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
 
-        if self.mesh.cells_volume is None:
-            self.mesh.create_cells_volume()
-        vols = self.mesh.cells_volume
+        if self.mesh.cell_volumes is None:
+            self.mesh.create_cell_volumes()
+        vols = self.mesh.cell_volumes
 
         # Precompute edges.
         edges = self.mesh.node_coords[self.mesh.edges['nodes'][:,1]] \

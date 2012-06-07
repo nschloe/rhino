@@ -174,7 +174,7 @@ def _parse_input_arguments():
     parser.add_argument('--krylov-method', '-k',
                         choices = ['cg', 'minres', 'minresfo', 'gmres'],
                         default = 'gmres',
-                        help    = 'which Krylov method to use (default: False)'
+                        help    = 'which Krylov method to use (default: gmres)'
                         )
 
     parser.add_argument('--use-preconditioner', '-p',
