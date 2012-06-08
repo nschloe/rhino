@@ -103,7 +103,7 @@ def _main():
     # write the mesh
     print 'Writing mesh...',
     start = time.time()
-    mesh.write(args.outfile, {'psi': psi, 'V': V, 'A': A}, {'g': g, 'mu': mu})
+    mesh.write(args.outfile, point_data={'psi': psi, 'V': V, 'A': A}, field_data={'g': g, 'mu': mu})
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 

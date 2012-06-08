@@ -33,7 +33,12 @@ def _main():
     find_beautiful_states(modeleval, args.parameter, param_range, args.forcing_term)
     return
 # ==============================================================================
-def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
+def find_beautiful_states(modeleval,
+                          param_name,
+                          param_range,
+                          forcing_term,
+                          save_doubles = True
+                          ):
     '''Loop through a set of parameters/initial states and try to find
     starting points that (quickly) lead to "interesting looking" solutions.
     Such solutions are filtered out only by their energy at the moment.'''
@@ -81,11 +86,12 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                 raise RuntimeError('Illegal k.')
 
             print 'Performing Newton iteration...'
+            linsolve_maxiter = 500 #2*len(psi0)
             # perform newton iteration
             newton_out = nm.newton(psi0[:,None],
                                    modeleval,
                                    linear_solver = nm.minres,
-                                   linear_solver_maxiter = 500, #2*len(psi0),
+                                   linear_solver_maxiter = linsolve_maxiter,
                                    linear_solver_extra_args = {},
                                    nonlinear_tol = 1.0e-10,
                                    forcing_term = forcing_term,
@@ -98,7 +104,8 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                                    )
             print ' done.'
 
-            print 'Num MINRES iterations:', [len(resvec) for resvec in newton_out['linear relresvecs']]
+            num_krylov_iters = [len(resvec) for resvec in newton_out['linear relresvecs']]
+            print 'Num Krylov iterations:', num_krylov_iters
             print 'Newton residuals:', newton_out['Newton residuals']
             if newton_out['info'] == 0:
                 num_newton_iters = len(newton_out['linear relresvecs'])
@@ -110,9 +117,12 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                 if energy > -0.999 and energy < -0.001:
                     # Store the file as VTU such that ParaView can loop through
                     # and display them at once. For this, also be sure to keep
-                    # the file name in the format 'sdgfds-01414.vtu'.
-                    filename = 'interesting-' \
-                             + repr(num_newton_iters).rjust(2,'0') \
+                    # the file name in the format 'interesting<-krylovfails03>-01414.vtu'.
+                    filename = 'interesting-'
+                    num_krylov_fails = num_krylov_iters.count(linsolve_maxiter)
+                    if num_krylov_fails > 0
+                        filename += 'krylovfails%s-' % repr(num_krylov_fails).rjust(2,'0')
+                    filname += repr(num_newton_iters).rjust(2,'0') \
                              + repr(solution_id).rjust(3,'0') \
                              + '.vtu'
                     print 'Interesting state found for %s=%g!' % (param_name, p),
@@ -125,7 +135,7 @@ def find_beautiful_states( modeleval, param_name, param_range, forcing_term ):
                         if modeleval.inner_product(diff, diff) < 1.0e-10:
                             already_found = True
                             break
-                    if already_found:
+                    if already_found and not save_doubles:
                         print '-- But we already have that one.'
                     else:
                         found_solutions.append(psi)
