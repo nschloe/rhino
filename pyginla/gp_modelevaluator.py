@@ -119,7 +119,7 @@ class GrossPitaevskiiModelEvaluator:
         return self._get_preconditioner_inverse_amg(psi0)
         #return self._get_preconditioner_inverse_directsolve(psi0)
     # ==========================================================================
-    def _get_preconditioner_inverse_amg(self, psi0):
+    def _get_preconditioner_inverse_amg(self, psi0, amg_cycles = np.inf):
         '''Use AMG to invert M approximately.
         '''
         import pyamg
@@ -143,11 +143,10 @@ class GrossPitaevskiiModelEvaluator:
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             x = np.empty((num_nodes,1), dtype=complex)
-            num_cycles = 1
             residuals = []
             x[:,0] = prec_amg_solver.solve(rhs,
                                             x0 = x0,
-                                            maxiter = num_cycles,
+                                            maxiter = amg_cycles,
                                             tol = 0.0,
                                             accel = None,
                                             residuals=residuals
@@ -155,7 +154,7 @@ class GrossPitaevskiiModelEvaluator:
             # Alternative for one cycle:
             # amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
             # x = amg_prec * rhs
-            self.num_cycles += [num_cycles]
+            self.num_cycles += [amg_cycles]
             return x
         # ----------------------------------------------------------------------
         if self._keo is None:
@@ -195,21 +194,18 @@ class GrossPitaevskiiModelEvaluator:
 
         num_unknowns = len(psi0)
 
-        precon_type = 'custom cg'
-        if precon_type == 'custom cg':
+        if amg_cycles < np.inf:
+            return LinearOperator((num_unknowns, num_unknowns),
+                                  _apply_inverse_prec_pyamgsolve,
+                                  dtype = self.dtype
+                                  )
+        else:
             import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
             return LinearOperator((num_unknowns, num_unknowns),
                                   _apply_inverse_prec_customcg,
                                   dtype = self.dtype
                                   )
-        elif precon_type == 'pyamg solve':
-            return LinearOperator((num_unknowns, num_unknowns),
-                                  _apply_inverse_prec_pyamgsolve,
-                                  dtype = self.dtype
-                                  )
-        else:
-            raise ValueError('Unknown preconditioner type \'%s\'.' % precon_type)
     # ==========================================================================
     def _get_preconditioner_inverse_directsolve(self, psi0):
         '''Use a direct solver for M^{-1}.
