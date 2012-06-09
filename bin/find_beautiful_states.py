@@ -24,8 +24,8 @@ def _main():
                                                  A = point_data['A'],
                                                  mu = field_data['mu'])
 
-    param_range = np.linspace(args.parameter_range[1],
-                              args.parameter_range[0],
+    param_range = np.linspace(args.parameter_range[0],
+                              args.parameter_range[1],
                               args.num_parameter_steps)
     print 'Looking for solutions for %s in' % args.parameter
     print param_range
@@ -61,8 +61,6 @@ def find_beautiful_states(modeleval,
     search_space = [(a,k) for a in reversed(Alpha) for k in search_space_k]
 
     solution_id = 0
-    # Loop over problem parameters in reversed order:
-    # This way, we'll find the states with many nodes first.
     for p in param_range:
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
@@ -120,7 +118,7 @@ def find_beautiful_states(modeleval,
                     # the file name in the format 'interesting<-krylovfails03>-01414.vtu'.
                     filename = 'interesting-'
                     num_krylov_fails = num_krylov_iters.count(linsolve_maxiter)
-                    if num_krylov_fails > 0
+                    if num_krylov_fails > 0:
                         filename += 'krylovfails%s-' % repr(num_krylov_fails).rjust(2,'0')
                     filname += repr(num_newton_iters).rjust(2,'0') \
                              + repr(solution_id).rjust(3,'0') \
