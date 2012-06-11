@@ -16,7 +16,7 @@ class GrossPitaevskiiModelEvaluator:
        * Nonlinear Schrödinger: g=1.0, V==0.0, A==0.0.
     '''
     # ==========================================================================
-    def __init__(self, mesh, g=0.0, V=None, A=None, mu=0.0 ):
+    def __init__(self, mesh, g=0.0, V=None, A=None, mu=0.0, num_amg_cycles = np.inf):
         '''Initialization. Set mesh.
         '''
         self.dtype = complex
@@ -39,6 +39,7 @@ class GrossPitaevskiiModelEvaluator:
         self._mvp_edge_cache = None
         self.num_cycles = []
         self.cv_variant = 'voronoi'
+        self._num_amg_cycles = num_amg_cycles
         return
     # ==========================================================================
     def compute_f(self, psi):
@@ -100,6 +101,9 @@ class GrossPitaevskiiModelEvaluator:
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.node_coords)
 
+        if self._num_amg_cycles < np.inf
+            warnings.warn('Precondintioner inverted approximately with %d AMG cycles, so get_precondition() isn''t exact.' % self._num_amg_cycles)
+
         if self._keo is None:
             self._assemble_keo()
         if self.mesh.control_volumes is None:
@@ -119,7 +123,7 @@ class GrossPitaevskiiModelEvaluator:
         return self._get_preconditioner_inverse_amg(psi0)
         #return self._get_preconditioner_inverse_directsolve(psi0)
     # ==========================================================================
-    def _get_preconditioner_inverse_amg(self, psi0, amg_cycles = np.inf):
+    def _get_preconditioner_inverse_amg(self, psi0):
         '''Use AMG to invert M approximately.
         '''
         import pyamg
@@ -146,7 +150,7 @@ class GrossPitaevskiiModelEvaluator:
             residuals = []
             x[:,0] = prec_amg_solver.solve(rhs,
                                             x0 = x0,
-                                            maxiter = amg_cycles,
+                                            maxiter = self._num_amg_cycles,
                                             tol = 0.0,
                                             accel = None,
                                             residuals=residuals
@@ -194,7 +198,7 @@ class GrossPitaevskiiModelEvaluator:
 
         num_unknowns = len(psi0)
 
-        if amg_cycles < np.inf:
+        if self._num_amg_cycles < np.inf:
             return LinearOperator((num_unknowns, num_unknowns),
                                   _apply_inverse_prec_pyamgsolve,
                                   dtype = self.dtype
