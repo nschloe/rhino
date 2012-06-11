@@ -25,46 +25,49 @@ num_nodes = len(mesh.node_coords)
 psi0Name = 'psi0'
 psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
                       (num_nodes,1))
-    ''' % filename
+''' % filename
 
         repeats = 5
 
         my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 J = modeleval.get_jacobian(psi0)
-    '''
+'''
         stmt = '''
 _ = J * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
         my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-M = modeleval._get_preconditioner_inverse_amg(psi0, amg_cycles=1)
-    '''
+modeleval._preconditioner_type = 'cycles'
+modeleval._num_amg_cycles = 1
+M = modeleval.get_preconditioner_inverse(psi0)
+'''
         stmt = '''
 _ = M * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
         my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-M = modeleval._get_preconditioner_inverse_amg(psi0, amg_cycles=np.inf)
-    '''
+modeleval._preconditioner_type = 'exact'
+M = modeleval.get_preconditioner_inverse(psi0)
+'''
         stmt = '''
 _ = M * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
@@ -77,32 +80,32 @@ JW = J * W
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_product)
-    '''
+'''
         stmt = '''
 _ = P * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt, 1
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
         my_setup = '''
 import pyginla.numerical_methods as nm
-k = 10
 J = modeleval.get_jacobian(psi0)
+k = 10
 W = np.random.rand(num_nodes,k) + 1j * np.random.rand(num_nodes,k)
 JW = J * W
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_product)
-    '''
+'''
         stmt = '''
 _ = P * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt, 10
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
@@ -115,13 +118,13 @@ JW = J * W
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_product)
-    '''
+'''
         stmt = '''
 _ = P * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt, 50
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
@@ -134,39 +137,57 @@ JW = J * W
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_product)
-    '''
+'''
         stmt = '''
 _ = P * phi0
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt, 100
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
         my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-    '''
+'''
         stmt = '''
 _ = modeleval.inner_product(phi0, phi1)
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
 
         my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-    '''
+'''
         stmt = '''
 _ = phi0 + phi1
-    '''
+'''
         # make sure to execute the operation once such that all initializations are performed
-        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print stmt
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
+        print min(timings), np.mean(timings), max(timings)
+
+
+        my_setup = '''
+J = modeleval.get_jacobian(psi0)
+modeleval._preconditioner_type = 'cycles'
+modeleval._num_amg_cycles = 1
+M = modeleval.get_preconditioner_inverse(psi0)
+phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
+b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
+import pyginla.numerical_methods as nm
+'''
+        stmt = '''
+nm.minres(J, b, phi0, M=M, maxiter=1, inner_product=modeleval.inner_product)
+'''
+        # make sure to execute the operation once such that all initializations are performed
+        print stmt
+        timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=repeats, number=1)
         print min(timings), np.mean(timings), max(timings)
 
     return
