@@ -7,7 +7,7 @@ import numpy as np
 from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import spdiags
-import cmath
+import warnings
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class GrossPitaevskiiModelEvaluator:
     '''Gross-Pitaevskii model evaluator class.
@@ -16,7 +16,15 @@ class GrossPitaevskiiModelEvaluator:
        * Nonlinear Schrödinger: g=1.0, V==0.0, A==0.0.
     '''
     # ==========================================================================
-    def __init__(self, mesh, g=0.0, V=None, A=None, mu=0.0, num_amg_cycles = np.inf):
+    def __init__(self, 
+            mesh, 
+            g = 0.0, 
+            V = None, 
+            A = None, 
+            mu = 0.0, 
+            preconditioner_type = 'none',
+            num_amg_cycles = np.inf
+            ):
         '''Initialization. Set mesh.
         '''
         self.dtype = complex
@@ -37,8 +45,9 @@ class GrossPitaevskiiModelEvaluator:
         self._D = None
         self._edgecoeff_cache = None
         self._mvp_edge_cache = None
-        self.num_cycles = []
+        self.tot_amg_cycles = []
         self.cv_variant = 'voronoi'
+        self._preconditioner_type = preconditioner_type
         self._num_amg_cycles = num_amg_cycles
         return
     # ==========================================================================
@@ -101,7 +110,9 @@ class GrossPitaevskiiModelEvaluator:
         assert( psi0 is not None )
         num_unknowns = len(self.mesh.node_coords)
 
-        if self._num_amg_cycles < np.inf
+        if self._preconditioner_type == 'none':
+            return None
+        if self._preconditioner_type == 'cycles':
             warnings.warn('Precondintioner inverted approximately with %d AMG cycles, so get_precondition() isn''t exact.' % self._num_amg_cycles)
 
         if self._keo is None:
@@ -120,15 +131,15 @@ class GrossPitaevskiiModelEvaluator:
                               )
     # ==========================================================================
     def get_preconditioner_inverse(self, psi0):
-        return self._get_preconditioner_inverse_amg(psi0)
-        #return self._get_preconditioner_inverse_directsolve(psi0)
-    # ==========================================================================
-    def _get_preconditioner_inverse_amg(self, psi0):
         '''Use AMG to invert M approximately.
         '''
+        
+        if self._preconditioner_type == 'none':
+            return None
+
         import pyamg
         # ----------------------------------------------------------------------
-        def _apply_inverse_prec_customcg(phi):
+        def _apply_inverse_prec_exact(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             out = nm.cg(prec, rhs, x0,
@@ -140,10 +151,10 @@ class GrossPitaevskiiModelEvaluator:
                 print 'Preconditioner did not converge; last residual: %g' \
                       % out['relresvec'][-1]
             # Forget about the cycle used to gauge the residual norm.
-            self.num_cycles += [len(out['relresvec']) - 1]
+            self.tot_amg_cycles += [len(out['relresvec']) - 1]
             return out['xk']
         # ----------------------------------------------------------------------
-        def _apply_inverse_prec_pyamgsolve(phi):
+        def _apply_inverse_prec_cycles(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             x0 = np.zeros((num_unknowns, 1), dtype=complex)
             x = np.empty((num_nodes,1), dtype=complex)
@@ -158,7 +169,7 @@ class GrossPitaevskiiModelEvaluator:
             # Alternative for one cycle:
             # amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
             # x = amg_prec * rhs
-            self.num_cycles += [amg_cycles]
+            self.tot_amg_cycles += [self._num_amg_cycles]
             return x
         # ----------------------------------------------------------------------
         if self._keo is None:
@@ -198,18 +209,21 @@ class GrossPitaevskiiModelEvaluator:
 
         num_unknowns = len(psi0)
 
-        if self._num_amg_cycles < np.inf:
+        if self._preconditioner_type == 'cycles':
             return LinearOperator((num_unknowns, num_unknowns),
-                                  _apply_inverse_prec_pyamgsolve,
+                                  _apply_inverse_prec_cycles,
                                   dtype = self.dtype
                                   )
-        else:
+        elif self._preconditioner_type == 'exact':
             import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
             return LinearOperator((num_unknowns, num_unknowns),
-                                  _apply_inverse_prec_customcg,
+                                  _apply_inverse_prec_exact,
                                   dtype = self.dtype
                                   )
+        else:
+            raise ValueError('Unknown preconditioner type ''%s''.' % self._preconditioner_type)
+
     # ==========================================================================
     def _get_preconditioner_inverse_directsolve(self, psi0):
         '''Use a direct solver for M^{-1}.
@@ -287,7 +301,7 @@ class GrossPitaevskiiModelEvaluator:
         for k, node_indices in enumerate(self.mesh.edges['nodes']):
             # Fetch the cached values.
             alpha = self._edgecoeff_cache[k]
-            alphaExp0 = alpha * cmath.exp(1j * self._mvp_edge_cache[k])
+            alphaExp0 = alpha * np.exp(1j * self._mvp_edge_cache[k])
             # Sum them into the matrix.
             self._keo[node_indices[0], node_indices[0]] += alpha
             self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conj()

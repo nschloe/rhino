@@ -37,7 +37,9 @@ def _main():
                                                   g = field_data['g'],
                                                   V = point_data['V'],
                                                   A = point_data['A'],
-                                                  mu = mu)
+                                                  mu = mu,
+                                                  preconditioner_type = args.preconditioner_type,
+                                                  num_amg_cycles = args.num_amg_cycles)
     #nls_modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh, g=1.0)
 
     # initial guess
@@ -63,7 +65,7 @@ def _main():
     #pp.subplot(121)
     multiplot_data_series( newton_out['linear relresvecs'] )
     pp.title('Krylov: %s    Prec: %r    ix-defl: %r    extra defl: %r    ExpRes: %r    Newton iters: %d' %
-             (args.krylov_method, args.use_preconditioner, args.use_deflation,
+             (args.krylov_method, args.preconditioner_type, args.use_deflation,
               args.num_extra_defl_vectors, args.resexp, len(newton_out['Newton residuals'])-1)
              )
     # Plot Newton residuals.
@@ -112,7 +114,6 @@ def my_newton(args, modeleval, psi0, debug=True):
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
                            eta0 = args.eta,
-                           use_preconditioner = args.use_preconditioner,
                            deflation_generators = defl,
                            num_deflation_vectors = args.num_extra_defl_vectors,
                            debug=debug,
@@ -178,10 +179,16 @@ def _parse_input_arguments():
                         help    = 'which Krylov method to use (default: gmres)'
                         )
 
-    parser.add_argument('--use-preconditioner', '-p',
-                        action = 'store_true',
-                        default = False,
-                        help    = 'use preconditioner (default: False)'
+    parser.add_argument('--preconditioner-type', '-p',
+                        choices = ['none', 'exact', 'cycles'],
+                        default = 'none',
+                        help    = 'preconditioner type (default: none)'
+                        )
+    
+    parser.add_argument('--num-amg-cycles', '-a',
+                        type = int,
+                        default = 1,
+                        help    = 'number of AMG cycles (default: 1)'
                         )
 
     parser.add_argument('--use-deflation', '-d',

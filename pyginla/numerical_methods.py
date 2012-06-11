@@ -572,7 +572,7 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
         P:  the projection to be used as _right_ preconditioner (e.g. Mr=P in
             MINRES). The preconditioned operator A*P is self-adjoint w.r.t.
             inner_product.
-            P(x)=x + W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)
+            P(x)=x - W*inner_product(W, A*W)^{-1}*inner_product(A*W, x)
         x0new: an adapted initial guess s.t. the deflated iterative solver
             does not break down (in exact arithmetics).
         AW: AW=A*W. This is returned in order to reduce the total number of
@@ -710,11 +710,9 @@ def get_ritz(W, AW, Vfull, Hfull,
         CCz = np.dot(CC, z)
         res_ip = _ipstd(z, CCz)[0,0]
         if res_ip.imag > 1e-13:
-            print 'Warning: res_ip.imag = %g > 1e-13' % res_ip.imag
-            print '         Make sure that the preconditioner is solved \'exactly enough\'.'
+            warnings.warn('Warning: res_ip.imag = %g > 1e-13. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.imag)
         if res_ip.real < -1e-10:
-            print 'Warning: res_ip.real = %g < -1e-10' % res_ip.real
-            print '         Make sure that the preconditioner is solved \'exactly enough\'.'
+            warnings.warn('Warning: res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
         norm_ritz_res[i] = np.sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
@@ -999,7 +997,6 @@ def newton( x0,
             eta_max = 1.0e-2,
             alpha = 1.5, # only used by forcing_term='type 2'
             gamma = 0.9, # only used by forcing_term='type 2'
-            use_preconditioner = False,
             deflation_generators = [],
             num_deflation_vectors = 0,
             debug = False
@@ -1054,12 +1051,8 @@ def newton( x0,
         # but leave it here for clarity.
         rhs = -Fx.copy()
 
-        if use_preconditioner:
-            M = model_evaluator.get_preconditioner(x)
-            Minv = model_evaluator.get_preconditioner_inverse(x)
-        else:
-            M = None
-            Minv = None
+        M = model_evaluator.get_preconditioner(x)
+        Minv = model_evaluator.get_preconditioner_inverse(x,)
 
         def Minner_product(x,y):
             return model_evaluator.inner_product(_apply(M,x), y)
