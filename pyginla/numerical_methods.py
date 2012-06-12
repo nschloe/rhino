@@ -585,14 +585,15 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
     # --------------------------------------------------------------------------
     def Pfun(x):
         '''Computes x - W * E\<AW,x>.'''
-        return x - np.dot(W, _direct_solve(E, inner_product(AW, x)))
+        return x - np.dot(W, np.dot(Einv, inner_product(AW, x)))
     # --------------------------------------------------------------------------
 
     # cost: (nW^2)*IP
     E = inner_product(W, AW)
+    Einv = np.linalg.inv(E)
 
     # cost: nW*IP + (2/3)*nW^3
-    EWb = _direct_solve(E, inner_product(W, b))
+    EWb = np.dot(Einv, inner_product(W, b))
 
     # Define projection operator.
     N = len(b)
