@@ -104,6 +104,11 @@ class YamlEmitter:
         self.next_indent = self.indent
         return
     # ==========================================================================
+    def add_key_value(self, key, value):
+        self.add_key(key)
+        self.add_value(value)
+        return
+    # ==========================================================================
     def end_map(self):
         assert self.envs
         assert self.envs[-1] == 'map'

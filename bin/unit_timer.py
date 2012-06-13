@@ -5,9 +5,14 @@
 # ==============================================================================
 import timeit
 import numpy as np
+import pyginla.yaml
 # ==============================================================================
 def _main():
     args = _parse_input_arguments()
+
+    ye = pyginla.yaml.YamlEmitter()
+    ye.begin_doc()
+    ye.begin_seq()
 
     for filename in args.filenames:
         create_modeleval = '''
@@ -36,10 +41,14 @@ J = modeleval.get_jacobian(psi0)
             stmt = '''
 _ = nm._apply(J, phi0)
 '''
+            ye.begin_map()
+            ye.add_key_value('filename', filename)
+            ye.add_key_value('statement', 'jacobian')
             # make sure to execute the operation once such that all initializations are performed
-            print stmt
             timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            ye.add_comment(  [min(timings), np.mean(timings), max(timings)] )
+            ye.add_key_value('timings', timings)
+            ye.end_map()
 
         if 'amg1' in args.target:
             my_setup = '''
@@ -255,6 +264,8 @@ out = nm.minres(A, b, x0, M=M, maxiter=1, inner_product=modeleval.inner_product,
             print 'One MINRES step (with setup, explicit residual and all)'
             timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
             print min(timings), np.mean(timings), max(timings)
+
+    ye.end_seq()
     return
 # ==============================================================================
 def _parse_input_arguments():
