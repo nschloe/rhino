@@ -191,7 +191,7 @@ def cg(A, b, x0,
         # update current guess and residual
         alpha = rho_old / inner_product( p, Ap )
         if abs(alpha.imag) > 1e-12:
-            print 'Warning (iter %d): abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag))
+            warnings.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
         alpha = alpha.real
         yk += alpha * p
 
@@ -220,14 +220,13 @@ def cg(A, b, x0,
             if relresvec[-1] > tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'Warning (iter %d): No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
-                        % (k+1, relresvec[-1], tol, norm_r_upd)
+                    warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
+                        % (k+1, relresvec[-1], tol, norm_r_upd))
                     info = 1
                 else:
-                    print ( 'Info (iter %d): Updated residual is below tolerance, '
-                          + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
-                          + 'resup=%g)\n' \
-                          ) % (k+1, relresvec[-1], tol, norm_r_upd)
+                    warnigns.warn(('Iter %d: Updated residual is below tolerance, '
+                                + 'explicit residual is NOT!\n  (resEx=%g > tol=%g >= '
+                                + 'resup=%g)\n' ) % (k+1, relresvec[-1], tol, norm_r_upd))
 
         k += 1
 
@@ -368,7 +367,7 @@ def minres(A, b, x0,
         # Should be real! (diagonal element):
         td = inner_product(V[:,[1]], z)[0,0]
         if abs(td.imag) > 1.0e-12:
-            print 'Warning (iter %d): abs(td.imag) = %g > 1e-12' % (k+1, abs(td.imag))
+            warnings.warn('Iter %d: abs(td.imag) = %g > 1e-12' % (k+1, abs(td.imag)))
         td = td.real
         z  = z - td * P[:,[1]]
         if timer:
@@ -396,7 +395,7 @@ def minres(A, b, x0,
                 for i in xrange(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
-                        print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0))
+                        warnings.warn('Iter %d: abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0)))
                     z -= ip * Pfull[:,[i]]
             ## ortho against additional (deflation) vectors?
             ## cost: ndeflW*(IP + AXPY)
@@ -419,10 +418,10 @@ def minres(A, b, x0,
         v  = _apply(M, z)
         alpha = inner_product(z, v)[0,0]
         if abs(alpha.imag)>1e-12:
-            print 'Warning (iter %d): abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag))
+            warnigs.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
         alpha = alpha.real
         if alpha<0.0:
-            print 'Warning (iter %d): alpha = %g < 0' % (k+1, alpha)
+            warnings.warn('Iter %d: alpha = %g < 0' % (k+1, alpha))
             alpha = 0.0
         ts = np.sqrt( alpha )
         if timer:
@@ -509,8 +508,8 @@ def minres(A, b, x0,
             if relresvec[-1] > tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'Warning (iter %d): No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
-                        % (k+1, relresvec[-1], tol, norm_r_upd)
+                    warnings.warn('Iiter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
+                        % (k+1, relresvec[-1], tol, norm_r_upd))
                     info = 1
                 else:
                     print ( 'Info (iter %d): Updated residual is below tolerance, '
@@ -711,9 +710,9 @@ def get_ritz(W, AW, Vfull, Hfull,
         CCz = np.dot(CC, z)
         res_ip = _ipstd(z, CCz)[0,0]
         if res_ip.imag > 1e-13:
-            warnings.warn('Warning: res_ip.imag = %g > 1e-13. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.imag)
+            warnings.warn('res_ip.imag = %g > 1e-13. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.imag)
         if res_ip.real < -1e-10:
-            warnings.warn('Warning: res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
+            warnings.warn('res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
         norm_ritz_res[i] = np.sqrt(abs(res_ip))
 
         # Explicit computation of residual (this part only works for M=I)
@@ -888,12 +887,12 @@ def gmres( A, b, x0,
             if out['relresvec'][k+1] >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    print 'Warning (iter %d): No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
-                        % (k+1, out['relresvec'][k+1], tol, norm_ur)
+                    warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
+                        % (k+1, out['relresvec'][k+1], tol, norm_ur))
                     out['info'] = 1
                 else:
-                    print 'Warning (iter %d): Expl. res = %e >= tol = %e > upd. res = %e.' \
-                        % (k+1, out['relresvec'][k+1], tol, norm_ur)
+                    warnigs.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
+                        % (k+1, out['relresvec'][k+1], tol, norm_ur))
 
         k += 1
 
@@ -1000,7 +999,8 @@ def newton( x0,
             gamma = 0.9, # only used by forcing_term='type 2'
             deflation_generators = [],
             num_deflation_vectors = 0,
-            debug = False
+            debug = False,
+            yaml_emitter = None
           ):
     '''Newton's method with different forcing terms.
     '''
@@ -1016,9 +1016,19 @@ def newton( x0,
     eta_previous = None
     W = np.zeros((len(x), 0))
     linear_relresvecs = []
+
+    if debug:
+        import yaml
+        if yaml_emitter is None:
+            yaml_emitter = yaml.YamlEmitter()
+            yaml_emitter.begin_doc()
+        yaml_emitter.begin_seq()
     while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
         if debug:
-            print '--------- Newton step %d ---------' % (k+1)
+            yaml_emitter.add_comment('Newton step %d' % (k+1))
+            yaml_emitter.begin_map()
+            yaml_emitter.add_key('Fx_norm')
+            yaml_emitter.add_value(Fx_norms[-1])
         # Linear tolerance is given by
         #
         # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
@@ -1042,8 +1052,6 @@ def newton( x0,
         else:
             raise ValueError('Unknown forcing term \'%s\'. Abort.' % forcing_term)
         eta_previous = eta
-        if debug:
-            print 'New tolerance for linear solver is %g.' % eta
 
         # Setup linear problem.
         jacobian = model_evaluator.get_jacobian( x )
@@ -1095,8 +1103,10 @@ def newton( x0,
                                       inner_product = model_evaluator.inner_product
                                       )
             if debug:
-                print 'dim of deflation space: %d' % W.shape[1]
-                print '||I-ip(W,W)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+                yaml_emitter.add_key('dim of deflation space')
+                yaml_emitter.add_value( W.shape[1] )
+                yaml_emitter.add_key('||I-ip(W,W)||')
+                yaml_emitter.add_value(np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)))
         else:
             AW = np.zeros((len(x), 0))
             P = None
@@ -1126,20 +1136,28 @@ def newton( x0,
                             )
 
         if debug:
-            print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
+            yaml_emitter.add_key('relresvec')
+            yaml_emitter.add_value(out['relresvec'])
+            #yaml_emitter.add_key('relresvec[-1]')
+            #yaml_emitter.add_value(out['relresvec'][-1])
+            yaml_emitter.add_key('num_iter')
+            yaml_emitter.add_value(len(out['relresvec'])-1)
+            yaml_emitter.add_key('eta')
+            yaml_emitter.add_value(eta)
+            #print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
 
         # make sure the solution is alright
         if out['info'] != 0:
-            print 'Warning (newton): solution from linear solver has info = %d != 0' % out['info']
+            warnings.warn('Newton: solution from linear solver has info = %d != 0' % out['info'])
 
         np.set_printoptions(linewidth=150)
         if ('Vfull' in out) and ('Hfull' in out):
             if debug:
                 MVfull = out['Pfull'] if ('Pfull' in out) else out['Vfull']
-                print '||ip(Vfull,W)|| = %g' % \
-                    np.linalg.norm(model_evaluator.inner_product(MVfull, W))
-                print '||I-ip(Vfull,Vfull)|| = %g' % \
-                    np.linalg.norm(np.eye(out['Vfull'].shape[1]) - model_evaluator.inner_product(MVfull, out['Vfull']))
+                yaml_emitter.add_key('||ip(Vfull,W)||')
+                yaml_emitter.add_value( np.linalg.norm(model_evaluator.inner_product(MVfull, W)) )
+                yaml_emitter.add_key('||I-ip(Vfull,Vfull)||')
+                yaml_emitter.add_value( np.linalg.norm(np.eye(out['Vfull'].shape[1]) - model_evaluator.inner_product(MVfull, out['Vfull'])) )
                 # next one is time-consuming, uncomment if needed
                 #print '||Minv*A*P*V - V_*H|| = %g' % \
                 #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
@@ -1151,11 +1169,16 @@ def newton( x0,
                 # Ritz vectors are ordered such that the ones with the smallest
                 # residuals come first.
                 if debug:
-                    print '||I-ip(ritz_vecs,ritz_vecs)|| = %g' % np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs))
+                    yaml_emitter.add_key('||I-ip(ritz_vecs,ritz_vecs)||')
+                    yaml_emitter.add_value( np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs)) )
                 W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
                 if debug:
-                    print '||I-ip(Wnew,Wnew)|| = %g' % np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
-                    print 'min/max norm of ritz res: %g / %g' % (min(norm_ritz_res), max(norm_ritz_res))
+                    yaml_emitter.add_key('||I-ip(Wnew,Wnew)||')
+                    yaml_emitter.add_value( np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)) )
+                    yaml_emitter.add_key('min(||ritz res||)')
+                    yaml_emitter.add_value( min(norm_ritz_res) )
+                    yaml_emitter.add_key('max(||ritz res||)')
+                    yaml_emitter.add_value( max(norm_ritz_res) )
             else:
                 W = np.zeros( (len(x),0) )
         else:
@@ -1171,11 +1194,15 @@ def newton( x0,
         k += 1
         Fx = model_evaluator.compute_f( x )
         Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
-        if debug:
-            print 'New Newton residual is %g.' % Fx_norms[-1]
 
+        yaml_emitter.end_map()
+    yaml_emitter.begin_map()
+    yaml_emitter.add_key('Fx_norm')
+    yaml_emitter.add_value(Fx_norms[-1])
+    yaml_emitter.end_map()
+    yaml_emitter.end_seq()
     if Fx_norms[-1] > nonlinear_tol:
-        print 'Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol)
+        yaml_emitter._comment('Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol))
         error_code = 1
 
     return {'x': x,

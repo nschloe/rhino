@@ -7,6 +7,7 @@ import numpy as np
 
 import pyginla.numerical_methods as nm
 import pyginla.gp_modelevaluator as gpm
+import pyginla.yaml
 import voropy
 import matplotlib
 # Use the AGG backend to make sure that we don't need
@@ -19,17 +20,15 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    print 'Reading the mesh...',
+    print '# Reading the mesh...',
     mesh, point_data, field_data = voropy.read( args.filename )
     print 'done.'
 
     # build the model evaluator
     if args.mu is not None:
         mu = args.mu
-        print 'Using parameter  mu = %g.' % mu
     elif 'mu' in field_data:
-        mu = field_data['mu']
-        print 'Using  mu = %g  as found in file.' % mu
+        mu = field_data['mu'][0]
     else:
         raise RuntimeError('Parameter ''mu'' not found in file or command line.')
 
@@ -55,11 +54,35 @@ def _main():
         #ky = 0.5
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    newton_out = my_newton(args, modeleval, psi0)
-    print 'Newton residuals:', newton_out['Newton residuals']
+    ye = pyginla.yaml.YamlEmitter()
+    ye.begin_doc()
+    ye.begin_map()
+    ye.add_key('num_unknowns')
+    ye.add_value(len(psi0))
+    ye.add_key('filename')
+    ye.add_value(args.filename)
+    ye.add_key('mu')
+    ye.add_value(mu)
+    ye.add_key('g')
+    ye.add_value(field_data['g'][0])
+
+    ye.add_key('krylov')
+    ye.add_value(args.krylov_method)
+    ye.add_key('preconditioner type')
+    ye.add_value(args.preconditioner_type)
+    ye.add_key('ix deflation')
+    ye.add_value(args.use_deflation)
+    ye.add_key('extra deflation')
+    ye.add_value(args.num_extra_defl_vectors)
+    ye.add_key('explicit residual')
+    ye.add_value(args.resexp)
+
+    newton_out = my_newton(args, modeleval, psi0, yaml_emitter=ye)
+
+    ye.end_map()
 
     # energy of the state
-    print 'Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
+    print '# Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
 
     # Get output.
     #pp.subplot(121)
@@ -83,7 +106,7 @@ def _main():
 
     return
 # ==============================================================================
-def my_newton(args, modeleval, psi0, debug=True):
+def my_newton(args, modeleval, psi0, yaml_emitter=None, debug=True):
     '''Solve with Newton.
     '''
 
@@ -104,8 +127,8 @@ def my_newton(args, modeleval, psi0, debug=True):
     if args.use_deflation:
         defl.append( lambda x: 1j*x )
 
-    print 'Performing Newton iteration (dim=%d)...' % (2 * len(psi0))
     # perform newton iteration
+    yaml_emitter.add_key('Newton results')
     newton_out = nm.newton(psi0,
                            modeleval,
                            linear_solver = lin_solve,
@@ -117,9 +140,10 @@ def my_newton(args, modeleval, psi0, debug=True):
                            deflation_generators = defl,
                            num_deflation_vectors = args.num_extra_defl_vectors,
                            debug=debug,
+                           yaml_emitter = yaml_emitter,
                            newton_maxiter = 30
                            )
-    print ' done.'
+    yaml_emitter.add_comment('done.')
     #assert( newton_out['info'] == 0 )
 
     return newton_out
@@ -184,7 +208,7 @@ def _parse_input_arguments():
                         default = 'none',
                         help    = 'preconditioner type (default: none)'
                         )
-    
+
     parser.add_argument('--num-amg-cycles', '-a',
                         type = int,
                         default = 1,
