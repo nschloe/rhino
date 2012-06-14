@@ -307,8 +307,8 @@ def _parse_input_arguments():
     parser.add_argument('--num-defl-vecs', '-d',
                         type = int,
                         nargs = '+',
-                        default = [0],
-                        help = 'number of deflation vectors (default: 0)'
+                        default = [1],
+                        help = 'number of deflation vectors (default: 1)'
                         )
 
     parser.add_argument('--repeats', '-r',
