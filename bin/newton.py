@@ -9,12 +9,6 @@ import pyginla.numerical_methods as nm
 import pyginla.gp_modelevaluator as gpm
 import pyginla.yaml
 import voropy
-import matplotlib
-# Use the AGG backend to make sure that we don't need
-# $DISPLAY to plot something (to files).
-matplotlib.use('agg')
-import matplotlib.pyplot as pp
-import matplotlib2tikz
 # ==============================================================================
 def _main():
     args = _parse_input_arguments()
@@ -84,23 +78,6 @@ def _main():
     # energy of the state
     print '# Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
 
-    # Get output.
-    #pp.subplot(121)
-    multiplot_data_series( newton_out['linear relresvecs'] )
-    pp.title('Krylov: %s    Prec: %r    ix-defl: %r    extra defl: %r    ExpRes: %r    Newton iters: %d' %
-             (args.krylov_method, args.preconditioner_type, args.use_deflation,
-              args.num_extra_defl_vectors, args.resexp, len(newton_out['Newton residuals'])-1)
-             )
-    # Plot Newton residuals.
-    #pp.subplot(122)
-    #pp.semilogy(newton_out['Newton residuals'])
-    #pp.title('Newton residuals')
-
-    # Write the info out to files.
-    if args.imgfile:
-        pp.savefig(args.imgfile)
-    if args.tikzfile:
-        matplotlib2tikz.save(args.tikzfile)
     if args.solutionfile:
         modeleval.mesh.write(args.solutionfile, {'psi': newton_out['x']})
 
@@ -148,16 +125,6 @@ def my_newton(args, modeleval, psi0, yaml_emitter=None, debug=True):
 
     return newton_out
 # ==============================================================================
-def multiplot_data_series( list_of_data_vectors ):
-    '''Plot a list of data vectors with increasing black value.'''
-    import matplotlib.pyplot as pp
-    num_plots = len( list_of_data_vectors )
-    for k, relresvec in enumerate(list_of_data_vectors):
-        pp.semilogy(relresvec, color=str(1.0 - float(k+1)/num_plots))
-    pp.xlabel('MINRES step')
-    pp.ylabel('||r||/||b||')
-    return
-# ==============================================================================
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
@@ -169,24 +136,6 @@ def _parse_input_arguments():
                         metavar = 'FILE',
                         type    = str,
                         help    = 'Mesh file containing the geometry and initial state'
-                        )
-
-    parser.add_argument('--imgfile', '-i',
-                        metavar = 'IMG_FILE',
-                        required = True,
-                        default = None,
-                        const = None,
-                        type = str,
-                        help = 'Image file to store the results'
-                        )
-
-    parser.add_argument('--tikzfile', '-t',
-                        metavar = 'TIKZ_FILE',
-                        required = True,
-                        default = None,
-                        const = None,
-                        type = str,
-                        help = 'TikZ file to store the results'
                         )
 
     parser.add_argument('--solutionfile', '-s',
