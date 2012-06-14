@@ -14,13 +14,18 @@ def _main():
 
     ye = pyginla.yaml.YamlEmitter()
 
-    for filename in args.filenames:
+    filename = args.filename
 
-        ye.begin_doc()
-        ye.add_comment('Timing results with unit_timer.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
-        ye.begin_seq()
+    ye.begin_doc()
+    ye.add_comment('Timing results with unit_timer.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
+    ye.begin_map()
+    ye.add_key_value('filename', filename)
+    ye.add_key_value('number', args.number)
+    ye.add_key('tests')
 
-        create_modeleval = '''
+    ye.begin_seq()
+
+    create_modeleval = '''
 import numpy as np
 import pyginla.gp_modelevaluator as gpm
 import voropy
@@ -37,55 +42,57 @@ psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
                       (num_nodes,1))
 ''' % filename
 
-        targetfunctions = {}
+    targetfunctions = {}
 
-        def unit_jacobian():
-            my_setup = '''
+    def unit_jacobian():
+        my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 J = modeleval.get_jacobian(psi0)
 '''
-            stmt = '''
+        stmt = '''
 _ = nm._apply(J, phi0)
 '''
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['jacobian'] = unit_jacobian
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['jacobian'] = unit_jacobian
 
 
-        def unit_amg1():
-            my_setup = '''
+    def unit_amg1():
+        my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
 M = modeleval.get_preconditioner_inverse(psi0)
 '''
-            stmt = '''
+        stmt = '''
 _ = nm._apply(M, phi0)
 #_ = M * phi0
 '''
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['amg1'] = unit_amg1
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['amg1'] = unit_amg1
 
 
-        def unit_amgexact():
-            my_setup = '''
+    def unit_amgexact():
+        my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'exact'
 M = modeleval.get_preconditioner_inverse(psi0)
 '''
-            stmt = '''
+        stmt = '''
 _ = nm._apply(M, phi0)
 '''
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['amgexact'] = unit_amgexact
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['amgexact'] = unit_amgexact
 
 
-        def unit_projection():
+    def unit_projection():
+        runs = []
+        for num_defl_vecs in args.num_defl_vecs:
             my_setup = '''
 import pyginla.numerical_methods as nm
 k = %d
@@ -95,40 +102,41 @@ JW = J * W
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_product)
-''' % args.num_defl_vecs
+''' % num_defl_vecs
             stmt = '''
 _ = nm._apply(P, phi0)
 '''
             # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1),
-                    'k': args.num_defl_vecs}
-        targetfunctions['projection'] = unit_projection
+            runs.append ( {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number),
+                    'k': num_defl_vecs} )
+        return runs
+    targetfunctions['projection'] = unit_projection
 
-        def unit_inner():
-            my_setup = '''
+    def unit_inner():
+        my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 '''
-            stmt = '''
+        stmt = '''
 _ = modeleval.inner_product(phi0, phi1)
 '''
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['inner'] = unit_inner
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['inner'] = unit_inner
 
-        def unit_daxpy():
-            my_setup = '''
+    def unit_daxpy():
+        my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 '''
-            stmt = '''
+        stmt = '''
 _ = phi0 + phi1
 '''
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['daxpy'] = unit_daxpy
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['daxpy'] = unit_daxpy
 
-        minres_setup = '''
+    minres_setup = '''
 # MINRES code copied & pasted
 from pyginla.numerical_methods import _apply, _norm
 N = len(b)
@@ -151,7 +159,7 @@ G1 = np.eye(2)     # even older givens rotation ;)
 yk = np.zeros((N,1), dtype=complex)
 xk = x0.copy()
 '''
-        minres_step = '''
+    minres_step = '''
 # out = nm.minres(J, b, phi0, M=M, maxiter=1, inner_product=modeleval.inner_product, timer=True)
 # MINRES code copied & pasted
 k = 0
@@ -221,8 +229,8 @@ while relresvec[-1] > tol and k < maxiter:
 # --------------------------------------------------------------------------
 '''
 
-        def unit_minres():
-            my_setup = '''
+    def unit_minres():
+        my_setup = '''
 A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
 modeleval._preconditioner_type = 'cycles'
@@ -237,13 +245,13 @@ Ml = None
 Mr = None
 tol = 1.0e-15
 ''' + minres_setup
-            stmt = minres_step
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['minres'] = unit_minres
+        stmt = minres_step
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['minres'] = unit_minres
 
-        def unit_minres_full():
-            my_setup = '''
+    def unit_minres_full():
+        my_setup = '''
 A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
 modeleval._preconditioner_type = 'cycles'
@@ -253,27 +261,28 @@ x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 import pyginla.numerical_methods as nm
 '''
-            stmt = '''
+        stmt = '''
 out = nm.minres(A, b, x0, M=M, maxiter=1, inner_product=modeleval.inner_product, timer=True)
 #print out['times']
 '''
-            # make sure to execute the operation once such that all initializations are performed
-            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
-        targetfunctions['minres-full'] = unit_minres_full
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['minres-full'] = unit_minres_full
 
-        for target in args.target:
+    for target in args.target:
+
+        runs = targetfunctions[target]()
+
+        #ye.add_comment(  [min(timings), np.mean(timings), max(timings)] )
+        for run in runs:
             ye.begin_map()
-            ye.add_key_value('filename', filename)
             ye.add_key_value('target', target)
-
-            out = targetfunctions[target]()
-
-            #ye.add_comment(  [min(timings), np.mean(timings), max(timings)] )
-            for k,v in out.items():
+            for k,v in run.items():
                 ye.add_key_value(k, v)
             ye.end_map()
 
     ye.end_seq()
+    ye.end_map()
     return
 # ==============================================================================
 def _parse_input_arguments():
@@ -283,10 +292,9 @@ def _parse_input_arguments():
 
     parser = argparse.ArgumentParser( description = 'Unit timer.' )
 
-    parser.add_argument('filenames',
+    parser.add_argument('filename',
                         metavar = 'FILE',
                         type = str,
-                        nargs = '+',
                         help = 'Mesh files containing the geometries'
                         )
 
@@ -296,16 +304,23 @@ def _parse_input_arguments():
                         help = 'target for timing benchmark'
                         )
 
-    parser.add_argument('--num-defl-vecs', '-n',
+    parser.add_argument('--num-defl-vecs', '-d',
                         type = int,
-                        default = 0,
+                        nargs = '+',
+                        default = [0],
                         help = 'number of deflation vectors (default: 0)'
                         )
 
     parser.add_argument('--repeats', '-r',
                         type = int,
                         default = 5,
-                        help = 'How often to run the timings (default: 5)'
+                        help = 'How often to run the timings including the setup (default: 5)'
+                        )
+    
+    parser.add_argument('--number', '-n',
+                        type = int,
+                        default = 1,
+                        help = 'How often to run the statement (default: 1)'
                         )
 
     return parser.parse_args()
