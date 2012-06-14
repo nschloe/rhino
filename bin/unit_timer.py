@@ -6,15 +6,20 @@
 import timeit
 import numpy as np
 import pyginla.yaml
+import datetime
+import os
 # ==============================================================================
 def _main():
     args = _parse_input_arguments()
 
     ye = pyginla.yaml.YamlEmitter()
-    ye.begin_doc()
-    ye.begin_seq()
 
     for filename in args.filenames:
+
+        ye.begin_doc()
+        ye.add_comment('Timing results with unit_timer.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
+        ye.begin_seq()
+
         create_modeleval = '''
 import numpy as np
 import pyginla.gp_modelevaluator as gpm
@@ -32,7 +37,9 @@ psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
                       (num_nodes,1))
 ''' % filename
 
-        if 'jacobian' in args.target:
+        targetfunctions = {}
+
+        def unit_jacobian():
             my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -41,16 +48,12 @@ J = modeleval.get_jacobian(psi0)
             stmt = '''
 _ = nm._apply(J, phi0)
 '''
-            ye.begin_map()
-            ye.add_key_value('filename', filename)
-            ye.add_key_value('statement', 'jacobian')
             # make sure to execute the operation once such that all initializations are performed
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            ye.add_comment(  [min(timings), np.mean(timings), max(timings)] )
-            ye.add_key_value('timings', timings)
-            ye.end_map()
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['jacobian'] = unit_jacobian
 
-        if 'amg1' in args.target:
+
+        def unit_amg1():
             my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -63,12 +66,11 @@ _ = nm._apply(M, phi0)
 #_ = M * phi0
 '''
             # make sure to execute the operation once such that all initializations are performed
-            print stmt
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=10)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['amg1'] = unit_amg1
 
 
-        if 'amgexact' in args.target:
+        def unit_amgexact():
             my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -79,12 +81,11 @@ M = modeleval.get_preconditioner_inverse(psi0)
 _ = nm._apply(M, phi0)
 '''
             # make sure to execute the operation once such that all initializations are performed
-            print stmt
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['amgexact'] = unit_amgexact
 
 
-        if 'projection' in args.target:
+        def unit_projection():
             my_setup = '''
 import pyginla.numerical_methods as nm
 k = %d
@@ -99,11 +100,11 @@ P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_pro
 _ = nm._apply(P, phi0)
 '''
             # make sure to execute the operation once such that all initializations are performed
-            print stmt, args.num_defl_vecs
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1),
+                    'k': args.num_defl_vecs}
+        targetfunctions['projection'] = unit_projection
 
-        if 'inner' in args.target:
+        def unit_inner():
             my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -112,11 +113,10 @@ phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 _ = modeleval.inner_product(phi0, phi1)
 '''
             # make sure to execute the operation once such that all initializations are performed
-            print stmt
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['inner'] = unit_inner
 
-        if 'daxpy' in args.target:
+        def unit_daxpy():
             my_setup = '''
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -125,9 +125,8 @@ phi1 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 _ = phi0 + phi1
 '''
             # make sure to execute the operation once such that all initializations are performed
-            print stmt
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['daxpy'] = unit_daxpy
 
         minres_setup = '''
 # MINRES code copied & pasted
@@ -222,7 +221,7 @@ while relresvec[-1] > tol and k < maxiter:
 # --------------------------------------------------------------------------
 '''
 
-        if 'minres-step' in args.target:
+        def unit_minres():
             my_setup = '''
 A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
@@ -240,12 +239,10 @@ tol = 1.0e-15
 ''' + minres_setup
             stmt = minres_step
             # make sure to execute the operation once such that all initializations are performed
-            print 'One MINRES step'
-            #timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['minres'] = unit_minres
 
-        if 'minres-full' in args.target:
+        def unit_minres_full():
             my_setup = '''
 A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
@@ -261,9 +258,20 @@ out = nm.minres(A, b, x0, M=M, maxiter=1, inner_product=modeleval.inner_product,
 #print out['times']
 '''
             # make sure to execute the operation once such that all initializations are performed
-            print 'One MINRES step (with setup, explicit residual and all)'
-            timings = timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)
-            print min(timings), np.mean(timings), max(timings)
+            return {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=1)}
+        targetfunctions['minres-full'] = unit_minres_full
+
+        for target in args.target:
+            ye.begin_map()
+            ye.add_key_value('filename', filename)
+            ye.add_key_value('target', target)
+
+            out = targetfunctions[target]()
+
+            #ye.add_comment(  [min(timings), np.mean(timings), max(timings)] )
+            for k,v in out.items():
+                ye.add_key_value(k, v)
+            ye.end_map()
 
     ye.end_seq()
     return
@@ -291,7 +299,7 @@ def _parse_input_arguments():
     parser.add_argument('--num-defl-vecs', '-n',
                         type = int,
                         default = 0,
-                        help = 'number of deflation vectors'
+                        help = 'number of deflation vectors (default: 0)'
                         )
 
     parser.add_argument('--repeats', '-r',
