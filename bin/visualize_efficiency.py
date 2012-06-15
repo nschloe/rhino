@@ -20,44 +20,43 @@ def _main():
     proj_timings = yaml.load(open(args.proj_timings))
     minres_timing = yaml.load(open(args.minres_timing))
 
-    #vanilla_newton = list(newton_data)[0]
-    #assert vanilla_newton['ix deflation'] == False
-    #assert vanilla_newton['extra deflation'] == 0
-    #num_vanilla_minres_steps = len(vanilla_newton['Newton results'][25]['relresvec']) - 1
-    num_vanilla_minres_steps = args.num_vanilla_minres_steps
+    vanilla_newton_data = list(yaml.load_all(open(args.vanilla_newton_data_file)))[0]
+    assert vanilla_newton_data['ix deflation'] == False
+    assert vanilla_newton_data['extra deflation'] == 0
     time_vanilla_minres_step = min(minres_timing['tests'][0]['timings']) / minres_timing['number']
 
+    newton_steps = list(range(26))
     for newton_data_file in args.newton_data_files:
-        newton_data = yaml.load_all(open(newton_data_file))
-        x = []
-        y = []
-        for newton_datum in newton_data:
-            if len(newton_datum['Newton results']) >= 25:
-                num_steps = len(newton_datum['Newton results'][25]['relresvec']) - 1
-                print(num_steps)
+        newton_data = list(yaml.load_all(open(newton_data_file)))
+        for step in newton_steps:
+            x = []
+            y = []
+            for newton_datum in newton_data:
+                if step < len(newton_datum['Newton results']) - 1:
+                    num_steps = len(newton_datum['Newton results'][step]['relresvec']) - 1
 
-                # Get projection time.
-                num_defl_vecs = newton_datum['extra deflation']
-                if newton_datum['ix deflation']:
-                    num_defl_vecs += 1
-                if num_defl_vecs == 0:
-                    proj_time = 0.0
-                else:
-                    # Make sure we're checking out the correct timings.
-                    assert proj_timings['tests'][num_defl_vecs-1]['k'] == num_defl_vecs
-                    proj_time = min(proj_timings['tests'][num_defl_vecs-1]['timings']) / proj_timings['number']
+                    # Get projection time.
+                    num_defl_vecs = newton_datum['extra deflation']
+                    if newton_datum['ix deflation']:
+                        num_defl_vecs += 1
+                    if num_defl_vecs == 0:
+                        proj_time = 0.0
+                    else:
+                        # Make sure we're checking out the correct timings.
+                        assert proj_timings['tests'][num_defl_vecs-1]['k'] == num_defl_vecs
+                        proj_time = min(proj_timings['tests'][num_defl_vecs-1]['timings']) / proj_timings['number']
 
-                alpha = (1.0 + proj_time/time_vanilla_minres_step) * float(num_steps) / num_vanilla_minres_steps
-                x.append(num_defl_vecs)
-                y.append(alpha)
+                    alpha = (1.0 + proj_time/time_vanilla_minres_step) * float(num_steps) / ( len(vanilla_newton_data['Newton results'][step]['relresvec']) -1 )
+                    x.append(num_defl_vecs)
+                    y.append(alpha)
 
-        print y
-        pp.plot(x, y)
-        #pp.plot(x, y, '-o', color='0.0')
-        #pp.plot(x, y, '-o', color='0.6')
+            pp.plot(x, y, color=str(1.0 - float(step+1)/len(newton_steps)), label='step %d' % step)
+            #pp.plot(x, y, '-o', color='0.0')
+            #pp.plot(x, y, '-o', color='0.6')
 
-    pp.ylim([0, 1])
+    pp.ylim([0, 2])
     pp.title('bla')
+    pp.legend()
 
     # Write the info out to files.
     if args.imgfile:
@@ -74,17 +73,11 @@ def _parse_input_arguments():
 
     parser = argparse.ArgumentParser( description = 'Visualize Newton output.' )
 
-#    parser.add_argument('--newton-data','-n',
-#                        metavar = 'FILE',
-#                        required = True,
-#                        type    = str,
-#                        help    = 'File containing vanilla Newton data (without ix-deflation)'
-#                        )
-
-    parser.add_argument('--num-vanilla-minres-steps','-v',
+    parser.add_argument('--vanilla-newton-data-file','-n',
+                        metavar = 'FILE',
                         required = True,
-                        type    = int,
-                        help    = 'number of vanilla minres steps'
+                        type    = str,
+                        help    = 'File containing vanilla Newton data (without ix-deflation)'
                         )
 
     parser.add_argument('--newton-data-files','-d',
