@@ -16,12 +16,12 @@ class GrossPitaevskiiModelEvaluator:
        * Nonlinear Schrödinger: g=1.0, V==0.0, A==0.0.
     '''
     # ==========================================================================
-    def __init__(self, 
-            mesh, 
-            g = 0.0, 
-            V = None, 
-            A = None, 
-            mu = 0.0, 
+    def __init__(self,
+            mesh,
+            g = 0.0,
+            V = None,
+            A = None,
+            mu = 0.0,
             preconditioner_type = 'none',
             num_amg_cycles = np.inf
             ):
@@ -113,7 +113,7 @@ class GrossPitaevskiiModelEvaluator:
         if self._preconditioner_type == 'none':
             return None
         if self._preconditioner_type == 'cycles':
-            warnings.warn('Precondintioner inverted approximately with %d AMG cycles, so get_precondition() isn''t exact.' % self._num_amg_cycles)
+            warnings.warn('Preconditioner inverted approximately with %d AMG cycles, so get_preconditioner() isn''t exact.' % self._num_amg_cycles)
 
         if self._keo is None:
             self._assemble_keo()
@@ -133,7 +133,7 @@ class GrossPitaevskiiModelEvaluator:
     def get_preconditioner_inverse(self, psi0):
         '''Use AMG to invert M approximately.
         '''
-        
+
         if self._preconditioner_type == 'none':
             return None
 

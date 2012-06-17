@@ -605,10 +605,12 @@ def get_projection(W, AW, b, x0, inner_product = _ipstd):
 
     return P, x0new
 # ==============================================================================
-def get_ritz(W, AW, Vfull, Hfull,
-             M=None, Minv=None,
-             inner_product = _ipstd,
-             debug = False):
+def get_p_ritz(W, AW, Vfull, Hfull,
+               p = None,
+               mode = 'SM',
+               M=None, Minv=None,
+               inner_product = _ipstd,
+               debug = False):
     """Compute Ritz pairs from a (possibly deflated) Lanczos procedure.
 
     Arguments
@@ -655,6 +657,8 @@ def get_ritz(W, AW, Vfull, Hfull,
     """
     nW = W.shape[1]
     nVfull = Vfull.shape[1]
+    if p is None:
+        p = nW + nVfull
     E = inner_product(W, AW)        # ~
     B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
     B = B1[:, 0:-1]
@@ -662,27 +666,27 @@ def get_ritz(W, AW, Vfull, Hfull,
         Hfull = Hfull.todense()
 
     # Compute residual norms.
-    if nW>0:
+    if nW > 0:
         Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
 
         # Apply preconditioner to AW (I don't see a way to get rid of this! -- André).
         # cost: nW*APPLM
         MAW = _apply(M, AW)
     else:
-        N = W.shape[0]
-        Einv = np.zeros( (0,0) )
-        MAW = np.zeros( (N,0) )
+        Einv = np.zeros((0, 0))
+        MAW = np.zeros((W.shape[0], 0))
 
-    # Stack matrices appropriately: [E, B; B', Hfull(1:end-1,:) + B'*Einv*B].
-    ritzmat = np.r_[    np.c_[E,B],
-                        np.c_[B.T.conj(), Hfull[0:-1,:] + np.dot(B.T.conj(), np.dot(Einv, B))]
+    # Stack matrices appropriately: [E, B;
+    #                                B', Hfull(1:end-1,:) + B'*Einv*B].
+    ritzmat = np.r_[ np.c_[E,          B],
+                     np.c_[B.T.conj(), Hfull[0:-1,:] + np.dot(B.T.conj(), np.dot(Einv, B))]
                    ]
 
     # Compute Ritz values / vectors.
     from scipy.linalg import eigh
-    lam, U = eigh(ritzmat)
+    ritz_values, U = eigh(ritzmat)
 
-    norm_ritz_res = np.zeros(lam.shape[0])
+    norm_ritz_res = np.zeros(len(ritz_values))
 
     # cost: (nW^2)*IP
     D1 = np.eye(nW)
@@ -701,7 +705,7 @@ def get_ritz(W, AW, Vfull, Hfull,
     for i in xrange(0,ritzmat.shape[0]):
         w = U[0:W.shape[1],[i]]
         v = U[W.shape[1]:,[i]]
-        mu = lam[i]
+        mu = ritz_values[i]
 
         z = np.r_[ -mu*w,
                     w + np.dot( Einv, np.dot(B, v)),
@@ -719,22 +723,39 @@ def get_ritz(W, AW, Vfull, Hfull,
         #X = np.c_[W, Vfull[:,0:-1]]
         #V = np.dot(X, np.r_[w,v])
         #MAV = _apply(M,_apply(A, V))
-        #res_explicit = MAV - lam[i]*V
+        #res_explicit = MAV - ritz_values[i]*V
         #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
         #assert( zz.imag<1e-13 )
         #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
         #print 'Explicit residual: %g' % np.sqrt(abs(zz))
         if debug and norm_ritz_res[i] < 1e-8:
-            print 'Info: ritz value %g converged with residual %g.' % (lam[i], norm_ritz_res[i])
+            print 'Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i])
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
-    sorti = np.argsort(abs(lam))
-    ritz_vals = lam[sorti]
-    ritz_vecs = np.dot(W, U[0:nW,sorti]) \
-              + np.dot(Vfull[:,0:-1], U[nW:,sorti])
-    norm_ritz_res  = norm_ritz_res[sorti]
+    if mode == 'SM':
+        sorti = np.argsort(abs(ritz_values))
+    elif mode == 'LM':
+        sorti = np.argsort(abs(ritz_values))
+        sorti.reverse()
+    elif mode == 'SR':
+        sorti = np.argsort(norm_ritz_res)
+    else:
+        raise ValueError('Unknown mode \'%s\'.' % mode)
 
-    return ritz_vals, ritz_vecs, norm_ritz_res
+    #print ritz_values
+    #print norm_ritz_res
+    #from matplotlib import pyplot as pp
+    #pp.semilogy(norm_ritz_res)
+    #pp.show()
+
+    # If p > len(sorti), sorti[:p]==sorti.
+    selection = sorti[:p]
+    ritz_vecs = np.dot(W, U[0:nW,selection]) \
+              + np.dot(Vfull[:,0:-1], U[nW:,selection])
+    ritz_values = ritz_values[selection]
+    norm_ritz_res = norm_ritz_res[selection]
+
+    return ritz_values, ritz_vecs, norm_ritz_res
 # ==============================================================================
 def gmres( A, b, x0,
            tol = 1e-5,
@@ -1163,15 +1184,11 @@ def newton( x0,
                 #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
 
             if num_deflation_vectors > 0:
-                ritz_vals, ritz_vecs, norm_ritz_res = get_ritz(W, AW, out['Vfull'], out['Hfull'],
-                                                           M = Minv, Minv=M,
-                                                           inner_product = model_evaluator.inner_product)
-                # Ritz vectors are ordered such that the ones with the smallest
-                # residuals come first.
-                if debug:
-                    yaml_emitter.add_key('||I-ip(ritz_vecs,ritz_vecs)||')
-                    yaml_emitter.add_value( np.linalg.norm(np.eye(ritz_vecs.shape[1])-Minner_product(ritz_vecs,ritz_vecs)) )
-                W = ritz_vecs[:,0:min(num_deflation_vectors, ritz_vecs.shape[1])]
+                ritz_vals, W, norm_ritz_res = get_p_ritz(W, AW, out['Vfull'], out['Hfull'],
+                                                         M = Minv, Minv=M,
+                                                         p = num_deflation_vectors,
+                                                         mode = 'SM',
+                                                         inner_product = model_evaluator.inner_product)
                 if debug:
                     yaml_emitter.add_key('||I-ip(Wnew,Wnew)||')
                     yaml_emitter.add_value( np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)) )
