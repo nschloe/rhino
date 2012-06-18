@@ -33,6 +33,9 @@ def _main():
              (data['krylov'], data['preconditioner type'], data['ix deflation'],
               data['extra deflation'], data['explicit residual'], num_newton_steps)
              )
+    if args.xmax:
+        pp.xlim( [0, args.xmax] )
+    pp.ylim( [1e-10, 10] )
     # Plot Newton residuals.
     #pp.subplot(122)
     #pp.semilogy(newton_out['Newton residuals'])
@@ -57,6 +60,12 @@ def _parse_input_arguments():
                         metavar = 'FILE',
                         type    = str,
                         help    = 'Newton data file'
+                        )
+
+    parser.add_argument('--xmax', '-x',
+                        type    = int,
+                        default = None,
+                        help    = 'maximum number of iterations'
                         )
 
     parser.add_argument('--imgfile', '-i',
