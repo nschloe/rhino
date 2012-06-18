@@ -688,8 +688,7 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     if mode == 'SM':
         sorti = np.argsort(abs(ritz_values))
     elif mode == 'LM':
-        sorti = np.argsort(abs(ritz_values))
-        sorti.reverse()
+        sorti = np.argsort(abs(ritz_values))[::-1]
     elif mode == 'SR':
         # Calculate the Ritz-residuals in a smart way.
         norm_ritz_res = np.empty(len(ritz_values))
@@ -1135,6 +1134,10 @@ def newton( x0,
                 yaml_emitter.add_value( W.shape[1] )
                 yaml_emitter.add_key('||I-ip(W,W)||')
                 yaml_emitter.add_value(np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)))
+                ix_normalized = 1j*x / np.sqrt(Minner_product(1j*x, 1j*x))
+                ixW = Minner_product(W, ix_normalized)
+                from scipy.linalg import svd
+                yaml_emitter.add_key_value('principal angle', np.arccos(min(svd(ixW, compute_uv=False)[0], 1.0)))
         else:
             AW = np.zeros((len(x), 0))
             P = None

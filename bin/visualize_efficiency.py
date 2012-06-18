@@ -50,7 +50,9 @@ def _main():
     def TMINRES(k, p):
         return k * (2*Tip + 2*TJ + TMinv + Tp(p) + 7*Tdaxpy)
     def Tget_ritz(k, p):
-        return p*TMinv + p**2 * Tip + (p+k)*p*Tdaxpy
+        alpha = p*TMinv + (p+k)*p*Tdaxpy
+        # alpha += p**2 * Tip # no computation of ritz residual norms
+        return alpha
     def Toverall(k, p):
         return Tqr(p) + Tget_proj(p) + TMINRES(k, p) + Tget_ritz(k, p)
 
