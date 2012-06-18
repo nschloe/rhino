@@ -98,14 +98,14 @@ def _parse_input_arguments():
 
     parser = argparse.ArgumentParser( description = 'Visualize Newton output.' )
 
-    parser.add_argument('--vanilla-newton-data-file','-n',
+    parser.add_argument('--vanilla-newton-data-file','-v',
                         metavar = 'FILE',
                         required = True,
                         type    = str,
                         help    = 'File containing vanilla Newton data (without deflation)'
                         )
 
-    parser.add_argument('--newton-data-file','-d',
+    parser.add_argument('--newton-data-file','-n',
                         metavar = 'FILE',
                         required = True,
                         type    = str,
