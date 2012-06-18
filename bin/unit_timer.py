@@ -64,10 +64,10 @@ import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
-M = modeleval.get_preconditioner_inverse(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0)
 '''
         stmt = '''
-_ = nm._apply(M, phi0)
+_ = nm._apply(Minv, phi0)
 #_ = M * phi0
 '''
         # make sure to execute the operation once such that all initializations are performed
@@ -80,10 +80,10 @@ _ = nm._apply(M, phi0)
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'exact'
-M = modeleval.get_preconditioner_inverse(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0)
 '''
         stmt = '''
-_ = nm._apply(M, phi0)
+_ = nm._apply(Minv, phi0)
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
@@ -256,18 +256,55 @@ A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
-M = modeleval.get_preconditioner_inverse(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0)
 x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 import pyginla.numerical_methods as nm
 '''
         stmt = '''
-out = nm.minres(A, b, x0, M=M, maxiter=1, inner_product=modeleval.inner_product, timer=True)
+out = nm.minres(A, b, x0, M=Minv, maxiter=1, inner_product=modeleval.inner_product, timer=True)
 #print out['times']
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
     targetfunctions['minres-full'] = unit_minres_full
+
+
+
+    def unit_setup():
+        runs = []
+        for num_defl_vecs in args.num_defl_vecs:
+            my_setup = '''
+A = modeleval.get_jacobian(psi0)
+#modeleval._preconditioner_type = 'exact'
+modeleval._preconditioner_type = 'cycles'
+modeleval._num_amg_cycles = 1
+M = modeleval.get_preconditioner(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0)
+x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
+b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
+import pyginla.numerical_methods as nm
+k = %d
+W = np.random.rand(num_nodes,k) + 1j * np.random.rand(num_nodes,k)
+AW = nm._apply(A, W)
+Vfull = np.random.rand(num_nodes,k) + 1j * np.random.rand(num_nodes,k)
+Hfull = np.random.rand(k,k-1) + 1j * np.random.rand(k,k-1)
+''' % num_defl_vecs
+            stmt = '''
+Q, R = nm.qr(W, inner_product=modeleval.inner_product)
+P0, x0new = nm.get_projection(W, AW, b, x0,
+                              inner_product = modeleval.inner_product
+                              )
+ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz(W, AW, Vfull, Hfull,
+                                                  M = Minv, Minv=M,
+                                                  inner_product = modeleval.inner_product)
+'''
+            # make sure to execute the operation once such that all initializations are performed
+            runs.append({'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)})
+        return runs
+    targetfunctions['setup'] = unit_setup
+
+
 
     for target in args.target:
 
@@ -300,7 +337,7 @@ def _parse_input_arguments():
 
     parser.add_argument('--target', '-t',
                         nargs = '+',
-                        choices = ['jacobian', 'amg1', 'amgexact', 'projection', 'inner', 'daxpy', 'minres-step', 'minres-full'],
+                        choices = ['jacobian', 'amg1', 'amgexact', 'projection', 'inner', 'daxpy', 'minres', 'minres-full', 'setup'],
                         help = 'target for timing benchmark'
                         )
 
@@ -316,7 +353,7 @@ def _parse_input_arguments():
                         default = 5,
                         help = 'How often to run the timings including the setup (default: 5)'
                         )
-    
+
     parser.add_argument('--number', '-n',
                         type = int,
                         default = 1,

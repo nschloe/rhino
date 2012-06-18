@@ -261,7 +261,7 @@ class TestLinearSolvers(unittest.TestCase):
         from scipy.sparse.linalg import eigs
         num_vecs = 6
         D, W = eigs(A, k=num_vecs, v0=np.ones((num_unknowns,1)))
-        
+
         # Uncomment next lines to perturb W
         #W = W + 1.e-10*np.random.rand(W.shape[0], W.shape[1])
         #from scipy.linalg import qr
@@ -275,7 +275,7 @@ class TestLinearSolvers(unittest.TestCase):
         out = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_basis=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz( W, AW, out['Vfull'], out['Hfull'] )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_p_ritz( W, AW, out['Vfull'], out['Hfull'] )
 
         # Make sure the method converged.
         self.assertEqual(out['info'], 0)
@@ -306,7 +306,7 @@ class TestLinearSolvers(unittest.TestCase):
         x0new_exact = np.ones( (N,1) )
         x0new_exact[N-2:N,0] = [1./(N-1),1./N]
         self.assertAlmostEqual( np.linalg.norm(x0new-x0new_exact), 0.0, delta=1e-14 )
-    
+
     # --------------------------------------------------------------------------
     def test_get_ritz(self):
         N = 10
@@ -328,12 +328,12 @@ class TestLinearSolvers(unittest.TestCase):
                         full_reortho=True,
                         return_basis=True
                         )
-        
+
         # Get Ritz pairs
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz(W, AW,
-                                                          out['Vfull'],
-                                                          out['Hfull']
-                                                          )
+        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_p_ritz(W, AW,
+                                                            out['Vfull'],
+                                                            out['Hfull']
+                                                            )
 
         # Check Ritz pair residuals
         ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))

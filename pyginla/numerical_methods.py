@@ -660,7 +660,7 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     if p is None:
         p = nW + nVfull
     E = inner_product(W, AW)        # ~
-    B1 = inner_product(AW, Vfull)   # can (and should) be obtained from MINRES
+    B1 = inner_product(AW, Vfull)   # can (and should) be obtained from projection
     B = B1[:, 0:-1]
     if scipy.sparse.issparse(Hfull):
         Hfull = Hfull.todense()
@@ -668,7 +668,6 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     # Compute residual norms.
     if nW > 0:
         Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
-
         # Apply preconditioner to AW (I don't see a way to get rid of this! -- André).
         # cost: nW*APPLM
         MAW = _apply(M, AW)
@@ -681,55 +680,9 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     ritzmat = np.r_[ np.c_[E,          B],
                      np.c_[B.T.conj(), Hfull[0:-1,:] + np.dot(B.T.conj(), np.dot(Einv, B))]
                    ]
-
     # Compute Ritz values / vectors.
     from scipy.linalg import eigh
     ritz_values, U = eigh(ritzmat)
-
-    norm_ritz_res = np.zeros(len(ritz_values))
-
-    # cost: (nW^2)*IP
-    D1 = np.eye(nW)
-    D = inner_product(AW, MAW)
-    zeros = np.zeros((nW,nVfull))
-    # Attention: CC should be HPD. However, this only holds if the
-    #            preconditioner was solved exactly
-    #            (then inner_product(Minv*W,W)=I)
-    #            If the preconditioner is solved exactly, the
-    #            computation seems to be stable.
-    CC = np.r_[ np.c_[ D1,             E,           zeros],
-                np.c_[ E.T.conj(),     D,           B1],
-                np.c_[ zeros.T.conj(), B1.T.conj(), np.eye(nVfull)]
-              ]
-
-    for i in xrange(0,ritzmat.shape[0]):
-        w = U[0:W.shape[1],[i]]
-        v = U[W.shape[1]:,[i]]
-        mu = ritz_values[i]
-
-        z = np.r_[ -mu*w,
-                    w + np.dot( Einv, np.dot(B, v)),
-                    np.dot(Hfull, v) - np.r_[mu*v, np.zeros((1,1))] ]
-        z = np.reshape(z, (z.shape[0],1))
-        CCz = np.dot(CC, z)
-        res_ip = _ipstd(z, CCz)[0,0]
-        if res_ip.imag > 1e-13:
-            warnings.warn('res_ip.imag = %g > 1e-13. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.imag)
-        if res_ip.real < -1e-10:
-            warnings.warn('res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
-        norm_ritz_res[i] = np.sqrt(abs(res_ip))
-
-        # Explicit computation of residual (this part only works for M=I)
-        #X = np.c_[W, Vfull[:,0:-1]]
-        #V = np.dot(X, np.r_[w,v])
-        #MAV = _apply(M,_apply(A, V))
-        #res_explicit = MAV - ritz_values[i]*V
-        #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
-        #assert( zz.imag<1e-13 )
-        #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
-        #print 'Explicit residual: %g' % np.sqrt(abs(zz))
-        if debug and norm_ritz_res[i] < 1e-8:
-            print 'Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i])
 
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
     if mode == 'SM':
@@ -738,7 +691,62 @@ def get_p_ritz(W, AW, Vfull, Hfull,
         sorti = np.argsort(abs(ritz_values))
         sorti.reverse()
     elif mode == 'SR':
+        # Calculate the Ritz-residuals in a smart way.
+        norm_ritz_res = np.empty(len(ritz_values))
+        D = inner_product(AW, MAW)
+        for i in xrange(ritzmat.shape[0]):
+            w = U[:W.shape[1],[i]]
+            v = U[W.shape[1]:,[i]]
+            mu = ritz_values[i]
+
+            # The following computes  <z, CC*z>_2  with
+            #
+            #z = np.r_[ -mu*w,
+            #            w + np.dot(Einv, np.dot(B, v)),
+            #            np.dot(Hfull, v) - np.r_[mu*v, np.zeros((1,1))] ]
+            #z = np.reshape(z, (z.shape[0],1))
+            # cost: (nW^2)*IP
+            #zeros = np.zeros((nW,nVfull))
+            #CC = np.r_[ np.c_[ np.eye(nW),     E,           zeros],
+            #            np.c_[ E.T.conj(),     D,           B1],
+            #            np.c_[ zeros.T.conj(), B1.T.conj(), np.eye(nVfull)]
+            #          ]
+            #
+            # Attention:
+            # CC should be HPD (and thus $<z, CC*z>_2 > 0$).
+            # However, this only holds if the preconditioner M was solved exactly
+            # (then inner_product(Minv*W,W)=I).
+            # In this case, the computation seems to be stable.
+            z0 = -mu * w
+            z1 = w + np.dot(Einv, np.dot(B, v))
+            z2 = np.dot(Hfull, v) - np.r_[mu*v, np.zeros((1,1))]
+            res_ip = _ipstd(z0, z0) + 2 * _ipstd(z0, np.dot(E, z1)).real + _ipstd(z1, np.dot(D, z1)) \
+                   + 2 * _ipstd(z1, np.dot(B1, z2)).real + _ipstd(z2, z2)
+            res_ip = res_ip[0,0]
+
+            if res_ip.imag > 1e-13:
+                warnings.warn('res_ip.imag = %g > 1e-13. Preconditioner not symmetric?' % res_ip.imag)
+            if res_ip.real < -1e-10:
+                warnings.warn('res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
+            norm_ritz_res[i] = np.sqrt(abs(res_ip))
+
+            # Explicit computation of residual (this part only works for M=I)
+            #X = np.c_[W, Vfull[:,0:-1]]
+            #V = np.dot(X, np.r_[w,v])
+            #MAV = _apply(M,_apply(A, V))
+            #res_explicit = MAV - ritz_values[i]*V
+            #zz = inner_product(_apply(Minv, res_explicit), res_explicit)[0,0]
+            #assert( zz.imag<1e-13 )
+            #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
+            #print 'Explicit residual: %g' % np.sqrt(abs(zz))
+            if debug and norm_ritz_res[i] < 1e-8:
+                print 'Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i])
+        # Get them sorted.
         sorti = np.argsort(norm_ritz_res)
+        #yaml_emitter.add_key('min(||ritz res||)')
+        #yaml_emitter.add_value( min(norm_ritz_res) )
+        #yaml_emitter.add_key('max(||ritz res||)')
+        #yaml_emitter.add_value( max(norm_ritz_res) )
     else:
         raise ValueError('Unknown mode \'%s\'.' % mode)
 
@@ -753,9 +761,8 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     ritz_vecs = np.dot(W, U[0:nW,selection]) \
               + np.dot(Vfull[:,0:-1], U[nW:,selection])
     ritz_values = ritz_values[selection]
-    norm_ritz_res = norm_ritz_res[selection]
 
-    return ritz_values, ritz_vecs, norm_ritz_res
+    return ritz_values, ritz_vecs
 # ==============================================================================
 def gmres( A, b, x0,
            tol = 1e-5,
@@ -1184,18 +1191,14 @@ def newton( x0,
                 #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
 
             if num_deflation_vectors > 0:
-                ritz_vals, W, norm_ritz_res = get_p_ritz(W, AW, out['Vfull'], out['Hfull'],
-                                                         M = Minv, Minv=M,
-                                                         p = num_deflation_vectors,
-                                                         mode = 'SM',
-                                                         inner_product = model_evaluator.inner_product)
+                ritz_vals, W = get_p_ritz(W, AW, out['Vfull'], out['Hfull'],
+                                          M = Minv, Minv=M,
+                                          p = num_deflation_vectors,
+                                          mode = 'SM',
+                                          inner_product = model_evaluator.inner_product)
                 if debug:
                     yaml_emitter.add_key('||I-ip(Wnew,Wnew)||')
                     yaml_emitter.add_value( np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)) )
-                    yaml_emitter.add_key('min(||ritz res||)')
-                    yaml_emitter.add_value( min(norm_ritz_res) )
-                    yaml_emitter.add_key('max(||ritz res||)')
-                    yaml_emitter.add_value( max(norm_ritz_res) )
             else:
                 W = np.zeros( (len(x),0) )
         else:
