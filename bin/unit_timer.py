@@ -51,7 +51,7 @@ phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 J = modeleval.get_jacobian(psi0)
 '''
         stmt = '''
-_ = nm._apply(J, phi0)
+_ = J * phi0
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
@@ -67,8 +67,7 @@ modeleval._num_amg_cycles = 1
 Minv = modeleval.get_preconditioner_inverse(psi0)
 '''
         stmt = '''
-_ = nm._apply(Minv, phi0)
-#_ = M * phi0
+_ = Minv * phi0
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
@@ -83,12 +82,25 @@ modeleval._preconditioner_type = 'exact'
 Minv = modeleval.get_preconditioner_inverse(psi0)
 '''
         stmt = '''
-_ = nm._apply(Minv, phi0)
+_ = Minv * phi0
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
     targetfunctions['amgexact'] = unit_amgexact
 
+    def unit_prec():
+        my_setup = '''
+import pyginla.numerical_methods as nm
+phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
+modeleval._preconditioner_type = 'exact'
+M = modeleval.get_preconditioner(psi0)
+'''
+        stmt = '''
+_ = M * phi0
+'''
+        # make sure to execute the operation once such that all initializations are performed
+        return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
+    targetfunctions['prec'] = unit_prec
 
     def unit_projection():
         runs = []
@@ -104,7 +116,7 @@ phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 P, x0new = nm.get_projection(W, JW, b, phi0, inner_product = modeleval.inner_product)
 ''' % num_defl_vecs
             stmt = '''
-_ = nm._apply(P, phi0)
+_ = P * phi0
 '''
             # make sure to execute the operation once such that all initializations are performed
             runs.append ( {'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number),
@@ -337,7 +349,7 @@ def _parse_input_arguments():
 
     parser.add_argument('--target', '-t',
                         nargs = '+',
-                        choices = ['jacobian', 'amg1', 'amgexact', 'projection', 'inner', 'daxpy', 'minres', 'minres-full', 'setup'],
+                        choices = ['jacobian', 'amg1', 'amgexact', 'prec', 'projection', 'inner', 'daxpy', 'minres-step', 'minres-full', 'setup'],
                         help = 'target for timing benchmark'
                         )
 
