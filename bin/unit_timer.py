@@ -58,7 +58,7 @@ _ = J * phi0
     targetfunctions['jacobian'] = unit_jacobian
 
 
-    def unit_amg1():
+    def unit_cycles():
         my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -71,10 +71,10 @@ _ = Minv * phi0
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
-    targetfunctions['amg1'] = unit_amg1
+    targetfunctions['cycles'] = unit_cycles
 
 
-    def unit_amgexact():
+    def unit_exact():
         my_setup = '''
 import pyginla.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
@@ -86,7 +86,7 @@ _ = Minv * phi0
 '''
         # make sure to execute the operation once such that all initializations are performed
         return [{'timings': timeit.repeat(stmt = stmt, setup=create_modeleval+my_setup+stmt, repeat=args.repeats, number=args.number)}]
-    targetfunctions['amgexact'] = unit_amgexact
+    targetfunctions['exact'] = unit_exact
 
     def unit_prec():
         my_setup = '''
@@ -349,7 +349,7 @@ def _parse_input_arguments():
 
     parser.add_argument('--target', '-t',
                         nargs = '+',
-                        choices = ['jacobian', 'amg1', 'amgexact', 'prec', 'projection', 'inner', 'daxpy', 'minres-step', 'minres-full', 'setup'],
+                        choices = ['jacobian', 'cycles', 'exact', 'prec', 'projection', 'inner', 'daxpy', 'minres-step', 'minres-full', 'setup'],
                         help = 'target for timing benchmark'
                         )
 
