@@ -51,6 +51,8 @@ def _main():
     ye = pyginla.yaml.YamlEmitter()
     ye.begin_doc()
     ye.begin_map()
+    import sys
+    ye.add_key_value('command', ' '.join(sys.argv))
     ye.add_key('num_unknowns')
     ye.add_value(len(psi0))
     ye.add_key('filename')
