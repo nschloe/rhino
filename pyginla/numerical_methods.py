@@ -508,7 +508,7 @@ def minres(A, b, x0,
             if relresvec[-1] > tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
-                    warnings.warn('Iiter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
+                    warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last iter. (upd. res = %e)' \
                         % (k+1, relresvec[-1], tol, norm_r_upd))
                     info = 1
                 else:
@@ -1146,9 +1146,9 @@ def newton( x0,
         if num_deflation_vectors > 0:
             return_basis = True
 
-            # limit to 0.5 GB memory for Vfull/Pfull (together)
+            # limit to 1 GB memory for Vfull/Pfull (together)
             from math import floor
-            maxmem = 0.5*(2**30) # bytes
+            maxmem = 2**30 # 1 GB
             linear_solver_maxiter = min(linear_solver_maxiter, int(floor(maxmem/(2*16*len(x)))))
         else:
             return_basis = False
