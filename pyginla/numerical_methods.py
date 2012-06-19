@@ -1225,7 +1225,7 @@ def newton( x0,
     yaml_emitter.end_map()
     yaml_emitter.end_seq()
     if Fx_norms[-1] > nonlinear_tol:
-        yaml_emitter._comment('Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol))
+        yaml_emitter.add_comment('Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol))
         error_code = 1
 
     return {'x': x,

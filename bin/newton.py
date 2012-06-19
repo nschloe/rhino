@@ -13,6 +13,9 @@ import voropy
 def _main():
     args = _parse_input_arguments()
 
+    ye = pyginla.yaml.YamlEmitter()
+    ye.begin_doc()
+
     # read the mesh
     print '# Reading the mesh...',
     mesh, point_data, field_data = voropy.read( args.filename )
@@ -48,11 +51,10 @@ def _main():
         #ky = 0.5
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
-    ye = pyginla.yaml.YamlEmitter()
-    ye.begin_doc()
     ye.begin_map()
-    import sys
-    ye.add_key_value('command', ' '.join(sys.argv))
+    import sys, os, datetime
+    ye.add_comment('Newton run with newton.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
+    ye.add_comment(' '.join(sys.argv))
     ye.add_key('num_unknowns')
     ye.add_value(len(psi0))
     ye.add_key('filename')

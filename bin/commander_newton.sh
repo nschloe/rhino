@@ -1,7 +1,7 @@
 #!/bin/sh
 
 BINDIR=`dirname $0`
-NEWTONBASE="python -u $BINDIR/newton.py ../interesting-27001.vtu -k minres -p cycles -r"
+NEWTONBASE="python -u $BINDIR/newton.py ../interesting-22000.vtu -k minres -p cycles -r"
 
 # vanilla
 BASENAME="newton-vanilla"
