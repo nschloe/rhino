@@ -1149,7 +1149,10 @@ def newton( x0,
             # limit to 1 GB memory for Vfull/Pfull (together)
             from math import floor
             maxmem = 2**30 # 1 GB
-            linear_solver_maxiter = min(linear_solver_maxiter, int(floor(maxmem/(2*16*len(x)))))
+            maxmem_maxiter = int(floor(maxmem/(2*16*len(x))))
+            if linear_solver_maxiter > maxmem_maxiter:
+                warnings.warn('limiting linear_solver_maxiter to %d instead of %d to fulfill memory constraints (%g GB)' % (maxmem_maxiter, linear_solver_maxiter, maxmem / float(2**30)))
+                linear_solver_maxiter = maxmem_maxiter
         else:
             return_basis = False
 
