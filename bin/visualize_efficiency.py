@@ -44,9 +44,9 @@ def _main():
     TMip = TM + Tip
 
     def Tqr(p):
-        return (p*(p+1)/2) * (TMip + Tdaxpy)
+        return (p*(p+1)/2) * (Tip + Tdaxpy) + p*TM
     def Tget_proj(p):
-        return p*TJ + p*(p+1)*Tip + Tp(p) + p*Tdaxpy
+        return p*TJ + (p*(p+1)/2 + p)*Tip + Tp(p) + p*Tdaxpy
     def TMINRES(k, p):
         return k * (2*Tip + 2*TJ + TMinv + Tp(p) + 7*Tdaxpy)
     def Tget_ritz(k, p):
