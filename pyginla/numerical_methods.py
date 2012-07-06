@@ -1033,8 +1033,9 @@ def newton( x0,
     '''
     from scipy.constants import golden
 
-    # some initializations
-    error_code = 0
+    # Some initializations.
+    # Set the default error code to 'failure'.
+    error_code = 1
     k = 0
 
     x = x0.copy()
@@ -1221,15 +1222,20 @@ def newton( x0,
         Fx = model_evaluator.compute_f( x )
         Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
 
+        if debug:
+            yaml_emitter.end_map()
+
+    if Fx_norms[-1] < nonlinear_tol:
+        error_code = 0
+
+    if debug:
+        yaml_emitter.begin_map()
+        yaml_emitter.add_key('Fx_norm')
+        yaml_emitter.add_value(Fx_norms[-1])
         yaml_emitter.end_map()
-    yaml_emitter.begin_map()
-    yaml_emitter.add_key('Fx_norm')
-    yaml_emitter.add_value(Fx_norms[-1])
-    yaml_emitter.end_map()
-    yaml_emitter.end_seq()
-    if Fx_norms[-1] > nonlinear_tol:
-        yaml_emitter.add_comment('Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol))
-        error_code = 1
+        yaml_emitter.end_seq()
+        if Fx_norms[-1] > nonlinear_tol:
+            yaml_emitter.add_comment('Newton solver did not converge (residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol))
 
     return {'x': x,
             'info': error_code,
