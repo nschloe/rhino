@@ -7,6 +7,7 @@ import numpy as np
 
 import pyginla.numerical_methods as nm
 import pyginla.gp_modelevaluator as gpm
+import pyginla.bordered_modelevaluator as bme
 import pyginla.yaml
 import voropy
 # ==============================================================================
@@ -29,6 +30,8 @@ def _main():
     else:
         raise RuntimeError('Parameter ''mu'' not found in file or command line.')
 
+    num_nodes = len(mesh.node_coords)
+
     modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh,
                                                   g = field_data['g'],
                                                   V = point_data['V'],
@@ -36,10 +39,41 @@ def _main():
                                                   mu = mu,
                                                   preconditioner_type = args.preconditioner_type,
                                                   num_amg_cycles = args.num_amg_cycles)
-    #nls_modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh, g=1.0)
+
+    psi_reference = 1.0 * np.ones((num_nodes,1), dtype=complex)
+    bordered_modeleval = bme.BorderedModelEvaluator(modeleval, psi_reference)
+
+    ## check out self-adjointness
+    #n = num_nodes
+    #x_test = np.random.rand(n,1) + 1j * np.random.rand(n,1)
+    #J = modeleval.get_jacobian(x_test)
+    #for k in xrange(5):
+    #    phi = np.random.rand(n,1) + 1j * np.random.rand(n,1)
+    #    psi = np.random.rand(n,1) + 1j * np.random.rand(n,1)
+    #    Jphi = J*phi
+    #    Jpsi = J*psi
+    #    print modeleval.inner_product(phi,Jpsi) \
+    #        - modeleval.inner_product(Jphi, psi)
+
+    #print
+    #x_test = np.empty((n+1,1),dtype=complex)
+    #x_test[0:n] = np.random.rand(n,1) + 1j * np.random.rand(n,1)
+    #x_test[n] = np.random.rand(1)
+    #J = bordered_modeleval.get_jacobian(x_test)
+    #for k in xrange(5):
+    #    phi = np.empty((n+1,1),dtype=complex)
+    #    phi[0:n] = np.random.rand(n,1) + 1j * np.random.rand(n,1)
+    #    phi[n] = np.random.rand(1)
+    #    psi = np.empty((n+1,1),dtype=complex)
+    #    psi[0:n] = np.random.rand(n,1) + 1j * np.random.rand(n,1)
+    #    psi[n] = np.random.rand(1)
+    #    Jphi = J*phi
+    #    Jpsi = J*psi
+    #    print bordered_modeleval.inner_product(phi, Jpsi) \
+    #        - bordered_modeleval.inner_product(Jphi, psi)
+    #dasdas
 
     # initial guess
-    num_nodes = len(mesh.node_coords)
     psi0Name = 'psi0'
     if psi0Name in point_data:
         psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
@@ -51,6 +85,14 @@ def _main():
         #ky = 0.5
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
+
+    #psi = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
+    #Fpsi = modeleval.compute_f(psi)
+    #J = modeleval.get_jacobian(psi)
+    #Jipsi = J * (1j*psi)
+    #print np.linalg.norm(Jipsi - 1j*Fpsi)
+    #dasad
+
     ye.begin_map()
     import sys, os, datetime
     ye.add_comment('Newton run with newton.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
@@ -75,7 +117,11 @@ def _main():
     ye.add_key('explicit residual')
     ye.add_value(args.resexp)
 
-    newton_out = my_newton(args, modeleval, psi0, yaml_emitter=ye)
+    #newton_out = my_newton(args, modeleval, psi0, yaml_emitter=ye)
+    x0 = np.empty((num_nodes+1,1), dtype=complex)
+    x0[0:num_nodes] = psi0
+    x0[-1] = 0.0
+    newton_out = my_newton(args, bordered_modeleval, x0, yaml_emitter=ye)
 
     ye.end_map()
 
@@ -113,7 +159,7 @@ def my_newton(args, modeleval, psi0, yaml_emitter=None, debug=True):
     newton_out = nm.newton(psi0,
                            modeleval,
                            linear_solver = lin_solve,
-                           linear_solver_maxiter = 500, #2*len(psi0),
+                           linear_solver_maxiter = 1000, #2*len(psi0),
                            linear_solver_extra_args = lin_solve_args,
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
