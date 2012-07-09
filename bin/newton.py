@@ -40,9 +40,6 @@ def _main():
                                                   preconditioner_type = args.preconditioner_type,
                                                   num_amg_cycles = args.num_amg_cycles)
 
-    psi_reference = 1.0 * np.ones((num_nodes,1), dtype=complex)
-    bordered_modeleval = bme.BorderedModelEvaluator(modeleval, psi_reference)
-
     ## check out self-adjointness
     #n = num_nodes
     #x_test = np.random.rand(n,1) + 1j * np.random.rand(n,1)
@@ -86,13 +83,6 @@ def _main():
         #for i, node in enumerate(mesh.node_coords):
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
 
-    #psi = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-    #Fpsi = modeleval.compute_f(psi)
-    #J = modeleval.get_jacobian(psi)
-    #Jipsi = J * (1j*psi)
-    #print np.linalg.norm(Jipsi - 1j*Fpsi)
-    #dasad
-
     ye.begin_map()
     import sys, os, datetime
     ye.add_comment('Newton run with newton.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
@@ -116,20 +106,29 @@ def _main():
     ye.add_value(args.num_extra_defl_vectors)
     ye.add_key('explicit residual')
     ye.add_value(args.resexp)
+    ye.add_key('bordering')
+    ye.add_value(args.bordering)
 
-    #newton_out = my_newton(args, modeleval, psi0, yaml_emitter=ye)
-    x0 = np.empty((num_nodes+1,1), dtype=complex)
-    x0[0:num_nodes] = psi0
-    x0[-1] = 0.0
-    newton_out = my_newton(args, bordered_modeleval, x0, yaml_emitter=ye)
+    if args.bordering:
+        # Build bordered system.
+        x0 = np.empty((num_nodes+1,1), dtype=complex)
+        x0[0:num_nodes] = psi0
+        x0[-1] = 0.0
+        # Use psi0 as initial bordering.
+        bordered_modeleval = bme.BorderedModelEvaluator(modeleval, psi0)
+        newton_out = my_newton(args, bordered_modeleval, x0, yaml_emitter=ye)
+        sol = newton_out['x'][0:num_nodes]
+    else:
+        newton_out = my_newton(args, modeleval, psi0, yaml_emitter=ye)
+        sol = newton_out['x']
 
     ye.end_map()
 
     # energy of the state
-    print '# Energy of the final state: %g.' % modeleval.energy( newton_out['x'] )
+    print '# Energy of the final state: %g.' % modeleval.energy(sol)
 
     if args.solutionfile:
-        modeleval.mesh.write(args.solutionfile, {'psi': newton_out['x']})
+        modeleval.mesh.write(args.solutionfile, {'psi': sol})
 
     return
 # ==============================================================================
@@ -242,6 +241,12 @@ def _parse_input_arguments():
                         default = 0,
                         type = int,
                         help = 'number of extra deflation vectors (default: 0)'
+                        )
+
+    parser.add_argument('--bordering', '-b',
+                        default = False,
+                        action = 'store_true',
+                        help = 'use the bordered formulation to counter the nullspace, does not work with preconditioner (default: false)'
                         )
 
     return parser.parse_args()
