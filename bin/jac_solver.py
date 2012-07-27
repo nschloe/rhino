@@ -24,7 +24,7 @@ def _main():
     args = _parse_input_arguments()
 
     for filename in args.filenames:
-        relresvec = _solve_system(filename, args.timestep, args.use_preconditioner, args.deflation)
+        relresvec = _solve_system(filename, args.timestep, args.preconditioner_type, args.deflation)
         print 'relresvec:'
         print relresvec
         print 'num iters:', len(relresvec)-1
@@ -34,7 +34,7 @@ def _main():
 
     return
 # ==============================================================================
-def _solve_system(filename, timestep, use_preconditioner, use_deflation):
+def _solve_system(filename, timestep, preconditioner_type, use_deflation):
     # read the mesh
     print "Reading the mesh...",
     start = time.time()
@@ -50,7 +50,12 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     start = time.time()
     g = 1.0
     V = -np.ones(len(mesh.node_coords))
-    modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
+    modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
+                                                            g = g,
+                                                            V = V,
+                                                            A = point_data['A'],
+                                                            mu = mu,
+                                                            preconditioner_type = preconditioner_type)
     end = time.time()
     print "done. (%gs)" % (end - start)
 
@@ -84,7 +89,7 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     print 'done. (%gs)' % (end_time - start_time)
 
     # create precondictioner object
-    if use_preconditioner:
+    if preconditioner_type != 'none':
         print 'Getting preconditioner...',
         start_time = time.clock()
         prec = modeleval.get_preconditioner_inverse( current_psi )
@@ -670,11 +675,10 @@ def _parse_input_arguments():
                         help='read a particular time step (default: 0)'
                         )
 
-    parser.add_argument('--prec', '-p',
-                        dest='use_preconditioner',
-                        action='store_true',
-                        default=False,
-                        help='use a preconditioner (default: False)'
+    parser.add_argument('--preconditioner-type', '-p',
+                        choices = ['none', 'exact', 'cycles'],
+                        default = 'none',
+                        help    = 'preconditioner type (default: none)'
                         )
 
     parser.add_argument('--show-relres', '-s',

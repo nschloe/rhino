@@ -33,12 +33,12 @@ def _main():
     num_nodes = len(mesh.node_coords)
 
     modeleval = gpm.NlsModelEvaluator(mesh,
-                                                  g = field_data['g'],
-                                                  V = point_data['V'],
-                                                  A = point_data['A'],
-                                                  mu = mu,
-                                                  preconditioner_type = args.preconditioner_type,
-                                                  num_amg_cycles = args.num_amg_cycles)
+                                      g = field_data['g'],
+                                      V = point_data['V'],
+                                      A = point_data['A'],
+                                      mu = mu,
+                                      preconditioner_type = args.preconditioner_type,
+                                      num_amg_cycles = args.num_amg_cycles)
 
     ## check out self-adjointness
     #n = num_nodes
