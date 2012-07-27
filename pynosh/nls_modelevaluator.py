@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Provide information around the Gross--Pitaevskii equations.
+Provide information around the nonlinear Schrödinger equations.
 '''
 import numpy as np
 from scipy import sparse, linalg
@@ -9,11 +9,12 @@ from scipy.sparse.linalg import LinearOperator
 from scipy.sparse import spdiags
 import warnings
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-class GrossPitaevskiiModelEvaluator:
-    '''Gross-Pitaevskii model evaluator class.
+class NlsModelEvaluator:
+    '''Nonlinear Schrödinger model evaluator class.
     Incorporates
-       * Ginzburg--Landau: g=1.0, V==-1.0, and some magnetic potential A.
        * Nonlinear Schrödinger: g=1.0, V==0.0, A==0.0.
+       * Gross--Pitaevskii: g=1.0, V given, A==0.0.
+       * Ginzburg--Landau: g=1.0, V==-1.0, and some magnetic potential A.
     '''
     # ==========================================================================
     def __init__(self,
@@ -52,7 +53,7 @@ class GrossPitaevskiiModelEvaluator:
         return
     # ==========================================================================
     def compute_f(self, psi):
-        '''Computes the Gross--Pitaevskii residual
+        '''Computes the nonlinear Schrödinger residual
 
             GP(psi) = K*psi + (V + g*|psi|^2) * psi
         '''
@@ -160,12 +161,12 @@ class GrossPitaevskiiModelEvaluator:
             x = np.empty((num_nodes,1), dtype=complex)
             residuals = []
             x[:,0] = prec_amg_solver.solve(rhs,
-                                            x0 = x0,
-                                            maxiter = self._num_amg_cycles,
-                                            tol = 0.0,
-                                            accel = None,
-                                            residuals=residuals
-                                            )
+                                           x0 = x0,
+                                           maxiter = self._num_amg_cycles,
+                                           tol = 0.0,
+                                           accel = None,
+                                           residuals=residuals
+                                           )
             # Alternative for one cycle:
             # amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
             # x = amg_prec * rhs
@@ -206,6 +207,9 @@ class GrossPitaevskiiModelEvaluator:
             max_levels=25,
             coarse_solver='pinv'
             )
+
+        print 'operator complexity', prec_amg_solver.operator_complexity()
+        print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
 
         num_unknowns = len(psi0)
 

@@ -10,7 +10,7 @@ import matplotlib2tikz
 
 #from lobpcg import lobpcg as my_lobpcg
 import voropy
-import pyginla.ginla_modelevaluator
+import pynosh.ginla_modelevaluator
 # ==============================================================================
 def _main():
     '''Main function.
@@ -18,14 +18,14 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    pyginlamesh, point_data, field_data = voropy.read(args.filename,
+    pynoshmesh, point_data, field_data = voropy.read(args.filename,
                                                       timestep=args.timestep
                                                       )
 
     # build the model evaluator
     mu = 0.0 # dummy -- reset later
     ginla_modeleval = \
-        pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh,
+        pynosh.ginla_modelevaluator.GinlaModelEvaluator(mesh,
                                                          point_data['A'],
                                                          mu
                                                          )

@@ -76,7 +76,7 @@ def _main():
         # recreate all the objects necessary to perform the precondictioner run
         num_unknowns = len( mesh.nodes )
 
-        # create precondictioner
+        # create preconditioner
         prec_keolu = LinearOperator( (num_unknowns, num_unknowns),
                                     matvec = precs.keo_lu,
                                     dtype = complex
@@ -89,7 +89,7 @@ def _main():
                                        )
 
         # create right hand side and initial guess
-        rhs  =  np.zeros( num_unknowns )
+        rhs = np.zeros( num_unknowns )
 
         # initial guess for all operations
         psi0 = np.random.rand( num_unknowns ) \
@@ -165,7 +165,4 @@ def _parse_input_arguments():
 # ==============================================================================
 if __name__ == "__main__":
     _main()
-
-    #import cProfile
-    #cProfile.run( '_main()', 'pfvm_profile.dat' )
 # ==============================================================================

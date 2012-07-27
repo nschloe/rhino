@@ -1,5 +1,5 @@
 import voropy
-import pyginla.magnetic_vector_potentials as mvp
+import pynosh.magnetic_vector_potentials as mvp
 import numpy as np
 import unittest
 from scipy.sparse import spdiags

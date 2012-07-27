@@ -1,5 +1,5 @@
 import voropy
-import pyginla.gp_modelevaluator as gp
+import pynosh.gp_modelevaluator as gp
 import numpy as np
 import unittest
 from scipy.sparse import spdiags

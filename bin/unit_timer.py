@@ -5,14 +5,14 @@
 # ==============================================================================
 import timeit
 import numpy as np
-import pyginla.yaml
+import pynosh.yaml
 import datetime
 import os
 # ==============================================================================
 def _main():
     args = _parse_input_arguments()
 
-    ye = pyginla.yaml.YamlEmitter()
+    ye = pynosh.yaml.YamlEmitter()
 
     filename = args.filename
 
@@ -27,10 +27,10 @@ def _main():
 
     create_modeleval = '''
 import numpy as np
-import pyginla.gp_modelevaluator as gpm
+import pynosh.nls_modelevaluator as gpm
 import voropy
 mesh, point_data, field_data = voropy.read( '%s' )
-modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh,
+modeleval = gpm.NlsModelEvaluator(mesh,
                                               g = field_data['g'],
                                               V = point_data['V'],
                                               A = point_data['A'],
@@ -46,7 +46,7 @@ psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
 
     def unit_jacobian():
         my_setup = '''
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 J = modeleval.get_jacobian(psi0)
 '''
@@ -60,7 +60,7 @@ _ = J * phi0
 
     def unit_cycles():
         my_setup = '''
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
@@ -76,7 +76,7 @@ _ = Minv * phi0
 
     def unit_exact():
         my_setup = '''
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'exact'
 Minv = modeleval.get_preconditioner_inverse(psi0)
@@ -90,7 +90,7 @@ _ = Minv * phi0
 
     def unit_prec():
         my_setup = '''
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'exact'
 M = modeleval.get_preconditioner(psi0)
@@ -106,7 +106,7 @@ _ = M * phi0
         runs = []
         for num_defl_vecs in args.num_defl_vecs:
             my_setup = '''
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 k = %d
 J = modeleval.get_jacobian(psi0)
 W = np.random.rand(num_nodes,k) + 1j * np.random.rand(num_nodes,k)
@@ -150,7 +150,7 @@ _ = phi0 + phi1
 
     minres_setup = '''
 # MINRES code copied & pasted
-from pyginla.numerical_methods import _apply, _norm
+from pynosh.numerical_methods import _apply, _norm
 N = len(b)
 Mlb = _apply(Ml, b)
 MMlb = _apply(M, Mlb)
@@ -271,7 +271,7 @@ modeleval._num_amg_cycles = 1
 Minv = modeleval.get_preconditioner_inverse(psi0)
 x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 '''
         stmt = '''
 out = nm.minres(A, b, x0, M=Minv, maxiter=1, inner_product=modeleval.inner_product, timer=True)
@@ -295,7 +295,7 @@ M = modeleval.get_preconditioner(psi0)
 Minv = modeleval.get_preconditioner_inverse(psi0)
 x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 k = %d
 W = np.random.rand(num_nodes,k) + 1j * np.random.rand(num_nodes,k)
 AW = nm._apply(A, W)

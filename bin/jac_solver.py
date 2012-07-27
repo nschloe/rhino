@@ -14,9 +14,9 @@ import matplotlib.pyplot as pp
 #rc( 'font', family = 'serif' )
 
 import voropy
-import pyginla.gp_modelevaluator
-#import pyginla.preconditioners
-import pyginla.numerical_methods as nm
+import pynosh.nls_modelevaluator
+#import pynosh.preconditioners
+import pynosh.numerical_methods as nm
 # ==============================================================================
 def _main():
     '''Main function.
@@ -50,7 +50,7 @@ def _solve_system(filename, timestep, use_preconditioner, use_deflation):
     start = time.time()
     g = 1.0
     V = -np.ones(len(mesh.node_coords))
-    modeleval = pyginla.gp_modelevaluator.GrossPitaevskiiModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
+    modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
     end = time.time()
     print "done. (%gs)" % (end - start)
 

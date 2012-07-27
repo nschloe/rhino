@@ -9,7 +9,7 @@ import matplotlib2tikz
 import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
-import pyginla.gp_modelevaluator as gp
+import pynosh.nls_modelevaluator as gp
 # ==============================================================================
 def _main():
     '''Main function.
@@ -38,7 +38,7 @@ def _main():
         raise ValueError('Parameter ''g'' not found in file. Please provide on command line.')
 
     # build the model evaluator
-    modeleval = gp.GrossPitaevskiiModelEvaluator(mesh,
+    modeleval = gp.NlsModelEvaluator(mesh,
                                                  g = g,
                                                  V = point_data['V'],
                                                  A = point_data['A'],
@@ -140,7 +140,7 @@ def _main():
             #small_eigenval, X = my_lobpcg( modeleval._keo,
                                           #X,
                                           #tolerance = 1.0e-5,
-                                          #maxiter = len(pyginlamesh.nodes),
+                                          #maxiter = len(pynoshmesh.nodes),
                                           #verbosity = 1
                                         #)
             #print 'Calculated values: ', small_eigenval

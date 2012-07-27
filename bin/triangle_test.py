@@ -5,8 +5,8 @@
 # ==============================================================================
 import numpy as np
 
-#import pyginla.numerical_methods as nm
-#import pyginla.ginla_modelevaluator as gm
+#import pynosh.numerical_methods as nm
+#import pynosh.ginla_modelevaluator as gm
 import voropy
 # ==============================================================================
 def _main():

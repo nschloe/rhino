@@ -4,8 +4,8 @@
 import numpy as np
 
 import voropy
-import pyginla.ginla_modelevaluator
-#import pyginla.numerical_methods as nm
+import pynosh.ginla_modelevaluator
+#import pynosh.numerical_methods as nm
 # ==============================================================================
 def _main():
     '''Main function.
@@ -18,7 +18,7 @@ def _main():
     # build the model evaluator
     mu = 1.0
     ginla_modeleval = \
-        pyginla.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
+        pynosh.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
 
     N = len( mesh.node_coords )
     current_psi = np.random.rand(N,1) + 1j * np.random.rand(N,1)

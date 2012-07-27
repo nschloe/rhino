@@ -1,4 +1,4 @@
-import pyginla.numerical_methods as nm
+import pynosh.numerical_methods as nm
 import numpy as np
 import scipy
 import unittest

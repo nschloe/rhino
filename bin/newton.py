@@ -5,16 +5,16 @@
 # ==============================================================================
 import numpy as np
 
-import pyginla.numerical_methods as nm
-import pyginla.gp_modelevaluator as gpm
-import pyginla.bordered_modelevaluator as bme
-import pyginla.yaml
+import pynosh.numerical_methods as nm
+import pynosh.nls_modelevaluator as gpm
+import pynosh.bordered_modelevaluator as bme
+import pynosh.yaml
 import voropy
 # ==============================================================================
 def _main():
     args = _parse_input_arguments()
 
-    ye = pyginla.yaml.YamlEmitter()
+    ye = pynosh.yaml.YamlEmitter()
     ye.begin_doc()
 
     # read the mesh
@@ -32,7 +32,7 @@ def _main():
 
     num_nodes = len(mesh.node_coords)
 
-    modeleval = gpm.GrossPitaevskiiModelEvaluator(mesh,
+    modeleval = gpm.NlsModelEvaluator(mesh,
                                                   g = field_data['g'],
                                                   V = point_data['V'],
                                                   A = point_data['A'],

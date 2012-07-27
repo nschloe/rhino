@@ -5,8 +5,8 @@
 # ==============================================================================
 import numpy as np
 
-import pyginla.numerical_methods as nm
-import pyginla.gp_modelevaluator as gm
+import pynosh.numerical_methods as nm
+import pynosh.nls_modelevaluator as gm
 import voropy
 # ==============================================================================
 def _main():
@@ -18,7 +18,7 @@ def _main():
     print 'done.'
 
     # build the model evaluator
-    modeleval = gm.GrossPitaevskiiModelEvaluator(mesh,
+    modeleval = gm.NlsModelEvaluator(mesh,
                                                  g = field_data['g'],
                                                  V = point_data['V'],
                                                  A = point_data['A'],

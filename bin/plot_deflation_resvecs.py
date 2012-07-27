@@ -3,8 +3,8 @@
 '''Solve the Ginzburg--Landau equation.
 '''
 # ==============================================================================
-import pyginla.numerical_methods as nm
-import pyginla.ginla_modelevaluator as gm
+import pynosh.numerical_methods as nm
+import pynosh.ginla_modelevaluator as gm
 import mesh.mesh_io
 import numpy as np
 import matplotlib.pyplot as pp
@@ -17,15 +17,15 @@ def _main():
 
     # read the mesh
     print "Reading the mesh...",
-    pyginlamesh, psi, A, field_data = mesh.mesh_io.read_mesh( args.filename )
+    pynoshmesh, psi, A, field_data = mesh.mesh_io.read_mesh( args.filename )
     print "done."
 
     # build the model evaluator
     mu = 8.0e-2
-    ginla_modelval = gm.GinlaModelEvaluator( pyginlamesh, A, mu )
+    ginla_modelval = gm.GinlaModelEvaluator( pynoshmesh, A, mu )
 
     # initial guess
-    num_nodes = len( pyginlamesh.nodes )
+    num_nodes = len( pynoshmesh.nodes )
     psi0 = np.ones( (num_nodes,1),
                     dtype = complex
                   )
