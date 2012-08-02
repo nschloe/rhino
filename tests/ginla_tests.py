@@ -1,5 +1,5 @@
 import voropy
-import pynosh.gp_modelevaluator as gp
+import pynosh.nls_modelevaluator as gp
 import numpy as np
 import unittest
 from scipy.sparse import spdiags
@@ -14,7 +14,7 @@ class TestF(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
+        modeleval = gp.NlsModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
 
         # compute the ginzburg-landau residual
         psi = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
@@ -98,7 +98,7 @@ class TestKeo(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
+        modeleval = gp.NlsModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
 
         # Assemble the KEO.
         modeleval._assemble_keo()
@@ -173,7 +173,7 @@ class TestJacobian(unittest.TestCase):
         psi = psi.reshape(num_unknowns,1)
 
         # build the model evaluator
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
+        modeleval = gp.NlsModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
 
         # Get the Jacobian
         J = modeleval.get_jacobian(psi)
@@ -257,7 +257,7 @@ class TestInnerProduct(unittest.TestCase):
 
         # build the model evaluator
         mu = 0.0
-        modeleval = gp.GrossPitaevskiiModelEvaluator(mesh, point_data['A'], mu)
+        modeleval = gp.NlsModelEvaluator(mesh, point_data['A'], mu)
 
         tol = 1.0e-13
 

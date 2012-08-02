@@ -275,7 +275,8 @@ class TestLinearSolvers(unittest.TestCase):
         out = nm.minres( A, rhs, x0new, Mr=P, tol=tol, maxiter=num_unknowns-num_vecs, full_reortho=True, return_basis=True )
 
         # TODO: move to new unit test
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_p_ritz( W, AW, out['Vfull'], out['Hfull'] )
+        o = nm.get_p_ritz( W, AW, out['Vfull'], out['Hfull'] )
+        ritz_vals, ritz_vecs = nm.get_p_ritz( W, AW, out['Vfull'], out['Hfull'] )
 
         # Make sure the method converged.
         self.assertEqual(out['info'], 0)
@@ -330,16 +331,16 @@ class TestLinearSolvers(unittest.TestCase):
                         )
 
         # Get Ritz pairs
-        ritz_vals, ritz_vecs, norm_ritz_res = nm.get_p_ritz(W, AW,
-                                                            out['Vfull'],
-                                                            out['Hfull']
-                                                            )
+        ritz_vals, ritz_vecs = nm.get_p_ritz(W, AW,
+                                             out['Vfull'],
+                                             out['Hfull']
+                                             )
 
         # Check Ritz pair residuals
-        ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))
-        for i in range(0,len(ritz_vals)):
-            norm_ritz_res_exact = np.linalg.norm(ritz_res_exact[:,i])
-            self.assertAlmostEqual( abs(norm_ritz_res[i] - norm_ritz_res_exact), 0.0, delta=1e-13 )
+        #ritz_res_exact = A*ritz_vecs - np.dot(ritz_vecs,np.diag(ritz_vals))
+        #for i in range(0,len(ritz_vals)):
+            #norm_ritz_res_exact = np.linalg.norm(ritz_res_exact[:,i])
+            #self.assertAlmostEqual( abs(norm_ritz_res[i] - norm_ritz_res_exact), 0.0, delta=1e-13 )
 
         # Check if Ritz values / vectors corresponding to W are still there ;)
         order = np.argsort(ritz_vals)
@@ -414,13 +415,17 @@ class TestLinearSolvers(unittest.TestCase):
                 return x**2 - 2.0
             def get_jacobian(self, x0):
                 return 2.0 * x0
+            def get_preconditioner(self, x0):
+                return None
+            def get_preconditioner_inverse(self, x0):
+                return None
             def inner_product(self, x, y):
                 return np.dot(x.T.conj(), y)
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         qmodeleval = QuadraticModelEvaluator()
         x0 = np.array( [[1.0]] )
         tol = 1.0e-10
-        out = nm.newton(x0, qmodeleval, nonlinear_tol=tol )
+        out = nm.newton(x0, qmodeleval, nonlinear_tol=tol)
         self.assertEqual(out['info'], 0)
         self.assertAlmostEqual(out['x'][0,0], np.sqrt(2.0), delta=tol)
     # --------------------------------------------------------------------------
