@@ -4,7 +4,8 @@
 import numpy as np
 
 import voropy
-import pynosh.ginla_modelevaluator
+import pynosh.nls_modelevaluator
+import pynosh.bordered_modelevaluator
 #import pynosh.numerical_methods as nm
 # ==============================================================================
 def _main():
@@ -15,53 +16,63 @@ def _main():
     mesh, point_data, field_data = voropy.read(args.filename,
                                                timestep=args.timestep
                                                )
+    N = len( mesh.node_coords )
     # build the model evaluator
     mu = 1.0
-    ginla_modeleval = \
-        pynosh.ginla_modelevaluator.GinlaModelEvaluator(mesh, point_data['A'], mu)
+    nls_modeleval = \
+        pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
+                                                    g = 1.0,
+                                                    V = -np.ones(N),
+                                                    A = point_data['A'],
+                                                    mu = mu,
+                                                    preconditioner_type = args.preconditioner_type,
+                                                    num_amg_cycles = args.num_amg_cycles)
 
-    N = len( mesh.node_coords )
     current_psi = np.random.rand(N,1) + 1j * np.random.rand(N,1)
 
+    if args.bordering:
+        modeleval = pynosh.bordered_modelevaluator.BorderedModelEvaluator(nls_modeleval)
+        # right hand side
+        x = np.empty((N+1,1), dtype=complex)
+        x[0:N] = current_psi
+        x[N] = 1.0
+    else:
+        modeleval = nls_modeleval
+        x = current_psi
+
     print 'machine eps = %g' % np.finfo(np.complex).eps
-    
+
     # check the jacobian operator
-    J = ginla_modeleval.get_jacobian(current_psi)
-    print 'max(|<v,Ju> - <Jv,u>|) = %g' % _check_selfadjointness(J, ginla_modeleval.inner_product)
+    J = modeleval.get_jacobian(x)
+    print 'max(|<v,Ju> - <Jv,u>|) = %g' % _check_selfadjointness(J, modeleval.inner_product)
 
-    # --------------------------------------------------------------------------
-    def inner_product(phi0, phi1):
-        if mesh.control_volumes is None:
-            mesh._compute_control_volumes()
+    if args.preconditioner_type != 'none':
+        # check the preconditioner
+        #P = modeleval.get_preconditioner(x)
+        #print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P, modeleval.inner_product)
 
-        if len(phi0.shape) == 1:
-            scaledPhi0 = mesh.control_volumes * phi0
-        elif len(phi0.shape) == 2:
-            scaledPhi0 = mesh.control_volumes[:,None] * phi0
-        return np.dot(scaledPhi0.T.conj(), phi1)
-    # --------------------------------------------------------------------------
-    # check the preconditioner
-    P = ginla_modeleval.get_preconditioner(current_psi)
-    print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P, inner_product)
+        # check the inverse preconditioner
+        Pinv = modeleval.get_preconditioner_inverse(x)
+        print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv, modeleval.inner_product)
 
-    # check the preconditioner
-    Pinv = ginla_modeleval._get_preconditioner_inverse_amg(current_psi)
-    print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv, inner_product)
-
-    # check positive definiteness of P^{-1}
-    print 'min(<u,P^{-1}u>) = %g' % _check_positivedefiniteness(Pinv, inner_product)
+        # check positive definiteness of P^{-1}
+        #print 'min(<u,P^{-1}u>) = %g' % _check_positivedefiniteness(Pinv, inner_product)
 
     return
 # ==============================================================================
 def _check_selfadjointness( operator, inner_product ):
     N = operator.shape[0]
-    num_samples = 1000
+    num_samples = 100
     max_discrepancy = 0.0
     for k in xrange(num_samples):
-        u = np.random.rand(N,1) + 1j * np.random.rand(N,1)
-        v = np.random.rand(N,1) + 1j * np.random.rand(N,1)
-        alpha = inner_product(v, operator*u)[0,0]
-        beta = inner_product(operator*v, u)[0,0]
+        # Make the last one unconditionally real. This is for bordering.
+        u = np.random.rand(N) + 1j * np.random.rand(N)
+        u[-1] = u[-1].real
+        # Make the last one unconditionally real. This is for bordering.
+        v = np.random.rand(N) + 1j * np.random.rand(N)
+        v[-1] = v[-1].real
+        alpha = inner_product(v, operator*u)
+        beta = inner_product(operator*v, u)
         max_discrepancy = max(max_discrepancy, abs(alpha-beta))
 
     return max_discrepancy
@@ -102,6 +113,24 @@ def _parse_input_arguments():
                          default=0,
                          help='read a particular time step (default: 0)'
                        )
+
+    parser.add_argument('--preconditioner-type', '-p',
+                        choices = ['none', 'exact', 'cycles'],
+                        default = 'none',
+                        help    = 'preconditioner type (default: none)'
+                        )
+
+    parser.add_argument('--num-amg-cycles', '-a',
+                        type = int,
+                        default = 1,
+                        help    = 'number of AMG cycles (default: 1)'
+                        )
+
+    parser.add_argument('--bordering', '-b',
+                        action='store_true',
+                        default=False,
+                        help='use bordering (default: False)'
+                        )
 
     args = parser.parse_args()
 

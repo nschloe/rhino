@@ -207,8 +207,8 @@ class NlsModelEvaluator:
             coarse_solver='pinv'
             )
 
-        print 'operator complexity', prec_amg_solver.operator_complexity()
-        print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
+        #print 'operator complexity', prec_amg_solver.operator_complexity()
+        #print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
 
         num_unknowns = len(psi0)
 

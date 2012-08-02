@@ -15,6 +15,7 @@ import matplotlib.pyplot as pp
 
 import voropy
 import pynosh.nls_modelevaluator
+import pynosh.bordered_modelevaluator
 #import pynosh.preconditioners
 import pynosh.numerical_methods as nm
 # ==============================================================================
@@ -24,11 +25,7 @@ def _main():
     args = _parse_input_arguments()
 
     for filename in args.filenames:
-        relresvec = _solve_system(filename,
-                                  args.timestep,
-                                  args.preconditioner_type,
-                                  args.num_amg_cycles,
-                                  args.deflation)
+        relresvec = _solve_system(filename, args)
         print 'relresvec:'
         print relresvec
         print 'num iters:', len(relresvec)-1
@@ -38,84 +35,92 @@ def _main():
 
     return
 # ==============================================================================
-def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_deflation):
+def _solve_system(filename, args):
     # read the mesh
     print "Reading the mesh...",
     start = time.time()
     mesh, point_data, field_data = voropy.read(filename,
-                                               timestep=timestep
+                                               timestep=args.timestep
                                                )
     total = time.time() - start
     print "done (%gs)." % total
 
+    num_coords = len( mesh.node_coords )
+    # --------------------------------------------------------------------------
+    # set psi at which to create the Jacobian
+    current_psi = (point_data['psi'][:,0] + 1j * point_data['psi'][:,1]).reshape(-1,1)
+    #current_psi = (1.0-1.0e-2) * np.ones( num_coords, dtype = complex )
+    #current_psi = np.random.rand(num_coords, 1) \
+                #+ 1j * np.random.rand(num_coords, 1)
+    #current_psi = 1.0 * np.ones( (num_coords,1), dtype = complex )
+
+    # generate random numbers within the unit circle
+    #current_psi = np.empty( num_coords, dtype = complex )
+    #radius = np.random.rand( num_coords )
+    #arg    = np.random.rand( num_coords ) * 2.0 * cmath.pi
+    #for k in range( num_coords ):
+        #current_psi[ k ] = cmath.rect(radius[k], arg[k])
+    # --------------------------------------------------------------------------
     # build the model evaluator
     mu = 1.324421110949059e+00
     print 'Creating model evaluator...',
     start = time.time()
-    g = 1.0
-    V = -np.ones(len(mesh.node_coords))
-    modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
-                                                            g=g,
-                                                            V=V,
-                                                            A=point_data['A'],
-                                                            mu=mu,
-                                                            preconditioner_type=preconditioner_type,
-                                                            num_amg_cycles = num_amg_cycles)
+    nls_modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
+                                                                g=1.0,
+                                                                V=-np.ones(num_coords),
+                                                                A=point_data['A'],
+                                                                mu=mu,
+                                                                preconditioner_type=args.preconditioner_type,
+                                                                num_amg_cycles = args.num_amg_cycles)
+    if args.bordering:
+        modeleval = pynosh.bordered_modelevaluator.BorderedModelEvaluator(nls_modeleval)
+        phi0 = np.zeros((num_coords+1,1), dtype=complex)
+        # right hand side
+        x = np.empty((num_coords+1,1), dtype=complex)
+        x[0:num_coords] = current_psi
+        x[num_coords] = 0.0
+        rhs = modeleval.compute_f( x )
+    else:
+        modeleval = nls_modeleval
+        # create right hand side and initial guess
+        phi0 = np.zeros( (num_coords,1), dtype=complex )
+
+        x = current_psi
+        # right hand side
+        rhs = modeleval.compute_f( current_psi )
+        #rhs = np.ones( (num_coords,1), dtype=complex )
+
+        #rhs = np.empty( num_coords, dtype = complex )
+        #radius = np.random.rand( num_coords )
+        #arg    = np.random.rand( num_coords ) * 2.0 * cmath.pi
+        #for k in range( num_coords ):
+            #rhs[ k ] = cmath.rect(radius[k], arg[k])
     end = time.time()
     print "done. (%gs)" % (end - start)
 
     # initialize the preconditioners
     #precs = preconditioners.Preconditioners( ginla_modeleval )
 
-    num_unknowns = len( mesh.node_coords )
-
     #_plot_l2_condition_numbers( ginla_modeleval )
 
-    # --------------------------------------------------------------------------
-    # set psi at which to create the Jacobian
-    current_psi = (point_data['psi'][:,0] + 1j * point_data['psi'][:,1]).reshape(-1,1)
-    #current_psi = (1.0-1.0e-2) * np.ones( num_unknowns, dtype = complex )
-    #current_psi = np.random.rand(num_unknowns, 1) \
-                #+ 1j * np.random.rand(num_unknowns, 1)
-    #current_psi = 1.0 * np.ones( (num_unknowns,1), dtype = complex )
-
-    # generate random numbers within the unit circle
-    #current_psi = np.empty( num_unknowns, dtype = complex )
-    #radius = np.random.rand( num_unknowns )
-    #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
-    #for k in range( num_unknowns ):
-        #current_psi[ k ] = cmath.rect(radius[k], arg[k])
     # --------------------------------------------------------------------------
     # create the linear operator
     print 'Getting Jacobian...',
     start_time = time.clock()
-    jacobian = modeleval.get_jacobian( current_psi )
+    jacobian = modeleval.get_jacobian( x )
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
 
     # create precondictioner object
     print 'Getting preconditioner...',
     start_time = time.clock()
-    prec = modeleval.get_preconditioner_inverse( current_psi )
+    prec = modeleval.get_preconditioner_inverse( x )
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
 
     # --------------------------------------------------------------------------
-    # create right hand side and initial guess
-    phi0 = np.zeros( (num_unknowns,1), dtype=complex )
-
-    # right hand side
-    rhs = modeleval.compute_f( current_psi )
-    #rhs = np.ones( (num_unknowns,1), dtype=complex )
-
-    #rhs = np.empty( num_unknowns, dtype = complex )
-    #radius = np.random.rand( num_unknowns )
-    #arg    = np.random.rand( num_unknowns ) * 2.0 * cmath.pi
-    #for k in range( num_unknowns ):
-        #rhs[ k ] = cmath.rect(radius[k], arg[k])
-    # --------------------------------------------------------------------------
     # Get reference solution
-    #print "Get reference solution (dim = %d)..." % (2*num_unknowns),
+    #print "Get reference solution (dim = %d)..." % (2*num_coords),
     #start_time = time.clock()
     #ref_sol, info, relresvec, errorvec = nm.minres_wrap( jacobian, rhs,
                                           #x0 = phi0,
@@ -131,8 +136,8 @@ def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_d
         #print "no convergence.",
     #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
 
-    if use_deflation:
-        W = 1j * current_psi
+    if args.use_deflation:
+        W = 1j * x
         AW = jacobian * W
         P, x0new = nm.get_projection(W, AW, rhs, phi0,
                                      inner_product = modeleval.inner_product
@@ -142,7 +147,7 @@ def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_d
         P = None
         x0new = phi0
 
-    print "Solving the system (len(x) = %d, dim = %d)..." % (num_unknowns, 2*num_unknowns),
+    print "Solving the system (len(x) = %d, bordering: %r)..." % (len(x), args.bordering),
     start_time = time.clock()
     timer = False
     out = nm.minres(jacobian, rhs,
@@ -150,7 +155,7 @@ def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_d
                     tol = 1.0e-11,
                     Mr = P,
                     M = prec,
-                    #maxiter = 2*num_unknowns,
+                    #maxiter = 2*num_coords,
                     maxiter = 500,
                     inner_product = modeleval.inner_product,
                     explicit_residual = True,
@@ -159,7 +164,7 @@ def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_d
                     )
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
-    print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
+    print "(%d,%d)" % (2*num_coords, len(out['relresvec'])-1)
 
 
     # compute actual residual
@@ -196,7 +201,7 @@ def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_d
 
     return out['relresvec']
 # ==============================================================================
-def _create_preconditioner_list( precs, num_unknowns ):
+def _create_preconditioner_list( precs, num_coords ):
 
     test_preconditioners = []
     test_preconditioners.append( { 'name':'regular CG',
@@ -210,7 +215,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  }
                                )
 
-    prec_diag = LinearOperator( (num_unknowns, num_unknowns),
+    prec_diag = LinearOperator( (num_coords, num_coords),
                                 matvec = precs.diagonal,
                                 dtype = complex
                               )
@@ -221,7 +226,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  }
                                )
 
-    prec_keolu = LinearOperator( (num_unknowns, num_unknowns),
+    prec_keolu = LinearOperator( (num_coords, num_coords),
                                  matvec = precs.keo_lu,
                                  dtype = complex
                                )
@@ -231,7 +236,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  }
                                )
 
-    #prec_keoi = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keoi = LinearOperator( (num_coords, num_coords),
                                 #matvec = precs.keoi,
                                 #dtype = complex
                               #)
@@ -241,7 +246,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  #}
                                #)
 
-    #prec_keo_approx = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keo_approx = LinearOperator( (num_coords, num_coords),
                                       #matvec = precs.keo_cgapprox,
                                       #dtype = complex
                                     #)
@@ -251,7 +256,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  #}
                                #)
 
-    #prec_keo_ilu4 = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keo_ilu4 = LinearOperator( (num_coords, num_coords),
                                     #matvec = precs.keo_ilu4,
                                     #dtype = complex
                                   #)
@@ -261,7 +266,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  #}
                                #)
 
-    #prec_keo_symilu2 = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keo_symilu2 = LinearOperator( (num_coords, num_coords),
                                        #matvec = precs.keo_symmetric_ilu2,
                                        #dtype = complex
                                      #)
@@ -271,7 +276,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  #}
                                #)
 
-    #prec_keo_symilu4 = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keo_symilu4 = LinearOperator( (num_coords, num_coords),
                                        #matvec = precs.keo_symmetric_ilu4,
                                        #dtype = complex
                                      #)
@@ -281,7 +286,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  #}
                                #)
 
-    #prec_keo_symilu6 = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keo_symilu6 = LinearOperator( (num_coords, num_coords),
                                       #matvec = precs.keo_symmetric_ilu6,
                                       #dtype = complex
                                     #)
@@ -291,7 +296,7 @@ def _create_preconditioner_list( precs, num_unknowns ):
                                  #}
                                #)
 
-    #prec_keo_symilu8 = LinearOperator( (num_unknowns, num_unknowns),
+    #prec_keo_symilu8 = LinearOperator( (num_coords, num_coords),
                                       #matvec = precs.keo_symmetric_ilu8,
                                       #dtype = complex
                                     #)
@@ -342,7 +347,7 @@ def _run_along_top( modeleval,
                     test_preconditioners
                   ):
 
-    num_unknowns = len( psi0 )
+    num_coords = len( psi0 )
 
     # prepare the range of mus
     mu_min = 0.0
@@ -453,37 +458,37 @@ def _run_different_meshes( modeleval,
         precs.set_mesh( mesh )
         # ----------------------------------------------------------------------
         # recreate all the objects necessary to perform the precondictioner run
-        num_unknowns = len( mesh.nodes )
+        num_coords = len( mesh.nodes )
 
-        nums_unknowns.append( num_unknowns )
+        nums_unknowns.append( num_coords )
 
         # create the linear operator
-        jacobian = LinearOperator( (num_unknowns, num_unknowns),
+        jacobian = LinearOperator( (num_coords, num_coords),
                                          matvec = modeleval.compute_jacobian,
                                          dtype = complex
                                        )
 
         # set psi at which to create the Jacobian
         # generate random numbers within the unit circle
-        radius = np.random.rand( num_unknowns )
-        arg    = np.random.rand( num_unknowns )
-        current_psi = np.zeros( num_unknowns,
+        radius = np.random.rand( num_coords )
+        arg    = np.random.rand( num_coords )
+        current_psi = np.zeros( num_coords,
                                 dtype = complex
                               )
-        for k in range( num_unknowns ):
+        for k in range( num_coords ):
             current_psi[ k ] = cmath.rect(radius[k], arg[k])
         modeleval.set_current_psi( current_psi )
 
         # create right hand side and initial guess
-        rhs  =  np.random.rand( num_unknowns ) \
-            + 1j * np.random.rand( num_unknowns )
+        rhs  =  np.random.rand( num_coords ) \
+            + 1j * np.random.rand( num_coords )
 
         # initial guess for all operations
-        psi0 = np.zeros( num_unknowns,
+        psi0 = np.zeros( num_coords,
                          dtype = complex
                        )
 
-        test_preconditioners = _create_preconditioner_list( precs, num_unknowns )
+        test_preconditioners = _create_preconditioner_list( precs, num_coords )
 
         # ----------------------------------------------------------------------
         # build the kinetic energy operator
@@ -697,10 +702,16 @@ def _parse_input_arguments():
                         )
 
     parser.add_argument('--deflation-ix', '-d',
-                        dest='deflation',
+                        dest='use_deflation',
                         action='store_true',
                         default=False,
                         help='use deflation with i*x (default: False)'
+                        )
+
+    parser.add_argument('--bordering', '-b',
+                        action='store_true',
+                        default=False,
+                        help='use bordering (default: False)'
                         )
 
     args = parser.parse_args()
