@@ -30,15 +30,16 @@ def _main():
     else:
         raise RuntimeError('Parameter ''mu'' not found in file or command line.')
 
-    num_nodes = len(mesh.node_coords)
+    g = 1.0
 
-    modeleval = gpm.NlsModelEvaluator(mesh,
-                                      g = field_data['g'],
-                                      V = point_data['V'],
-                                      A = point_data['A'],
-                                      mu = mu,
-                                      preconditioner_type = args.preconditioner_type,
-                                      num_amg_cycles = args.num_amg_cycles)
+    num_nodes = len(mesh.node_coords)
+    nls_modeleval = gpm.NlsModelEvaluator(mesh,
+                                          g = g,
+                                          V = -np.ones(num_nodes),
+                                          A = point_data['A'],
+                                          mu = mu,
+                                          preconditioner_type = args.preconditioner_type,
+                                          num_amg_cycles = args.num_amg_cycles)
 
     ## check out self-adjointness
     #n = num_nodes
@@ -94,7 +95,7 @@ def _main():
     ye.add_key('mu')
     ye.add_value(mu)
     ye.add_key('g')
-    ye.add_value(field_data['g'][0])
+    ye.add_value(g)
 
     ye.add_key('krylov')
     ye.add_value(args.krylov_method)
@@ -115,17 +116,18 @@ def _main():
         x0[0:num_nodes] = psi0
         x0[-1] = 0.0
         # Use psi0 as initial bordering.
-        bordered_modeleval = bme.BorderedModelEvaluator(modeleval, psi0)
-        newton_out = my_newton(args, bordered_modeleval, x0, yaml_emitter=ye)
-        sol = newton_out['x'][0:num_nodes]
+        modeleval = bme.BorderedModelEvaluator(nls_modeleval)
     else:
-        newton_out = my_newton(args, modeleval, psi0, yaml_emitter=ye)
-        sol = newton_out['x']
+        x0 = psi0
+        modeleval = nls_modeleval
+
+    newton_out = my_newton(args, modeleval, x0, yaml_emitter=ye)
+    sol = newton_out['x'][0:num_nodes]
 
     ye.end_map()
 
     # energy of the state
-    print '# Energy of the final state: %g.' % modeleval.energy(sol)
+    print '# Energy of the final state: %g.' % nls_modeleval.energy(sol)
 
     if args.solutionfile:
         modeleval.mesh.write(args.solutionfile, {'psi': sol})
