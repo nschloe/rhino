@@ -57,10 +57,14 @@ class BorderedModelEvaluator:
     # ==========================================================================
     def get_preconditioner(self, psi0):
         # Preconditioner not supported.
+        raise NotImplementedError()
         return None
     # ==========================================================================
     def get_preconditioner_inverse(self, psi0):
-        # Preconditioner not supported.
+        # Schur formulation.
+        #S = - self.inner_modeleval.inner_product(-1j*self.psi0, self.inner_modeleval.get_preconditioner_inverse(-1j * self.psi0))
+
+        raise NotImplementedError()
         return None
     # ==========================================================================
     def inner_product(self, x0, x1):

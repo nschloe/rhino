@@ -134,7 +134,6 @@ class NlsModelEvaluator:
     def get_preconditioner_inverse(self, psi0):
         '''Use AMG to invert M approximately.
         '''
-
         if self._preconditioner_type == 'none':
             return None
 
@@ -214,6 +213,8 @@ class NlsModelEvaluator:
         num_unknowns = len(psi0)
 
         if self._preconditioner_type == 'cycles':
+            if self._num_amg_cycles == np.inf:
+                raise ValueError('Invalid number of cycles.')
             return LinearOperator((num_unknowns, num_unknowns),
                                   _apply_inverse_prec_cycles,
                                   dtype = self.dtype

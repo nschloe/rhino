@@ -24,7 +24,11 @@ def _main():
     args = _parse_input_arguments()
 
     for filename in args.filenames:
-        relresvec = _solve_system(filename, args.timestep, args.preconditioner_type, args.deflation)
+        relresvec = _solve_system(filename,
+                                  args.timestep,
+                                  args.preconditioner_type,
+                                  args.num_amg_cycles,
+                                  args.deflation)
         print 'relresvec:'
         print relresvec
         print 'num iters:', len(relresvec)-1
@@ -34,7 +38,7 @@ def _main():
 
     return
 # ==============================================================================
-def _solve_system(filename, timestep, preconditioner_type, use_deflation):
+def _solve_system(filename, timestep, preconditioner_type, num_amg_cycles, use_deflation):
     # read the mesh
     print "Reading the mesh...",
     start = time.time()
@@ -51,11 +55,12 @@ def _solve_system(filename, timestep, preconditioner_type, use_deflation):
     g = 1.0
     V = -np.ones(len(mesh.node_coords))
     modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
-                                                            g = g,
-                                                            V = V,
-                                                            A = point_data['A'],
-                                                            mu = mu,
-                                                            preconditioner_type = preconditioner_type)
+                                                            g=g,
+                                                            V=V,
+                                                            A=point_data['A'],
+                                                            mu=mu,
+                                                            preconditioner_type=preconditioner_type,
+                                                            num_amg_cycles = num_amg_cycles)
     end = time.time()
     print "done. (%gs)" % (end - start)
 
@@ -89,14 +94,11 @@ def _solve_system(filename, timestep, preconditioner_type, use_deflation):
     print 'done. (%gs)' % (end_time - start_time)
 
     # create precondictioner object
-    if preconditioner_type != 'none':
-        print 'Getting preconditioner...',
-        start_time = time.clock()
-        prec = modeleval.get_preconditioner_inverse( current_psi )
-        end_time = time.clock()
-        print 'done. (%gs)' % (end_time - start_time)
-    else:
-        prec = None
+    print 'Getting preconditioner...',
+    start_time = time.clock()
+    prec = modeleval.get_preconditioner_inverse( current_psi )
+    end_time = time.clock()
+    print 'done. (%gs)' % (end_time - start_time)
 
     # --------------------------------------------------------------------------
     # create right hand side and initial guess
@@ -159,20 +161,6 @@ def _solve_system(filename, timestep, preconditioner_type, use_deflation):
     print 'done. (%gs)' % (end_time - start_time)
     print "(%d,%d)" % (2*num_unknowns, len(out['relresvec'])-1)
 
-    # get the number of MG cycles
-    # 'modeleval.num_cycles' contains the number of MG cycles executed
-    # for all AMG calls run.
-    # In nm.minres, two calls to the precondictioner are done prior to the
-    # actual iteration for the normalization of the residuals.
-    # With explicit_residual=True, *two* calls to the preconditioner are done
-    # in each iteration.
-    # What we would like to have here is the number of V-cycles done per loop
-    # when explicit_residual=False. Also, forget about the precondictioner
-    # calls for the initialization.
-    # Hence, cut of the first two and replace it by 0, and out of the
-    # remainder take every other one.
-    nc = [0] + modeleval.num_cycles[2::2]
-    nc_cumsum = np.cumsum(nc)
 
     # compute actual residual
     #res = rhs - jacobian * out['xk']
@@ -185,6 +173,20 @@ def _solve_system(filename, timestep, preconditioner_type, use_deflation):
             print '\'%s\': %12g  %12g  %12g  %12g' \
                 % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
 
+    # Get the number of MG cycles.
+    # 'modeleval.num_cycles' contains the number of MG cycles executed
+    # for all AMG calls run.
+    # In nm.minres, two calls to the precondictioner are done prior to the
+    # actual iteration for the normalization of the residuals.
+    # With explicit_residual=True, *two* calls to the preconditioner are done
+    # in each iteration.
+    # What we would like to have here is the number of V-cycles done per loop
+    # when explicit_residual=False. Also, forget about the precondictioner
+    # calls for the initialization.
+    # Hence, cut of the first two and replace it by 0, and out of the
+    # remainder take every other one.
+    #nc = [0] + modeleval.tot_amg_cycles[2::2]
+    #nc_cumsum = np.cumsum(nc)
     #pp.semilogy(nc_cumsum, out['relresvec'], color='0.0')
     #pp.show()
     #import matplotlib2tikz
@@ -679,6 +681,12 @@ def _parse_input_arguments():
                         choices = ['none', 'exact', 'cycles'],
                         default = 'none',
                         help    = 'preconditioner type (default: none)'
+                        )
+
+    parser.add_argument('--num-amg-cycles', '-a',
+                        type = int,
+                        default = 1,
+                        help    = 'number of AMG cycles (default: 1)'
                         )
 
     parser.add_argument('--show-relres', '-s',
