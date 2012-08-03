@@ -41,7 +41,7 @@ class BorderedModelEvaluator:
         def _apply_jacobian( x ):
             y = np.empty(x.shape, dtype=self.dtype)
             y[0:n] = inner_jacobian * x[0:n] + b.reshape(x[0:n].shape) * x[n]
-            assert abs(x[n].imag) < 1.0e-15
+            assert abs(x[n].imag) < 1.0e-15, 'Not real-valued: %r.'  % x[n]
             y[n] = self.inner_modeleval.inner_product(c, x[0:n]) + d * x[n].real
             return y
         # ----------------------------------------------------------------------

@@ -22,6 +22,8 @@ def _main():
     mesh, point_data, field_data = voropy.read( args.filename )
     print 'done.'
 
+    num_nodes = len(mesh.node_coords)
+
     # build the model evaluator
     if args.mu is not None:
         mu = args.mu
@@ -30,49 +32,26 @@ def _main():
     else:
         raise RuntimeError('Parameter ''mu'' not found in file or command line.')
 
-    g = 1.0
+    if 'g' in field_data:
+        g = field_data['g'][0]
+    else:
+        g = 1.0
 
-    num_nodes = len(mesh.node_coords)
+    if 'V' in point_data:
+        V = point_data['V']
+    else:
+        V = -np.ones(num_nodes)
+
     nls_modeleval = gpm.NlsModelEvaluator(mesh,
                                           g = g,
-                                          V = -np.ones(num_nodes),
+                                          V = V,
                                           A = point_data['A'],
                                           mu = mu,
                                           preconditioner_type = args.preconditioner_type,
                                           num_amg_cycles = args.num_amg_cycles)
 
-    ## check out self-adjointness
-    #n = num_nodes
-    #x_test = np.random.rand(n,1) + 1j * np.random.rand(n,1)
-    #J = modeleval.get_jacobian(x_test)
-    #for k in xrange(5):
-    #    phi = np.random.rand(n,1) + 1j * np.random.rand(n,1)
-    #    psi = np.random.rand(n,1) + 1j * np.random.rand(n,1)
-    #    Jphi = J*phi
-    #    Jpsi = J*psi
-    #    print modeleval.inner_product(phi,Jpsi) \
-    #        - modeleval.inner_product(Jphi, psi)
-
-    #print
-    #x_test = np.empty((n+1,1),dtype=complex)
-    #x_test[0:n] = np.random.rand(n,1) + 1j * np.random.rand(n,1)
-    #x_test[n] = np.random.rand(1)
-    #J = bordered_modeleval.get_jacobian(x_test)
-    #for k in xrange(5):
-    #    phi = np.empty((n+1,1),dtype=complex)
-    #    phi[0:n] = np.random.rand(n,1) + 1j * np.random.rand(n,1)
-    #    phi[n] = np.random.rand(1)
-    #    psi = np.empty((n+1,1),dtype=complex)
-    #    psi[0:n] = np.random.rand(n,1) + 1j * np.random.rand(n,1)
-    #    psi[n] = np.random.rand(1)
-    #    Jphi = J*phi
-    #    Jpsi = J*psi
-    #    print bordered_modeleval.inner_product(phi, Jpsi) \
-    #        - bordered_modeleval.inner_product(Jphi, psi)
-    #dasdas
-
     # initial guess
-    psi0Name = 'psi0'
+    psi0Name = 'psi'
     if psi0Name in point_data:
         psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
                           (num_nodes,1))
@@ -130,7 +109,10 @@ def _main():
     print '# Energy of the final state: %g.' % nls_modeleval.energy(sol)
 
     if args.solutionfile:
-        modeleval.mesh.write(args.solutionfile, {'psi': sol})
+        modeleval.mesh.write(args.solutionfile,
+                             point_data = {'psi': sol, 'A': point_data['A'], 'V': V},
+                             field_data = {'mu': mu, 'g': g}
+                             )
 
     return
 # ==============================================================================
@@ -248,7 +230,7 @@ def _parse_input_arguments():
     parser.add_argument('--bordering', '-b',
                         default = False,
                         action = 'store_true',
-                        help = 'use the bordered formulation to counter the nullspace, does not work with preconditioner (default: false)'
+                        help = 'use the bordered formulation to counter the nullspace (default: false)'
                         )
 
     return parser.parse_args()

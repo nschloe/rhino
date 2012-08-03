@@ -9,7 +9,8 @@ import matplotlib2tikz
 import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
-import pynosh.nls_modelevaluator as gp
+import pynosh.nls_modelevaluator as nme
+import pynosh.bordered_modelevaluator as bme
 # ==============================================================================
 def _main():
     '''Main function.
@@ -20,6 +21,8 @@ def _main():
     mesh, point_data, field_data = voropy.read(args.filename,
                                                timestep=args.timestep
                                                )
+
+    num_nodes = len(mesh.node_coords)
 
     if not args.mu is None:
         mu = args.mu
@@ -38,30 +41,42 @@ def _main():
         raise ValueError('Parameter ''g'' not found in file. Please provide on command line.')
 
     # build the model evaluator
-    modeleval = gp.NlsModelEvaluator(mesh,
-                                                 g = g,
-                                                 V = point_data['V'],
-                                                 A = point_data['A'],
-                                                 mu = mu
-                                                 )
+    nls_modeleval = nme.NlsModelEvaluator(mesh,
+                                          g = g,
+                                          V = point_data['V'],
+                                          A = point_data['A'],
+                                          mu = mu
+                                          )
+
+    psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
+
+    if args.bordering:
+        # Build bordered system.
+        x0 = np.empty(num_nodes+1, dtype=complex)
+        x0[0:num_nodes] = psi0
+        x0[-1] = 0.0
+        # Use psi0 as initial bordering.
+        modeleval = bme.BorderedModelEvaluator(nls_modeleval)
+    else:
+        x0 = psi0
+        modeleval = nls_modeleval
 
     if not args.series:
         # compute the eigenvalues once
-        psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
-        p0 = 1j * psi0
-        p0 /= np.sqrt(modeleval.inner_product(p0, p0))
-        y0 = modeleval.get_jacobian(psi0) * p0
-        print '||(ipsi) J (ipsi)|| =', np.linalg.norm(y0)
+        #p0 = 1j * psi0
+        #p0 /= np.sqrt(modeleval.inner_product(p0, p0))
+        #y0 = modeleval.get_jacobian(psi0) * p0
+        #print '||(ipsi) J (ipsi)|| =', np.linalg.norm(y0)
 
-        # Check with the rotation vector.
-        grad_psi0 = mesh.compute_gradient(psi0)
-        x_tilde = np.array( [-mesh.node_coords[:,1], mesh.node_coords[:,0]] ).T
-        p1 = np.sum(x_tilde * grad_psi0, axis=1)
-        mesh.write('test.e', point_data={'x grad': p1})
-        nrm_p1 = np.sqrt(modeleval.inner_product(p1, p1))
-        p1 /= nrm_p1
-        y1 = modeleval.get_jacobian(psi0) * p1
-        print '||(grad) J (grad)|| =', np.linalg.norm(y1)
+        ## Check with the rotation vector.
+        #grad_psi0 = mesh.compute_gradient(psi0)
+        #x_tilde = np.array( [-mesh.node_coords[:,1], mesh.node_coords[:,0]] ).T
+        #p1 = np.sum(x_tilde * grad_psi0, axis=1)
+        #mesh.write('test.e', point_data={'x grad': p1})
+        #nrm_p1 = np.sqrt(modeleval.inner_product(p1, p1))
+        #p1 /= nrm_p1
+        #y1 = modeleval.get_jacobian(psi0) * p1
+        #print '||(grad) J (grad)|| =', np.linalg.norm(y1)
 
         # Check the equality
         #    grad(|psi|^2 psi) = 2 |psi|^2 grad(psi) + psi^2 grad(psi)*.
@@ -77,12 +92,12 @@ def _main():
         # Check the equality
         #    grad(|psi|^2) = 2 Re(psi* grad(psi)).
         #
-        p2 = mesh.compute_gradient(abs(psi0)**2)
-        p2d = 2 * np.multiply(psi0.conjugate(), mesh.compute_gradient(psi0).T).T.real
-        diff = p2 - p2d
-        mesh.write('diff.vtu',
-                   point_data = {'psi': psi0, 'p2': p2, 'p2d': p2d, 'diff': diff}
-                   )
+        #p2 = mesh.compute_gradient(abs(psi0)**2)
+        #p2d = 2 * np.multiply(psi0.conjugate(), mesh.compute_gradient(psi0).T).T.real
+        #diff = p2 - p2d
+        #mesh.write('diff.vtu',
+        #           point_data = {'psi': psi0, 'p2': p2, 'p2d': p2d, 'diff': diff}
+        #           )
 
         #J = modeleval.get_jacobian(psi0)
         #K = modeleval._keo
@@ -93,18 +108,20 @@ def _main():
                                             args.eigenvalue_type,
                                             args.num_eigenvalues,
                                             None,
-                                            psi0[:,None],
+                                            x0[:,None],
                                             modeleval
                                             )
+
         print 'The following eigenvalues were computed:'
         print sorted(eigenvals)
 
-        # Check those.
+        # Check residuals.
+        print 'Residuals:'
         for k in xrange(len(eigenvals)):
             # Convert to complex representation.
             z = X[0::2,k] + 1j * X[1::2,k]
             z /= np.sqrt(modeleval.inner_product(z, z))
-            y0 = modeleval.get_jacobian(psi0) * z
+            y0 = modeleval.get_jacobian(x0) * z
             print np.linalg.norm(y0 - eigenvals[k] * z)
 
         # Normalize and store all eigenvectors & values.
@@ -116,7 +133,7 @@ def _main():
             z = X[0::2,k] + 1j * X[1::2,k]
             z /= np.sqrt(modeleval.inner_product(z, z))
             mesh.write(filename,
-                       point_data = {'psi': point_data['psi'], 'A': point_data['A'], 'V': point_data['V'], 'eigen': z },
+                       point_data = {'psi': point_data['psi'], 'A': point_data['A'], 'V': point_data['V'], 'eigen': z},
                        field_data = {'g': g, 'mu': mu, 'eigenvalue': eigenvals[k] }
                        )
         print 'done.'
@@ -177,8 +194,9 @@ def _compute_eigenvalues(operator_type,
         A = modeleval.get_preconditioner(psi)
     elif operator_type == 'j':
         jac = modeleval.get_jacobian(psi)
-        A =  _complex2real( jac )
-        #print np.linalg.norm(jac * (1j * psi))
+        # Consider bordering.
+        #A = _complex_with_bordering2real( jac )
+        A = _complex2real( jac )
     elif operator_type == 'pj':
         # build preconditioned operator
         prec_inv = modeleval.get_preconditioner_inverse(psi)
@@ -225,6 +243,30 @@ def _complex2real( op ):
         return x_out
 
     return LinearOperator((2*op.shape[0], 2*op.shape[1]),
+                          _jacobian_wrap_apply,
+                          dtype = float
+                          )
+# ==============================================================================
+def _complex_with_bordering2real( op ):
+    def _jacobian_wrap_apply( x ):
+        # Build complex-valued representation.
+        z = np.empty(n+1, dtype=complex)
+        a = x[0::2]
+        b = x[1::2]
+        z[0:n] = x[0:-1:2] + 1j * x[1:-1:2]
+        z[n] = x[-1]
+        z_out = op * z
+        # Build real-valued representation.
+        x_out = np.empty(x.shape)
+        x_out[0:-1:2] = z_out[0:n].real
+        x_out[1:-1:2] = z_out[0:n].imag
+        assert abs(z_out[-1].imag) < 1.0e-15
+        x_out[-1] = z_out[-1].real
+        return x_out
+
+    n = op.shape[0] - 1
+    N = 2*n + 1
+    return LinearOperator((N, N),
                           _jacobian_wrap_apply,
                           dtype = float
                           )
@@ -313,7 +355,6 @@ def _parse_input_arguments():
     parser.add_argument( '--operator', '-o',
                          metavar='OPERATOR',
                          required = True,
-                         dest='operator',
                          choices = ['k', 'p', 'j', 'pj'],
                          help='operator to compute the eigenvalues of (default: k)'
                        )
@@ -348,6 +389,12 @@ def _parse_input_arguments():
                         dest='g',
                         type = float,
                         help='coupling parameter'
+                        )
+
+    parser.add_argument('--bordering', '-b',
+                        default = False,
+                        action = 'store_true',
+                        help = 'use the bordered formulation to counter the nullspace (default: false)'
                         )
 
     args = parser.parse_args()

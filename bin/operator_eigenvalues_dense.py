@@ -19,16 +19,16 @@ def _main():
 
     # read the mesh
     pynoshmesh, point_data, field_data = voropy.read(args.filename,
-                                                      timestep=args.timestep
-                                                      )
+                                                     timestep=args.timestep
+                                                     )
 
     # build the model evaluator
     mu = 0.0 # dummy -- reset later
     ginla_modeleval = \
         pynosh.ginla_modelevaluator.GinlaModelEvaluator(mesh,
-                                                         point_data['A'],
-                                                         mu
-                                                         )
+                                                        point_data['A'],
+                                                        mu
+                                                        )
 
     # set the range of parameters
     steps = 1
@@ -46,7 +46,7 @@ def _main():
     # --------------------------------------------------------------------------
     for mu in mus:
         ginla_modeleval.set_parameter(mu)
-        
+
         if args.operator == 'k':
             # build dense KEO
             ginla_modeleval._assemble_keo()
@@ -79,7 +79,7 @@ def _main():
         else:
             raise ValueError('Unknown operator \'', args.operator, '\'.')
 
-        print 'Compute eigenvalues for mu =', mu, '..'
+        print 'Compute eigenvalues for mu =', mu, '...'
         # get smallesteigenvalues
         start_time = time.clock()
         # use eig as the problem is not symmetric (but it is self-adjoint)
