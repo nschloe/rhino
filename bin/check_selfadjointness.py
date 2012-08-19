@@ -4,7 +4,7 @@
 import numpy as np
 
 import voropy
-import pynosh.nls_modelevaluator
+import pynosh.modelevaluator_nls
 import pynosh.bordered_modelevaluator
 #import pynosh.numerical_methods as nm
 # ==============================================================================
@@ -20,7 +20,7 @@ def _main():
     # build the model evaluator
     mu = 1.0
     nls_modeleval = \
-        pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
+        pynosh.modelevaluator_nls.NlsModelEvaluator(mesh,
                                                     g = 1.0,
                                                     V = -np.ones(N),
                                                     A = point_data['A'],

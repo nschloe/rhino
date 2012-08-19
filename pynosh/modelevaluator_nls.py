@@ -19,10 +19,8 @@ class NlsModelEvaluator:
     # ==========================================================================
     def __init__(self,
             mesh,
-            g = 0.0,
             V = None,
             A = None,
-            mu = 0.0,
             preconditioner_type = 'none',
             num_amg_cycles = np.inf
             ):
@@ -31,7 +29,6 @@ class NlsModelEvaluator:
         self.dtype = complex
         self.mesh = mesh
         n = len(mesh.node_coords)
-        self._g = g
         if V is None:
             self._V = np.zeros(n)
         else:
@@ -40,34 +37,31 @@ class NlsModelEvaluator:
             self._raw_magnetic_vector_potential = np.zeros((n,3))
         else:
             self._raw_magnetic_vector_potential = A
-        self.mu = mu
-        self._keo = None
-        self._prec = None
-        self._D = None
+        self._keo_cache = None
+        self._keo_cache_mu = 0.0
         self._edgecoeff_cache = None
-        self._mvp_edge_cache = None
         self.tot_amg_cycles = []
         self.cv_variant = 'voronoi'
         self._preconditioner_type = preconditioner_type
         self._num_amg_cycles = num_amg_cycles
         return
     # ==========================================================================
-    def compute_f(self, psi):
+    def compute_f(self, x, mu, g):
         '''Computes the nonlinear Schrödinger residual
 
             GP(psi) = K*psi + (V + g*|psi|^2) * psi
         '''
-        if self._keo is None:
-            self._assemble_keo()
+        keo = self._get_keo(mu)
+
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
-        res = (self._keo * psi) / self.mesh.control_volumes.reshape(psi.shape) \
-            + (self._V.reshape(psi.shape) + self._g * abs(psi)**2) * psi
+        res = (keo * x) / self.mesh.control_volumes.reshape(x.shape) \
+            + (self._V.reshape(x.shape) + g * abs(x)**2) * x
 
         return res
     # ==========================================================================
-    def get_jacobian(self, psi0):
+    def get_jacobian(self, x, mu, g):
         '''Returns a LinearOperator object that defines the matrix-vector
         multiplication scheme for the Jacobian operator as in
 
@@ -80,19 +74,19 @@ class NlsModelEvaluator:
         '''
         # ----------------------------------------------------------------------
         def _apply_jacobian( phi ):
-            x = (self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+            y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
                 + alpha.reshape(phi.shape) * phi \
                 + gPsi0Squared.reshape(phi.shape) * phi.conj()
-            return x
+            return y
         # ----------------------------------------------------------------------
-        assert psi0 is not None
+        assert x is not None
 
-        if self._keo is None:
-            self._assemble_keo()
+        keo = self._get_keo(mu)
+
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
-        alpha = self._V.reshape(psi0.shape) + self._g * 2.0*(psi0.real**2 + psi0.imag**2)
-        gPsi0Squared = self._g * psi0**2
+        alpha = self._V.reshape(x.shape) + g * 2.0*(x.real**2 + x.imag**2)
+        gPsi0Squared = g * x**2
 
         num_unknowns = len(self.mesh.node_coords)
         return LinearOperator( (num_unknowns, num_unknowns),
@@ -100,38 +94,38 @@ class NlsModelEvaluator:
                                dtype = self.dtype
                              )
     # ==========================================================================
-    def get_preconditioner(self, psi0):
+    def get_preconditioner(self, x, mu, g):
         '''Return the preconditioner.
         '''
-        # ----------------------------------------------------------------------
-        def _apply_precon(phi):
-            return (self._keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
-                  + alpha.reshape(phi.shape) * phi
-        # ----------------------------------------------------------------------
-        assert( psi0 is not None )
-        num_unknowns = len(self.mesh.node_coords)
-
         if self._preconditioner_type == 'none':
             return None
         if self._preconditioner_type == 'cycles':
             warnings.warn('Preconditioner inverted approximately with %d AMG cycles, so get_preconditioner() isn''t exact.' % self._num_amg_cycles)
 
-        if self._keo is None:
-            self._assemble_keo()
+        # ----------------------------------------------------------------------
+        def _apply_precon(phi):
+            return (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+                  + alpha.reshape(phi.shape) * phi
+        # ----------------------------------------------------------------------
+        assert(x is not None)
+        num_unknowns = len(self.mesh.node_coords)
+
+        keo = self._get_keo(mu)
+
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
-        if self._g > 0.0:
-            alpha = self._g * 2.0 * (psi0.real**2 + psi0.imag**2)
+        if g > 0.0:
+            alpha = g * 2.0 * (x.real**2 + x.imag**2)
         else:
-            alpha = np.zeros((len(psi0),1))
+            alpha = np.zeros(len(x))
 
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_precon,
                               dtype = self.dtype
                               )
     # ==========================================================================
-    def get_preconditioner_inverse(self, psi0):
+    def get_preconditioner_inverse(self, x, mu, g):
         '''Use AMG to invert M approximately.
         '''
         if self._preconditioner_type == 'none':
@@ -141,8 +135,8 @@ class NlsModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_prec_exact(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
-            x0 = np.zeros((num_unknowns, 1), dtype=complex)
-            out = nm.cg(prec, rhs, x0,
+            x_init = np.zeros((num_unknowns, 1), dtype=complex)
+            out = nm.cg(prec, rhs, x_init,
                         tol = 1.0e-13,
                         M = amg_prec,
                         #explicit_residual = False
@@ -156,11 +150,11 @@ class NlsModelEvaluator:
         # ----------------------------------------------------------------------
         def _apply_inverse_prec_cycles(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
-            x0 = np.zeros((num_unknowns, 1), dtype=complex)
+            x_init = np.zeros((num_unknowns, 1), dtype=complex)
             x = np.empty((num_nodes,1), dtype=complex)
             residuals = []
             x[:,0] = prec_amg_solver.solve(rhs,
-                                           x0 = x0,
+                                           x0 = x_init,
                                            maxiter = self._num_amg_cycles,
                                            tol = 0.0,
                                            accel = None,
@@ -172,19 +166,19 @@ class NlsModelEvaluator:
             self.tot_amg_cycles += [self._num_amg_cycles]
             return x
         # ----------------------------------------------------------------------
-        if self._keo is None:
-            self._assemble_keo()
+        keo = self._get_keo(mu)
+
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         num_nodes = len(self.mesh.node_coords)
-        if self._g > 0.0:
-            alpha = self._g * 2.0 * (psi0.real**2 + psi0.imag**2)
+        if g > 0.0:
+            alpha = g * 2.0 * (x.real**2 + x.imag**2)
             D = spdiags(alpha.T * self.mesh.control_volumes.T, [0],
                         num_nodes, num_nodes)
-            prec = self._keo + D
+            prec = keo + D
         else:
-            prec = self._keo
+            prec = keo
 
         # The preconditioner assumes the eigenvalue 0 iff mu=0 and psi=0.
         # This may lead to problems if mu=0 and the Newton iteration
@@ -210,7 +204,7 @@ class NlsModelEvaluator:
         #print 'operator complexity', prec_amg_solver.operator_complexity()
         #print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
 
-        num_unknowns = len(psi0)
+        num_unknowns = len(x)
 
         if self._preconditioner_type == 'cycles':
             if self._num_amg_cycles == np.inf:
@@ -230,7 +224,7 @@ class NlsModelEvaluator:
             raise ValueError('Unknown preconditioner type ''%s''.' % self._preconditioner_type)
 
     # ==========================================================================
-    def _get_preconditioner_inverse_directsolve(self, psi0):
+    def _get_preconditioner_inverse_directsolve(self, x):
         '''Use a direct solver for M^{-1}.
         '''
         from scipy.sparse.linalg import spsolve
@@ -238,8 +232,8 @@ class NlsModelEvaluator:
         def _apply_inverse_prec(phi):
             return spsolve(prec, phi)
         # ----------------------------------------------------------------------
-        prec = self.get_preconditioner(psi0)
-        num_unknowns = len(psi0)
+        prec = self.get_preconditioner(x)
+        num_unknowns = len(x0)
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_inverse_prec,
                               dtype = self.dtype
@@ -273,50 +267,41 @@ class NlsModelEvaluator:
 
         return alpha.real / self.mesh.control_volumes.sum()
     # ==========================================================================
-    def set_parameter(self, param_name, value):
-        '''Update the parameter.
-        '''
-        if param_name == 'mu':
-            self.mu = value
-            self._keo = None
-            self._mvp_edge_cache = None
-        elif param_name == 'g':
-            self._g = value
-        else:
-            raise ValueError('Unknown parameter ''%s''.' % param_name)
-        return
-    # ==========================================================================
-    def _assemble_keo( self ):
+    def _get_keo(self, mu):
         '''Assemble the kinetic energy operator.'''
 
-        # Create the matrix structure.
-        num_nodes = len(self.mesh.node_coords)
-        self._keo = sparse.lil_matrix((num_nodes, num_nodes),
-                                      dtype = complex
-                                      )
-        # Build caches.
-        if self._edgecoeff_cache is None:
-            self._build_edgecoeff_cache()
-        if self._mvp_edge_cache is None:
-            self._build_mvp_edge_cache()
-        if self.mesh.edges is None:
-            self.mesh.create_adjacent_entities()
+        if self._keo_cache is None or self._keo_cache_mu != mu:
+            # Create the matrix structure.
+            num_nodes = len(self.mesh.node_coords)
+            self._keo_cache = sparse.lil_matrix((num_nodes, num_nodes),
+                                                dtype = complex
+                                                )
 
-        # loop over all edges
-        for k, node_indices in enumerate(self.mesh.edges['nodes']):
-            # Fetch the cached values.
-            alpha = self._edgecoeff_cache[k]
-            alphaExp0 = alpha * np.exp(1j * self._mvp_edge_cache[k])
-            # Sum them into the matrix.
-            self._keo[node_indices[0], node_indices[0]] += alpha
-            self._keo[node_indices[0], node_indices[1]] -= alphaExp0.conj()
-            self._keo[node_indices[1], node_indices[0]] -= alphaExp0
-            self._keo[node_indices[1], node_indices[1]] += alpha
+            mvp_edge_cache = self._build_mvp_edge_cache(mu)
 
-        # transform the matrix into the more efficient CSR format
-        self._keo = self._keo.tocsr()
+            # Build caches.
+            if self._edgecoeff_cache is None:
+                self._build_edgecoeff_cache()
+            if self.mesh.edges is None:
+                self.mesh.create_adjacent_entities()
 
-        return
+            # loop over all edges
+            for k, node_indices in enumerate(self.mesh.edges['nodes']):
+                # Fetch the cached values.
+                alpha = self._edgecoeff_cache[k]
+                alphaExp0 = self._edgecoeff_cache[k] \
+                          * np.exp(1j * mvp_edge_cache[k])
+                # Sum them into the matrix.
+                self._keo_cache[node_indices[0], node_indices[0]] += alpha
+                self._keo_cache[node_indices[0], node_indices[1]] -= alphaExp0.conj()
+                self._keo_cache[node_indices[1], node_indices[0]] -= alphaExp0
+                self._keo_cache[node_indices[1], node_indices[1]] += alpha
+
+            # transform the matrix into the more efficient CSR format
+            self._keo_cache = self._keo_cache.tocsr()
+            self._keo_cache_mu = mu
+
+        return self._keo_cache
     # ==========================================================================
     def _build_edgecoeff_cache( self ):
         '''Build cache for the edge coefficients.
@@ -368,7 +353,7 @@ class NlsModelEvaluator:
 
         return
     # ==========================================================================
-    def _build_mvp_edge_cache( self ):
+    def _build_mvp_edge_cache(self, mu):
         '''Builds the cache for the magnetic vector potential.'''
 
         # make sure the mesh has edges
@@ -388,14 +373,12 @@ class NlsModelEvaluator:
         # edges[i], mvp[i], and put the result in the cache.
         edges = self.mesh.node_coords[self.mesh.edges['nodes'][:,1]] \
               - self.mesh.node_coords[self.mesh.edges['nodes'][:,0]]
-        mvp = 0.5 * (self._get_mvp(self.mesh.edges['nodes'][:,1]) \
-                    +self._get_mvp(self.mesh.edges['nodes'][:,0]))
-        self._mvp_edge_cache = np.sum(edges * mvp, 1)
-
-        return
+        mvp = 0.5 * (self._get_mvp(mu, self.mesh.edges['nodes'][:,1]) \
+                    +self._get_mvp(mu, self.mesh.edges['nodes'][:,0]))
+        return np.sum(edges * mvp, 1)
     # ==========================================================================
-    def _get_mvp(self, index):
-        return self.mu * self._raw_magnetic_vector_potential[index]
+    def _get_mvp(self, mu, index):
+        return mu * self._raw_magnetic_vector_potential[index]
     # ==========================================================================
     #def keo_smallest_eigenvalue_approximation( self ):
         #'''Returns

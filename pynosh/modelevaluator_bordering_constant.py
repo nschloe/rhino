@@ -3,34 +3,29 @@ import numpy as np
 import numerical_methods as nm
 from scipy.sparse.linalg import LinearOperator
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
-class BorderedModelEvaluator:
+class ConstBorderedModelEvaluator:
     '''Wraps a given model evaluator in a bordering strategy.
     Does not work with preconditioners.
     '''
     # ==========================================================================
-    def __init__(self, modeleval):
+    def __init__(self, modeleval, bord):
         '''Initialization.
         '''
         self.inner_modeleval = modeleval
         self.dtype = self.inner_modeleval.dtype
+        self.bord = bord
         return
     # ==========================================================================
     def compute_f(self, x):
         '''Compute bordered F.
         '''
         n = len(x) - 1
-        # Set the new psi0. This is essential for the bordering
-        # in the Jacobian since -i*psi0 must not be in the
-        # range of the inner Jacobian which is the case
-        # for i*x0.
-        psi0 = x[0:n]
         res = np.empty((n+1,1), dtype=self.dtype)
-        # Right border: -i * psi0 * eta.
+        # Right border: bord * eta.
         res[0:n] = self.inner_modeleval.compute_f(x[0:n]) \
-                 - 1j * psi0 * x[n]
-        # Lower border: <-i psi0, psi>.
-        # With the above setting psi0=x, this is always 0.
-        res[n] = self.inner_modeleval.inner_product(-1j*psi0, x[0:n])
+                 + self.bord * x[n]
+        # Lower border: <bord, psi>.
+        res[n] = self.inner_modeleval.inner_product(self.bord, x[0:n])
 
         return res
     # ==========================================================================
@@ -49,9 +44,11 @@ class BorderedModelEvaluator:
 
         n = len(x0) - 1
         psi0 = x0[0:n]
-        b = - 1j * psi0
-        c = - 1j * psi0
+
+        b = self.bord
+        c = self.bord
         d = 0.0
+
         inner_jacobian = self.inner_modeleval.get_jacobian(psi0)
 
         return LinearOperator( (n+1, n+1),
@@ -114,8 +111,8 @@ class BorderedModelEvaluator:
         n = len(x0) - 1
         psi0 = x0[0:n]
 
-        b = - 1j * psi0
-        c = - 1j * psi0
+        b = self.bord
+        c = self.bord
         d = 0.0
 
         jacobian = self.inner_modeleval.get_jacobian(psi0)
@@ -163,8 +160,8 @@ class BorderedModelEvaluator:
         n = len(x0) - 1
         psi0 = x0[0:n]
 
-        b = - 1j * psi0
-        c = - 1j * psi0
+        b = self.bord
+        c = self.bord
         d = 0.0
 
         prec = self.inner_modeleval.get_preconditioner_inverse(psi0)

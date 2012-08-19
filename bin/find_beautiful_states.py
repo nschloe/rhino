@@ -6,7 +6,7 @@
 import numpy as np
 
 import pynosh.numerical_methods as nm
-import pynosh.nls_modelevaluator as gm
+import pynosh.modelevaluator_nls as gm
 import voropy
 # ==============================================================================
 def _main():

@@ -14,8 +14,8 @@ import matplotlib.pyplot as pp
 #rc( 'font', family = 'serif' )
 
 import voropy
-import pynosh.nls_modelevaluator
-import pynosh.bordered_modelevaluator
+import pynosh.modelevaluator_nls
+import pynosh.modelevaluator_bordering_constant
 #import pynosh.preconditioners
 import pynosh.numerical_methods as nm
 # ==============================================================================
@@ -24,8 +24,35 @@ def _main():
     '''
     args = _parse_input_arguments()
 
-    for filename in args.filenames:
-        relresvec = _solve_system(filename, args)
+    # Setting the default file_mvp.
+    if args.file_mvp is None:
+        args.file_mvp = args.filename
+
+    # Read the magnetic vector potential.
+    mesh, point_data, field_data = voropy.read(args.file_mvp)
+
+    # build the model evaluator
+    print 'Creating model evaluator...',
+    start = time.time()
+    num_coords = len( mesh.node_coords )
+    nls_modeleval = pynosh.modelevaluator_nls.NlsModelEvaluator(mesh,
+                                                                V=-np.ones(num_coords),
+                                                                A=point_data['A'],
+                                                                preconditioner_type=args.preconditioner_type,
+                                                                num_amg_cycles = args.num_amg_cycles)
+    if args.bordering:
+        modeleval = pynosh.bordered_modelevaluator.BorderedModelEvaluator(nls_modeleval)
+    else:
+        modeleval = nls_modeleval
+    end = time.time()
+    print "done. (%gs)" % (end - start)
+
+    # Run through all time steps.
+    assert len(args.timesteps) == len(args.mu), \
+           'There must be as many time steps as mus (%d != %d).' \
+           % (len(args.timesteps), len(args.mu))
+    for (timestep, mu) in zip(args.timesteps, args.mu):
+        relresvec = _solve_system(modeleval, args.filename, timestep, mu, args)
         print 'relresvec:'
         print relresvec
         print 'num iters:', len(relresvec)-1
@@ -35,12 +62,12 @@ def _main():
 
     return
 # ==============================================================================
-def _solve_system(filename, args):
+def _solve_system(modeleval, filename, timestep, mu, args):
     # read the mesh
-    print "Reading the mesh...",
+    print "Reading current psi...",
     start = time.time()
     mesh, point_data, field_data = voropy.read(filename,
-                                               timestep=args.timestep
+                                               timestep=timestep
                                                )
     total = time.time() - start
     print "done (%gs)." % total
@@ -48,73 +75,49 @@ def _solve_system(filename, args):
     num_coords = len( mesh.node_coords )
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
-    current_psi = (point_data['psi'][:,0] + 1j * point_data['psi'][:,1]).reshape(-1,1)
-    #current_psi = (1.0-1.0e-2) * np.ones( num_coords, dtype = complex )
-    #current_psi = np.random.rand(num_coords, 1) \
-                #+ 1j * np.random.rand(num_coords, 1)
-    #current_psi = 1.0 * np.ones( (num_coords,1), dtype = complex )
-
-    # generate random numbers within the unit circle
-    #current_psi = np.empty( num_coords, dtype = complex )
-    #radius = np.random.rand( num_coords )
-    #arg    = np.random.rand( num_coords ) * 2.0 * cmath.pi
-    #for k in range( num_coords ):
-        #current_psi[ k ] = cmath.rect(radius[k], arg[k])
-    # --------------------------------------------------------------------------
-    # build the model evaluator
-    mu = 1.324421110949059e+00
-    print 'Creating model evaluator...',
+    print 'Creating initial guess and right-hand side...',
     start = time.time()
-    nls_modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh,
-                                                                g=1.0,
-                                                                V=-np.ones(num_coords),
-                                                                A=point_data['A'],
-                                                                mu=mu,
-                                                                preconditioner_type=args.preconditioner_type,
-                                                                num_amg_cycles = args.num_amg_cycles)
+    current_psi = (point_data['psi'][:,0] + 1j * point_data['psi'][:,1]).reshape(-1,1)
+
+    # Perturb a bit.
+    eps = 1.0e-10
+    perturbation = eps * (np.random.rand(num_coords) + 1j * np.random.rand(num_coords))
+    current_psi += perturbation.reshape(current_psi.shape)
+
     if args.bordering:
-        modeleval = pynosh.bordered_modelevaluator.BorderedModelEvaluator(nls_modeleval)
         phi0 = np.zeros((num_coords+1,1), dtype=complex)
         # right hand side
         x = np.empty((num_coords+1,1), dtype=complex)
         x[0:num_coords] = current_psi
         x[num_coords] = 0.0
-        rhs = modeleval.compute_f( x )
     else:
-        modeleval = nls_modeleval
         # create right hand side and initial guess
         phi0 = np.zeros( (num_coords,1), dtype=complex )
-
         x = current_psi
-        # right hand side
-        rhs = modeleval.compute_f( current_psi )
-        #rhs = np.ones( (num_coords,1), dtype=complex )
+    # right hand side
+    #rhs = np.ones( (num_coords,1), dtype=complex )
 
-        #rhs = np.empty( num_coords, dtype = complex )
-        #radius = np.random.rand( num_coords )
-        #arg    = np.random.rand( num_coords ) * 2.0 * cmath.pi
-        #for k in range( num_coords ):
-            #rhs[ k ] = cmath.rect(radius[k], arg[k])
+    #rhs = np.empty( num_coords, dtype = complex )
+    #radius = np.random.rand( num_coords )
+    #arg    = np.random.rand( num_coords ) * 2.0 * cmath.pi
+    #for k in range( num_coords ):
+        #rhs[ k ] = cmath.rect(radius[k], arg[k])
+    rhs = modeleval.compute_f(x=x, mu=mu, g=1.0)
     end = time.time()
     print "done. (%gs)" % (end - start)
-
-    # initialize the preconditioners
-    #precs = preconditioners.Preconditioners( ginla_modeleval )
-
-    #_plot_l2_condition_numbers( ginla_modeleval )
-
+    print '||rhs|| = %g' % np.sqrt(modeleval.inner_product(rhs, rhs))
     # --------------------------------------------------------------------------
     # create the linear operator
     print 'Getting Jacobian...',
     start_time = time.clock()
-    jacobian = modeleval.get_jacobian( x )
+    jacobian = modeleval.get_jacobian(x=x, mu=mu, g=1.0)
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
 
     # create precondictioner object
     print 'Getting preconditioner...',
     start_time = time.clock()
-    prec = modeleval.get_preconditioner_inverse( x )
+    prec = modeleval.get_preconditioner_inverse(x=x, mu=mu, g=1.0)
     end_time = time.clock()
     print 'done. (%gs)' % (end_time - start_time)
 
@@ -159,7 +162,7 @@ def _solve_system(filename, args):
                     maxiter = 500,
                     inner_product = modeleval.inner_product,
                     explicit_residual = True,
-                    timer=timer
+                    #timer=timer
                     #exact_solution = ref_sol
                     )
     end_time = time.clock()
@@ -200,113 +203,6 @@ def _solve_system(filename, args):
     #matplotlib2tikz.save('inf.tex')
 
     return out['relresvec']
-# ==============================================================================
-def _create_preconditioner_list( precs, num_coords ):
-
-    test_preconditioners = []
-    test_preconditioners.append( { 'name':'regular CG',
-                                   'precondictioner': None,
-                                   'inner product': 'regular'
-                                 }
-                               )
-    test_preconditioners.append( { 'name':'-',
-                                   'precondictioner': None,
-                                   'inner product': 'real'
-                                 }
-                               )
-
-    prec_diag = LinearOperator( (num_coords, num_coords),
-                                matvec = precs.diagonal,
-                                dtype = complex
-                              )
-
-    test_preconditioners.append( { 'name': 'diag',
-                                   'precondictioner': prec_diag,
-                                   'inner product': 'real'
-                                 }
-                               )
-
-    prec_keolu = LinearOperator( (num_coords, num_coords),
-                                 matvec = precs.keo_lu,
-                                 dtype = complex
-                               )
-    test_preconditioners.append( { 'name': 'KEO ($LU$)',
-                                   'precondictioner': prec_keolu,
-                                   'inner product': 'real'
-                                 }
-                               )
-
-    #prec_keoi = LinearOperator( (num_coords, num_coords),
-                                #matvec = precs.keoi,
-                                #dtype = complex
-                              #)
-    #test_preconditioners.append( { 'name': 'KEO$+\\alpha I$',
-                                   #'precondictioner': prec_keoi,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    #prec_keo_approx = LinearOperator( (num_coords, num_coords),
-                                      #matvec = precs.keo_cgapprox,
-                                      #dtype = complex
-                                    #)
-    #test_preconditioners.append( { 'name': 'KEO CG approx',
-                                   #'precondictioner': prec_keo_approx,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    #prec_keo_ilu4 = LinearOperator( (num_coords, num_coords),
-                                    #matvec = precs.keo_ilu4,
-                                    #dtype = complex
-                                  #)
-    #test_preconditioners.append( { 'name': 'KEO i$LU$4',
-                                   #'precondictioner': prec_keo_ilu4,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    #prec_keo_symilu2 = LinearOperator( (num_coords, num_coords),
-                                       #matvec = precs.keo_symmetric_ilu2,
-                                       #dtype = complex
-                                     #)
-    #test_preconditioners.append( { 'name': 'KEO sym i$LU$2',
-                                   #'precondictioner': prec_keo_symilu2,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    #prec_keo_symilu4 = LinearOperator( (num_coords, num_coords),
-                                       #matvec = precs.keo_symmetric_ilu4,
-                                       #dtype = complex
-                                     #)
-    #test_preconditioners.append( { 'name': 'KEO sym i$LU$4',
-                                   #'precondictioner': prec_keo_symilu4,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    #prec_keo_symilu6 = LinearOperator( (num_coords, num_coords),
-                                      #matvec = precs.keo_symmetric_ilu6,
-                                      #dtype = complex
-                                    #)
-    #test_preconditioners.append( { 'name': 'KEO sym i$LU$6',
-                                   #'precondictioner': prec_keo_symilu6,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    #prec_keo_symilu8 = LinearOperator( (num_coords, num_coords),
-                                      #matvec = precs.keo_symmetric_ilu8,
-                                      #dtype = complex
-                                    #)
-    #test_preconditioners.append( { 'name': 'KEO sym i$LU$8',
-                                   #'precondictioner': prec_keo_symilu8,
-                                   #'inner product': 'real'
-                                 #}
-                               #)
-
-    return test_preconditioners
 # ==============================================================================
 def _run_one_mu( modeleval,
                  precs,
@@ -665,21 +561,33 @@ def _parse_input_arguments():
     parser = argparse.ArgumentParser( description = 'Solve the linearized Ginzburg--Landau problem.'
                                     )
 
-    parser.add_argument('filenames',
+    parser.add_argument('filename',
                         metavar = 'FILE',
                         type    = str,
-                        nargs   = '+',
-                        help    = 'ExodusII files containing the geometry and the state'
+                        help    = 'ExodusII file containing the geometry and the state'
                         )
 
-    parser.add_argument('--timestep', '-t',
-                        metavar='TIMESTEP',
-                        dest='timestep',
-                        nargs='?',
+    parser.add_argument('--file-mvp', '-f',
+                        metavar = 'MVP_FILE',
+                        type    = str,
+                        help    = 'file that contains the magnetic vector potential (default: FILE)'
+                        )
+
+    parser.add_argument('--timesteps', '-t',
+                        metavar='TIMESTEPS',
+                        dest='timesteps',
+                        nargs='+',
                         type=int,
-                        const=0,
-                        default=0,
+                        default=[0],
                         help='read a particular time step (default: 0)'
+                        )
+
+    parser.add_argument('--mu', '-m',
+                        metavar='MU',
+                        nargs='+',
+                        type=float,
+                        default=[0.0],
+                        help='values of mu; must be the same number of arguments as TIMESTEPS (default: 0.0)'
                         )
 
     parser.add_argument('--preconditioner-type', '-p',

@@ -6,7 +6,7 @@
 import numpy as np
 
 import pynosh.numerical_methods as nm
-import pynosh.nls_modelevaluator as gpm
+import pynosh.modelevaluator_nls as gpm
 import pynosh.bordered_modelevaluator as bme
 import pynosh.yaml
 import voropy

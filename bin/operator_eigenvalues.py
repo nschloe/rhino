@@ -9,7 +9,7 @@ import matplotlib2tikz
 import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
-import pynosh.nls_modelevaluator as nme
+import pynosh.modelevaluator_nls as nme
 import pynosh.bordered_modelevaluator as bme
 # ==============================================================================
 def _main():

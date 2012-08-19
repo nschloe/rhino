@@ -9,7 +9,7 @@ from scipy.sparse import spdiags
 import numpy as np
 
 import voropy
-import pynosh.nls_modelevaluator
+import pynosh.modelevaluator_nls
 # ==============================================================================
 def _main():
     '''Main function.
@@ -26,7 +26,7 @@ def _main():
     g = 1.0
     num_nodes = len(mesh.node_coords)
     V = -np.ones(num_nodes)
-    modeleval = pynosh.nls_modelevaluator.NlsModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
+    modeleval = pynosh.modelevaluator_nls.NlsModelEvaluator(mesh, g=g, V=V, A=point_data['A'], mu=mu)
 
     # build preconditioner
     if modeleval._keo is None:
