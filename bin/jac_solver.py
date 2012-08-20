@@ -150,12 +150,24 @@ def _solve_system(modeleval, filename, timestep, mu, args):
         P = None
         x0new = phi0
 
+    if args.krylov_method == 'cg':
+        lin_solve = nm.cg
+    elif args.krylov_method == 'minres':
+        lin_solve = nm.minres
+    #elif args.krylov_method == 'minresfo':
+        #lin_solve = nm.minres
+        #lin_solve_args.update({'full_reortho': True})
+    elif args.krylov_method == 'gmres':
+        lin_solve = nm.gmres
+    else:
+        raise ValueError('Unknown Krylov solver ''%s''.' % args.krylov_method)
+
     print "Solving the system (len(x) = %d, bordering: %r)..." % (len(x), args.bordering),
     start_time = time.clock()
     timer = False
-    out = nm.minres(jacobian, rhs,
+    out = lin_solve(jacobian, rhs,
                     x0new,
-                    tol = 1.0e-11,
+                    tol = args.tolerance,
                     Mr = P,
                     M = prec,
                     #maxiter = 2*num_coords,
@@ -590,6 +602,12 @@ def _parse_input_arguments():
                         help='values of mu; must be the same number of arguments as TIMESTEPS (default: 0.0)'
                         )
 
+    parser.add_argument('--krylov-method', '-k',
+                        choices = ['cg', 'minres', 'minresfo', 'gmres'],
+                        default = 'gmres',
+                        help    = 'which Krylov method to use (default: gmres)'
+                        )
+
     parser.add_argument('--preconditioner-type', '-p',
                         choices = ['none', 'exact', 'cycles'],
                         default = 'none',
@@ -600,6 +618,12 @@ def _parse_input_arguments():
                         type = int,
                         default = 1,
                         help    = 'number of AMG cycles (default: 1)'
+                        )
+
+    parser.add_argument('--tolerance', '-r',
+                        type = float,
+                        default = 1.0e-10,
+                        help = 'relative tolerance (default: 1.0e-10)'
                         )
 
     parser.add_argument('--show-relres', '-s',

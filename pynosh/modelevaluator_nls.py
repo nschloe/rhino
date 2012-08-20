@@ -151,7 +151,7 @@ class NlsModelEvaluator:
         def _apply_inverse_prec_cycles(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             x_init = np.zeros((num_unknowns, 1), dtype=complex)
-            x = np.empty((num_nodes,1), dtype=complex)
+            x = np.empty((num_unknowns,1), dtype=complex)
             residuals = []
             x[:,0] = prec_amg_solver.solve(rhs,
                                            x0 = x_init,
@@ -171,12 +171,13 @@ class NlsModelEvaluator:
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
-        num_nodes = len(self.mesh.node_coords)
         if g > 0.0:
-            alpha = g * 2.0 * (x.real**2 + x.imag**2)
-            D = spdiags(alpha.T * self.mesh.control_volumes.T, [0],
-                        num_nodes, num_nodes)
-            prec = keo + D
+            prec = keo.copy()
+            diag = prec.diagonal()
+            alpha = g * 2.0 * (x.real**2 + x.imag**2) \
+                  * self.mesh.control_volumes.reshape(x.shape)
+            diag += alpha.reshape(diag.shape)
+            prec.setdiag(diag)
         else:
             prec = keo
 
