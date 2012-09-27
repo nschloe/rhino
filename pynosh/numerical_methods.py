@@ -1083,14 +1083,14 @@ def newton( x0,
         eta_previous = eta
 
         # Setup linear problem.
-        jacobian = model_evaluator.get_jacobian( x )
+        jacobian = model_evaluator.get_jacobian(x, **compute_f_extra_args)
         initial_guess = np.zeros( (len(x),1) )
         # The .copy() is redundant as Python copies on "-Fx" anyways,
         # but leave it here for clarity.
         rhs = -Fx.copy()
 
-        M = model_evaluator.get_preconditioner(x)
-        Minv = model_evaluator.get_preconditioner_inverse(x,)
+        M = model_evaluator.get_preconditioner(x, **compute_f_extra_args)
+        Minv = model_evaluator.get_preconditioner_inverse(x, **compute_f_extra_args)
 
         def Minner_product(x,y):
             return model_evaluator.inner_product(_apply(M,x), y)
