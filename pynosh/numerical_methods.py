@@ -1018,6 +1018,7 @@ def newton( x0,
             linear_solver = gmres,
             linear_solver_maxiter = None,
             linear_solver_extra_args = {},
+            compute_f_extra_args = {},
             forcing_term = 'constant',
             eta0 = 1.0e-1,
             eta_min = 1.0e-6,
@@ -1039,7 +1040,7 @@ def newton( x0,
     k = 0
 
     x = x0.copy()
-    Fx = model_evaluator.compute_f( x )
+    Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
     Fx_norms = [ _norm( Fx, inner_product=model_evaluator.inner_product ) ]
     eta_previous = None
     W = np.zeros((len(x), 0))
@@ -1219,7 +1220,7 @@ def newton( x0,
 
         # do the household
         k += 1
-        Fx = model_evaluator.compute_f( x )
+        Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
         Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
 
         if debug:

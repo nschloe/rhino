@@ -41,7 +41,7 @@ def _main():
         print 'Creating V...',
         start = time.time()
         V = np.empty(num_nodes)
-        V[:] = -1
+        V[:] = -1.0
         #for k, node in enumerate(mesh.node_coords):
             #import random, cmath
             #X[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
@@ -90,20 +90,23 @@ def _main():
     #    for k, x in enumerate(mesh.nodes):
     #        thickness[k] = alpha + t * x[1]**2
 
-    if not args.force_override and 'g' in field_data:
-        g = field_data['g']
-    else:
-        g = 1.0
+    #if not args.force_override and 'g' in field_data:
+    #    g = field_data['g']
+    #else:
+    #    g = 1.0
 
-    if not args.force_override and 'mu' in field_data:
-        mu = field_data['mu']
-    else:
-        mu = 1.0
+    #if not args.force_override and 'mu' in field_data:
+    #    mu = field_data['mu']
+    #else:
+    #    mu = 1.0
 
     # write the mesh
     print 'Writing mesh...',
     start = time.time()
-    mesh.write(args.outfile, point_data={'psi': psi, 'V': V, 'A': A}, field_data={'g': g, 'mu': mu})
+    mesh.write(args.outfile,
+               point_data={'psi': psi, 'V': V, 'A': A},
+               #field_data={'g': g, 'mu': mu}
+               )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
 

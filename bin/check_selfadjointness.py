@@ -5,7 +5,7 @@ import numpy as np
 
 import voropy
 import pynosh.modelevaluator_nls
-import pynosh.bordered_modelevaluator
+import pynosh.modelevaluator_bordering_constant
 #import pynosh.numerical_methods as nm
 # ==============================================================================
 def _main():
@@ -18,13 +18,10 @@ def _main():
                                                )
     N = len( mesh.node_coords )
     # build the model evaluator
-    mu = 1.0
     nls_modeleval = \
         pynosh.modelevaluator_nls.NlsModelEvaluator(mesh,
-                                                    g = 1.0,
                                                     V = -np.ones(N),
                                                     A = point_data['A'],
-                                                    mu = mu,
                                                     preconditioner_type = args.preconditioner_type,
                                                     num_amg_cycles = args.num_amg_cycles)
 
@@ -42,19 +39,23 @@ def _main():
 
     print 'machine eps = %g' % np.finfo(np.complex).eps
 
+    mu = args.mu
+    g = 1.0
+
     # check the jacobian operator
-    J = modeleval.get_jacobian(x)
+    J = modeleval.get_jacobian(x, mu, g)
     print 'max(|<v,Ju> - <Jv,u>|) = %g' % _check_selfadjointness(J, modeleval.inner_product)
 
     if args.preconditioner_type != 'none':
         # check the preconditioner
-        #P = modeleval.get_preconditioner(x)
-        #print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P, modeleval.inner_product)
+        P = modeleval.get_preconditioner(x, mu, g)
+        print 'max(|<v,Pu> - <Pv,u>|) = %g' % _check_selfadjointness(P, modeleval.inner_product)
+        # Check positive definiteness of P.
+        print 'min(<u,Pu>) = %g' % _check_positivedefiniteness(P, modeleval.inner_product)
 
         # check the inverse preconditioner
-        Pinv = modeleval.get_preconditioner_inverse(x)
-        print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv, modeleval.inner_product)
-
+        #Pinv = modeleval.get_preconditioner_inverse(x, mu, g)
+        #print 'max(|<v,P^{-1}u> - <P^{-1}v,u>|) = %g' % _check_selfadjointness(Pinv, modeleval.inner_product)
         # check positive definiteness of P^{-1}
         #print 'min(<u,P^{-1}u>) = %g' % _check_positivedefiniteness(Pinv, inner_product)
 
@@ -113,6 +114,12 @@ def _parse_input_arguments():
                          default=0,
                          help='read a particular time step (default: 0)'
                        )
+
+    parser.add_argument('--mu', '-m',
+                        required = True,
+                        type=float,
+                        help='value of mu'
+                        )
 
     parser.add_argument('--preconditioner-type', '-p',
                         choices = ['none', 'exact', 'cycles'],

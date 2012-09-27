@@ -10,7 +10,7 @@ import matplotlib2tikz
 
 #from lobpcg import lobpcg as my_lobpcg
 import voropy
-import pynosh.ginla_modelevaluator
+import pynosh.modelevaluator_nls
 # ==============================================================================
 def _main():
     '''Main function.
@@ -18,21 +18,21 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    pynoshmesh, point_data, field_data = voropy.read(args.filename,
-                                                     timestep=args.timestep
-                                                     )
+    mesh, point_data, field_data = voropy.read(args.filename,
+                                               timestep=args.timestep
+                                               )
 
     # build the model evaluator
-    mu = 0.0 # dummy -- reset later
-    ginla_modeleval = \
-        pynosh.ginla_modelevaluator.GinlaModelEvaluator(mesh,
-                                                        point_data['A'],
-                                                        mu
-                                                        )
+    modeleval = \
+        pynosh.modelevaluator_nls.NlsModelEvaluator(mesh = mesh,
+                                                    A = point_data['A'],
+                                                    V = point_data['V'],
+                                                    preconditioner_type = 'exact'
+                                                    )
 
     # set the range of parameters
-    steps = 1
-    mus = np.linspace( 0.5, 0.5, steps )
+    steps = 10
+    mus = np.linspace(0.5, 5.5, steps)
 
     num_unknowns = len(mesh.node_coords)
 
@@ -44,37 +44,34 @@ def _main():
     print num_unknowns
     eigenvals_list = []
     # --------------------------------------------------------------------------
+    g = 10.0
     for mu in mus:
-        ginla_modeleval.set_parameter(mu)
-
         if args.operator == 'k':
             # build dense KEO
-            ginla_modeleval._assemble_keo()
-            K = ginla_modeleval._keo
-            A = ginla_modeleval._keo.todense()
+            A = modeleval._get_keo(mu).todense()
             B = None
         elif args.operator == 'p':
             # build dense preconditioner
-            P = ginla_modeleval.get_preconditioner(psi)
+            P = modeleval.get_preconditioner(psi, mu, g)
             A = P.todense()
             B = None
         elif args.operator == 'j':
             # build dense jacobian
-            J1, J2 = ginla_modeleval.get_jacobian_blocks(psi)
+            J1, J2 = modeleval.get_jacobian_blocks(psi, mu, g)
             A = _build_stacked_operator(J1.todense(), J2.todense())
             B = None
         elif args.operator == 'kj':
-            J1, J2 = ginla_modeleval.get_jacobian_blocks(psi)
+            J1, J2 = modeleval.get_jacobian_blocks(psi)
             A = _build_stacked_operator(J1.todense(), J2.todense())
 
-            ginla_modeleval._assemble_keo()
-            K = _ginla_modeleval._keo
+            modeleval._assemble_keo()
+            K = _modeleval._keo
             B = _build_stacked_operator(K.todense())
         elif args.operator == 'pj':
-            J1, J2 = ginla_modeleval.get_jacobian_blocks(psi)
+            J1, J2 = modeleval.get_jacobian_blocks(psi)
             A = _build_stacked_operator(J1.todense(), J2.todense())
 
-            P = ginla_modeleval.get_preconditioner(psi)
+            P = modeleval.get_preconditioner(psi)
             B = _build_stacked_operator(P.todense())
         else:
             raise ValueError('Unknown operator \'', args.operator, '\'.')
@@ -84,8 +81,8 @@ def _main():
         start_time = time.clock()
         # use eig as the problem is not symmetric (but it is self-adjoint)
         eigenvals, U = eig(A, b = B,
-                            #lower = True,
-                            )
+                           #lower = True,
+                           )
         end_time = time.clock()
         print 'done. (', end_time - start_time, 's).'
 
@@ -100,37 +97,37 @@ def _main():
         U_complex = _build_complex_vector(U)
         # normalize
         for k in xrange(U_complex.shape[1]):
-            norm_Uk = np.sqrt(ginla_modeleval.inner_product(U_complex[:,[k]], U_complex[:,[k]]))
+            norm_Uk = np.sqrt(modeleval.inner_product(U_complex[:,[k]], U_complex[:,[k]]))
             U_complex[:,[k]] /= norm_Uk
 
-        # Compare the different expressions for the eigenvalues.
-        for k in xrange(len(eigenvals)):
-            JU_complex = J1 * U_complex[:,[k]] + J2 * U_complex[:,[k]].conj()
-            uJu = ginla_modeleval.inner_product(U_complex[:,k], JU_complex)[0]
+        ## Compare the different expressions for the eigenvalues.
+        #for k in xrange(len(eigenvals)):
+        #    JU_complex = J1 * U_complex[:,[k]] + J2 * U_complex[:,[k]].conj()
+        #    uJu = modeleval.inner_product(U_complex[:,k], JU_complex)[0]
 
-            PU_complex = P * U_complex[:,[k]]
-            uPu = ginla_modeleval.inner_product(U_complex[:,k], PU_complex)[0]
+        #    PU_complex = P * U_complex[:,[k]]
+        #    uPu = modeleval.inner_product(U_complex[:,k], PU_complex)[0]
 
-            KU_complex = ginla_modeleval._keo * U_complex[:,[k]]
-            uKu = ginla_modeleval.inner_product(U_complex[:,k], KU_complex)[0]
+        #    KU_complex = modeleval._keo * U_complex[:,[k]]
+        #    uKu = modeleval.inner_product(U_complex[:,k], KU_complex)[0]
 
-            # expression 1
-            lambd = uJu / uPu
-            assert abs(eigenvals[k] - lambd) < 1.0e-10, abs(eigenvals[k] - lambd)
+        #    # expression 1
+        #    lambd = uJu / uPu
+        #    assert abs(eigenvals[k] - lambd) < 1.0e-10, abs(eigenvals[k] - lambd)
 
-            # expression 2
-            alpha = ginla_modeleval.inner_product(U_complex[:,k]**2, psi**2)
-            lambd = uJu / (-uJu + 1.0 - alpha)
-            assert abs(eigenvals[k] - lambd) < 1.0e-10
+        #    # expression 2
+        #    alpha = modeleval.inner_product(U_complex[:,k]**2, psi**2)
+        #    lambd = uJu / (-uJu + 1.0 - alpha)
+        #    assert abs(eigenvals[k] - lambd) < 1.0e-10
 
-            # expression 3
-            alpha = ginla_modeleval.inner_product(U_complex[:,k]**2, psi**2)
-            beta = ginla_modeleval.inner_product(abs(U_complex[:,k])**2, abs(psi)**2)
-            lambd = -1.0 + (1.0-alpha) / (uKu + 2*beta)
-            assert abs(eigenvals[k] - lambd) < 1.0e-10
+        #    # expression 3
+        #    alpha = modeleval.inner_product(U_complex[:,k]**2, psi**2)
+        #    beta = modeleval.inner_product(abs(U_complex[:,k])**2, abs(psi)**2)
+        #    lambd = -1.0 + (1.0-alpha) / (uKu + 2*beta)
+        #    assert abs(eigenvals[k] - lambd) < 1.0e-10
 
-            # overwrite for plotting
-            eigenvals[k] = 1- alpha
+        #    # overwrite for plotting
+        #    eigenvals[k] = 1- alpha
 
         eigenvals_list.append( eigenvals )
     # --------------------------------------------------------------------------

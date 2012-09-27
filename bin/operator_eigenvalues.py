@@ -10,7 +10,7 @@ import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
 import pynosh.modelevaluator_nls as nme
-import pynosh.bordered_modelevaluator as bme
+import pynosh.modelevaluator_bordering_constant as bme
 # ==============================================================================
 def _main():
     '''Main function.
@@ -41,11 +41,11 @@ def _main():
         raise ValueError('Parameter ''g'' not found in file. Please provide on command line.')
 
     # build the model evaluator
-    nls_modeleval = nme.NlsModelEvaluator(mesh,
-                                          g = g,
+    nls_modeleval = nme.NlsModelEvaluator(mesh = mesh,
                                           V = point_data['V'],
                                           A = point_data['A'],
-                                          mu = mu
+                                          preconditioner_type = 'exact',
+                                          num_amg_cycles = 1
                                           )
 
     psi0 = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
@@ -109,7 +109,9 @@ def _main():
                                             args.num_eigenvalues,
                                             None,
                                             x0[:,None],
-                                            modeleval
+                                            modeleval,
+                                            mu,
+                                            g
                                             )
 
         print 'The following eigenvalues were computed:'
@@ -121,7 +123,7 @@ def _main():
             # Convert to complex representation.
             z = X[0::2,k] + 1j * X[1::2,k]
             z /= np.sqrt(modeleval.inner_product(z, z))
-            y0 = modeleval.get_jacobian(x0) * z
+            y0 = modeleval.get_jacobian(x0, mu, g) * z
             print np.linalg.norm(y0 - eigenvals[k] * z)
 
         # Normalize and store all eigenvectors & values.
@@ -152,7 +154,9 @@ def _main():
                                                 args.eigenvalue_type,
                                                 args.num_eigenvalues,
                                                 X[:, 0],
-                                                modeleval
+                                                modeleval,
+                                                mu,
+                                                g
                                                 )
             #small_eigenval, X = my_lobpcg( modeleval._keo,
                                           #X,
@@ -185,22 +189,23 @@ def _compute_eigenvalues(operator_type,
                          num_eigenvalues,
                          v0,
                          psi,
-                         modeleval
+                         modeleval,
+                         mu,
+                         g
                          ):
     if operator_type == 'k':
-        modeleval._assemble_keo()
-        A = modeleval._keo
+        A = modeleval._get_keo(mu)
     elif operator_type == 'p':
-        A = modeleval.get_preconditioner(psi)
+        A = modeleval.get_preconditioner(psi, mu, g)
     elif operator_type == 'j':
-        jac = modeleval.get_jacobian(psi)
+        jac = modeleval.get_jacobian(psi, mu, g)
         # Consider bordering.
         #A = _complex_with_bordering2real( jac )
         A = _complex2real( jac )
     elif operator_type == 'pj':
         # build preconditioned operator
-        prec_inv = modeleval.get_preconditioner_inverse(psi)
-        jacobian = modeleval.get_jacobian(psi)
+        prec_inv = modeleval.get_preconditioner_inverse(psi, mu, g)
+        jacobian = modeleval.get_jacobian(psi, mu, g)
         def _apply_prec_jacobian(phi):
             return prec_inv * (jacobian * phi)
         num_unknowns = len(modeleval.mesh.node_coords)
@@ -376,6 +381,7 @@ def _parse_input_arguments():
     parser.add_argument('--type', '-y',
                         dest='eigenvalue_type',
                         default='SM',
+                        choices = ['SM','LM'],
                         help='the type of eigenvalues to compute (default: SM (smallest magnitude))'
                         )
 

@@ -7,7 +7,7 @@ import numpy as np
 
 import pynosh.numerical_methods as nm
 import pynosh.modelevaluator_nls as gpm
-import pynosh.bordered_modelevaluator as bme
+import pynosh.modelevaluator_bordering_constant as bme
 import pynosh.yaml
 import voropy
 # ==============================================================================
@@ -43,10 +43,8 @@ def _main():
         V = -np.ones(num_nodes)
 
     nls_modeleval = gpm.NlsModelEvaluator(mesh,
-                                          g = g,
                                           V = V,
                                           A = point_data['A'],
-                                          mu = mu,
                                           preconditioner_type = args.preconditioner_type,
                                           num_amg_cycles = args.num_amg_cycles)
 
@@ -100,7 +98,7 @@ def _main():
         x0 = psi0
         modeleval = nls_modeleval
 
-    newton_out = my_newton(args, modeleval, x0, yaml_emitter=ye)
+    newton_out = my_newton(args, modeleval, x0, g, mu, yaml_emitter=ye)
     sol = newton_out['x'][0:num_nodes]
 
     ye.end_map()
@@ -116,7 +114,7 @@ def _main():
 
     return
 # ==============================================================================
-def my_newton(args, modeleval, psi0, yaml_emitter=None, debug=True):
+def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
     '''Solve with Newton.
     '''
 
@@ -147,6 +145,7 @@ def my_newton(args, modeleval, psi0, yaml_emitter=None, debug=True):
                            nonlinear_tol = 1.0e-10,
                            forcing_term = 'constant', #'constant', 'type1', 'type 2'
                            eta0 = args.eta,
+                           compute_f_extra_args = {'g': g, 'mu': mu},
                            deflation_generators = defl,
                            num_deflation_vectors = args.num_extra_defl_vectors,
                            debug=debug,

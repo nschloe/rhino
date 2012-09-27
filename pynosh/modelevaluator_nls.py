@@ -6,7 +6,6 @@ Provide information around the nonlinear Schrödinger equations.
 import numpy as np
 from scipy import sparse, linalg
 from scipy.sparse.linalg import LinearOperator
-from scipy.sparse import spdiags
 import warnings
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class NlsModelEvaluator:
@@ -94,6 +93,38 @@ class NlsModelEvaluator:
                                dtype = self.dtype
                              )
     # ==========================================================================
+    def get_jacobian_blocks(self, x, mu, g):
+        '''Returns
+            A = K + I * (V + g * 2*|psi|^2),
+            B = g * diag( psi^2 ).
+        '''
+        # ----------------------------------------------------------------------
+        def _apply_jacobian( phi ):
+            y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
+                + alpha.reshape(phi.shape) * phi \
+                + gPsi0Squared.reshape(phi.shape) * phi.conj()
+            return y
+        # ----------------------------------------------------------------------
+        assert x is not None
+
+        if self.mesh.control_volumes is None:
+            self.mesh.compute_control_volumes(variant=self.cv_variant)
+
+        A = self._get_keo(mu).copy()
+        diag = A.diagonal()
+        alpha = self._V.reshape(x.shape) + g * 2.0 * (x.real**2 + x.imag**2)
+        diag += alpha.reshape(diag.shape) \
+              * self.mesh.control_volumes.reshape(x.shape)
+        A.setdiag(diag)
+
+        num_nodes = len(self.mesh.node_coords)
+        from scipy.sparse import spdiags
+        B = spdiags(g * x**2 * self.mesh.control_volumes.reshape(x.shape),
+                    [0],
+                    num_nodes, num_nodes)
+
+        return A, B
+    # ==========================================================================
     def get_preconditioner(self, x, mu, g):
         '''Return the preconditioner.
         '''
@@ -101,14 +132,13 @@ class NlsModelEvaluator:
             return None
         if self._preconditioner_type == 'cycles':
             warnings.warn('Preconditioner inverted approximately with %d AMG cycles, so get_preconditioner() isn''t exact.' % self._num_amg_cycles)
-
         # ----------------------------------------------------------------------
         def _apply_precon(phi):
             return (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
                   + alpha.reshape(phi.shape) * phi
+#                  + beta.reshape(phi.shape) * phi.conj()
         # ----------------------------------------------------------------------
-        assert(x is not None)
-        num_unknowns = len(self.mesh.node_coords)
+        assert x is not None
 
         keo = self._get_keo(mu)
 
@@ -117,9 +147,12 @@ class NlsModelEvaluator:
 
         if g > 0.0:
             alpha = g * 2.0 * (x.real**2 + x.imag**2)
+            beta = g * x**2
         else:
             alpha = np.zeros(len(x))
+            beta = np.zeros(len(x))
 
+        num_unknowns = len(self.mesh.node_coords)
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_precon,
                               dtype = self.dtype
