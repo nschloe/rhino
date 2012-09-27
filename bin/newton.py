@@ -49,9 +49,8 @@ def _main():
                                           num_amg_cycles = args.num_amg_cycles)
 
     # initial guess
-    psi0Name = 'psi'
-    if psi0Name in point_data:
-        psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
+    if args.initial_name in point_data:
+        psi0 = np.reshape(point_data[args.initial_name][:,0] + 1j * point_data[args.initial_name][:,1],
                           (num_nodes,1))
     else:
         psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
@@ -230,6 +229,13 @@ def _parse_input_arguments():
                         default = False,
                         action = 'store_true',
                         help = 'use the bordered formulation to counter the nullspace (default: false)'
+                        )
+
+    parser.add_argument('--initial-name', '-i',
+                        metavar = 'INITIAL_NAME',
+                        default = 'psi0',
+                        type = str,
+                        help = 'name of the initial guess stored in FILE (default: psi0)'
                         )
 
     return parser.parse_args()
