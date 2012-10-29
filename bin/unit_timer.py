@@ -31,10 +31,9 @@ import pynosh.modelevaluator_nls as gpm
 import voropy
 mesh, point_data, field_data = voropy.read( '%s' )
 modeleval = gpm.NlsModelEvaluator(mesh,
-                                              g = field_data['g'],
                                               V = point_data['V'],
                                               A = point_data['A'],
-                                              mu = field_data['mu'])
+                                              )
 # initial guess
 num_nodes = len(mesh.node_coords)
 psi0Name = 'psi0'
@@ -48,7 +47,7 @@ psi0 = np.reshape(point_data[psi0Name][:,0] + 1j * point_data[psi0Name][:,1],
         my_setup = '''
 import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
-J = modeleval.get_jacobian(psi0)
+J = modeleval.get_jacobian(psi0, field_data['mu'], field_data['g'])
 '''
         stmt = '''
 _ = J * phi0
@@ -64,7 +63,7 @@ import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
-Minv = modeleval.get_preconditioner_inverse(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0, field_data['mu'], field_data['g'])
 '''
         stmt = '''
 _ = Minv * phi0
@@ -79,7 +78,7 @@ _ = Minv * phi0
 import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'exact'
-Minv = modeleval.get_preconditioner_inverse(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0, field_data['mu'], field_data['g'])
 '''
         stmt = '''
 _ = Minv * phi0
@@ -93,7 +92,7 @@ _ = Minv * phi0
 import pynosh.numerical_methods as nm
 phi0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 modeleval._preconditioner_type = 'exact'
-M = modeleval.get_preconditioner(psi0)
+M = modeleval.get_preconditioner(psi0, field_data['mu'], field_data['g'])
 '''
         stmt = '''
 _ = M * phi0
@@ -247,7 +246,7 @@ A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
-M = modeleval.get_preconditioner_inverse(psi0)
+M = modeleval.get_preconditioner_inverse(psi0, field_data['mu'], field_data['g'])
 x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 
@@ -268,7 +267,7 @@ A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
-Minv = modeleval.get_preconditioner_inverse(psi0)
+Minv = modeleval.get_preconditioner_inverse(psi0, field_data['mu'], field_data['g'])
 x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 import pynosh.numerical_methods as nm
@@ -291,8 +290,8 @@ A = modeleval.get_jacobian(psi0)
 #modeleval._preconditioner_type = 'exact'
 modeleval._preconditioner_type = 'cycles'
 modeleval._num_amg_cycles = 1
-M = modeleval.get_preconditioner(psi0)
-Minv = modeleval.get_preconditioner_inverse(psi0)
+M = modeleval.get_preconditioner(psi0, field_data['mu'], field_data['g'])
+Minv = modeleval.get_preconditioner_inverse(psi0, field_data['mu'], field_data['g'])
 x0 = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 b = np.random.rand(num_nodes,1) + 1j * np.random.rand(num_nodes,1)
 import pynosh.numerical_methods as nm
