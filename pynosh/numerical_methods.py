@@ -664,7 +664,7 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     B = B1[:, 0:-1]
     if scipy.sparse.issparse(Hfull):
         Hfull = Hfull.todense()
-
+        
     # Compute residual norms.
     if nW > 0:
         Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
@@ -694,8 +694,8 @@ def get_p_ritz(W, AW, Vfull, Hfull,
         norm_ritz_res = np.empty(len(ritz_values))
         D = inner_product(AW, MAW)
         for i in xrange(ritzmat.shape[0]):
-            w = U[:W.shape[1],[i]]
-            v = U[W.shape[1]:,[i]]
+            w = U[:nW,[i]]
+            v = U[nW:,[i]]
             mu = ritz_values[i]
 
             # The following computes  <z, CC*z>_2  with
@@ -761,6 +761,175 @@ def get_p_ritz(W, AW, Vfull, Hfull,
               + np.dot(Vfull[:,0:-1], U[nW:,selection])
     ritz_values = ritz_values[selection]
 
+    return ritz_values, ritz_vecs
+# ==============================================================================
+def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
+               p = None, 
+               mode = 'SM',
+               Minv=None, M=None, # Minv = M^-1
+               inner_product = _ipstd,
+               debug = False,
+               gundel = True):
+               
+    """Compute Harmonic Ritz or Gundel pairs from a (possibly deflated) Lanczos procedure.
+
+    Arguments:
+        W:  a Nxk array. W's columns must be orthonormal w.r.t. the
+            M-inner-product (inner_product(M*W, W) = I_k).
+        AW: contains the result of A applied to W (passed in order to reduce #
+            of matrix-vector multiplications with A).
+        Vfull: a Nxn array. Vfull's columns must be orthonormal w.r.t. the
+            M-inner-product. Vfull and Hfull must be created with a (possibly
+            deflated) Lanczos procedure (e.g. CG/MINRES). For example, Vfull
+            and Hfull can be obtained from MINRES applied to a linear system
+            with the operator A, the inner product inner_product, the HPD
+            preconditioner M and the right preconditioner Mr set to the
+            projection obtained with get_projection(W, AW, ...).
+        Hfull: see Vfull.
+        p:  Number returned harmonic Ritzpairs if 'None', all Ritzpairs are returned
+        mode: 'SM' -> pairs with smallest Ritzvalues are returned, 'LM' -> largest, 'SR' -> the ones
+            with best Residualnorms (M-Norm)
+        Minv:  The preconditioner used in the Lanczos procedure.
+        
+        The arguments thus have to fulfill the following equations:
+            AW = A*W.
+            Minv*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,
+                 where Mr=get_projection(W, AW,...,inner_product).
+            inner_product( M [W,Vfull], [W,Vfull] ) = I_{k+n}.
+            
+    Returns:
+        ritz_vals: an array with p or n+k Ritz values.
+        ritz_vecs: a Nxp or Nx(n+k) array where the ritz_vecs[:,i] is the
+            Ritz vector for the Ritz value ritz_vals[i]. The Ritz vectors
+            also are orthonormal w.r.t. the M-inner-product, that is
+                inner_product( M*ritz_vecs, ritz_vecs ) = I_{k+n}.
+        """
+        #norm_ritz_res: an array with p or n+k residual norms. norm_ritz_res[i] is
+        #    the M-norm of the residual
+        #        Minv*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].
+        #    ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
+        #    residual norms are ascending.
+    
+            
+    nW = W.shape[1] #k
+    nVfull = Vfull.shape[1] #n+1
+    n_plus_k = nW+nVfull-1
+    if p is None:
+        p = nW + nVfull
+    E = inner_product(W, AW)        # ~
+    B1 = inner_product(Vfull,AW)   # can (and should) be obtained from projection
+    
+    B = B1[0:-1,:]
+    if scipy.sparse.issparse(Hfull):
+        Hfull = Hfull.todense()
+
+   
+    if nW > 0:
+        Einv = np.linalg.inv(E) 
+        MinvAW = _apply(Minv, AW)
+    else:
+        Einv = np.zeros((0, 0))
+        MinvAW = np.zeros((W.shape[0], 0))
+        
+    
+    # Build necessary matrices
+    ritzmatA = np.r_[ np.c_[Hfull[0:-1,:] + np.dot(B, np.dot(Einv, B.T.conj())), B],
+                      np.c_[B.T.conj(),                        E]
+                     ]
+                     
+    L = np.r_[np.c_[Hfull,                   np.zeros((nVfull,nW))],
+              np.c_[np.dot(Einv,B.T.conj()), np.eye(nW)]
+              ]
+              
+    F = inner_product(AW, MinvAW)
+    
+    ritzmatB = np.r_[ np.c_[np.eye(nVfull), B1],
+                      np.c_[B1.T.conj(),            F]
+                      ]
+                      
+    ritzmatB2 = np.dot(np.dot(L.T.conj(),ritzmatB),L)
+    # Compute ritzvalues and 'short'ritz_vecs; norm_ritz_res if SR-mode.
+    # should be an hermitian problem (one could use 'eigh') but that gets lost sometimes
+    from scipy.linalg import eig
+    rec_ritz_values, U = eig(ritzmatA,ritzmatB2)
+    
+    #print 'A hermitisch?: %g' % np.linalg.norm(ritzmatA-ritzmatA.T.conj())
+    #print 'B hermitisch?: %g' % np.linalg.norm(ritzmatB2-ritzmatB2.T.conj())
+    
+    ritz_values = np.reciprocal(rec_ritz_values)
+    #print 'I-ip(U,U) = %g' % np.linalg.norm(np.eye(n_plus_k) - np.dot( U.T.conj(), np.dot(ritzmatB2,U)))
+    # Sort Ritz values/vectors and residuals s.t. residual is ascending.
+    if mode == 'SM':
+        sorti = np.argsort(abs(ritz_values))
+    elif mode == 'LM':
+        sorti = np.argsort(abs(ritz_values))[::-1]
+    elif mode == 'SR':
+        # Calculate the Ritz-residuals in a smart way.
+        ritz_vecs = norm_ritz_res = np.empty(len(ritz_values))
+        for i in xrange(ritzmatA.shape[0]):              
+            v = U[:nVfull-1,[i]]
+            w1 = U[nVfull-1:,[i]]
+            mu = ritz_values[i]
+            
+            # TODO noch der anderen Reihenfolge von von W und Vful anpassen
+            z0 = -mu * w
+            z1 = w + np.dot(Einv, np.dot(B, v))
+            z2 = np.dot(Hfull, v) - np.r_[mu*v, np.zeros((1,1))]
+            res_ip = _ipstd(z0, z0) + 2 * _ipstd(z0, np.dot(E, z1)).real + _ipstd(z1, np.dot(D, z1)) \
+                   + 2 * _ipstd(z1, np.dot(B1, z2)).real + _ipstd(z2, z2)
+            res_ip = res_ip[0,0]
+
+            if res_ip.imag > 1e-13:
+                warnings.warn('res_ip.imag = %g > 1e-13. Preconditioner not symmetric?' % res_ip.imag)
+            if res_ip.real < -1e-10:
+                warnings.warn('res_ip.real = %g > 1e-10. Make sure that the basis is linearly independent and the preconditioner is solved \'exactly enough\'.' % res_ip.real)
+            norm_ritz_res[i] = np.sqrt(abs(res_ip))
+
+            # Explicit computation of residual (this part only works for M=I)
+            S = np.c_[Vfull[:,0:-1],W]
+            ritz_vecs[i] = w = np.dot(S, np.r_[w1,v])
+            MinvAw = _apply(Minv,_apply(A, w))
+            res_explicit = MinvAw - ritz_values[i]*w
+            res_exp_norm = inner_product(_apply(M, res_explicit), res_explicit)[0,0]
+            #assert( zz.imag<1e-13 )
+            #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
+            #print 'Explicit residual: %g' % np.sqrt(abs(zz))
+            if debug and norm_ritz_res[i] < 1e-8:
+                print 'Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i])
+            #selection = sorti[:p]
+            #return ritz_values[selection], ritz_vecs[selection]
+    # TODO
+    
+    else:
+        raise ValueError('Unknown mode \'%s\'.' % mode)
+       
+    #S = np.c_[Vfull[:,0:-1],W]
+    #AS=_apply(A,S)
+    #MinvAS=_apply(Minv,AS)
+    #for i in xrange(ritzmatA.shape[0]):              
+     #   v = U[:nVfull-1,[i]]
+     #   w1 = U[nVfull-1:,[i]]    
+     #
+     #   w = np.dot(S, np.r_[v,w1])
+     #   MinvAw = _apply(Minv,_apply(A, w))
+     #   res_explicit = MinvAw - ritz_values[i]*w
+     #   res_exp_norm = inner_product(_apply(M, res_explicit), res_explicit)[0,0]
+     #   orthotest = inner_product(res_explicit,AS)
+     #   from numpy import linalg
+        #print 'realy ritz?: %g' % np.linalg.norm(orthotest)
+        #print 'norm: %g'% np.sqrt(res_exp_norm)
+        
+    selection = sorti[:p]
+    
+    #gundel vectors:
+    if gundel:
+        ritz_vecs = np.dot(Vfull[:,0:-1],U[0:nVfull-1,selection]) \
+                  + np.dot(W,U[nVfull-1:,selection])
+    else:
+         ritz_vecs = np.dot(_apply(Minv,_apply(A,S)), U[:,selection])
+    #print np.linalg.norm(ritz_vecs - np.dot(S, U[:,selection]))
+    #print np.linalg.norm(ritzmatB2 - inner_product  (MinvAS,AS))
+    ritz_values = ritz_values[selection]
     return ritz_values, ritz_vecs
 # ==============================================================================
 def gmres( A, b, x0,
@@ -845,12 +1014,10 @@ def gmres( A, b, x0,
         MMlr0 = MMlb.copy()
         norm_MMlr0 = norm_MMlb
 
-    out['relresvec'] = np.empty(maxiter+1)
-
     V[:, [0]] = MMlr0 / norm_MMlr0
     if M is not None:
         P[:, [0]] = Mlr0 / norm_MMlr0
-    out['relresvec'][0] = norm_MMlr0 / norm_MMlb
+    out['relresvec'] = [norm_MMlr0 / norm_MMlb]
     # Right hand side of projected system:
     y = np.zeros( (maxiter+1,1), dtype=xtype )
     y[0] = norm_MMlr0
@@ -864,7 +1031,7 @@ def gmres( A, b, x0,
                                    )
 
     k = 0
-    while out['relresvec'][k] > tol and k < maxiter:
+    while out['relresvec'][-1] > tol and k < maxiter:
         # Apply operator Ml*A*Mr
         z = _apply(Ml, _apply(A, _apply(Mr, V[:, [k]])))
 
@@ -897,33 +1064,32 @@ def gmres( A, b, x0,
         if explicit_residual:
             xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
             Mrk, norm_Mrk = _compute_explicit_residual( xk )
-            out['relresvec'][k+1] = norm_Mrk / norm_MMlb
+            out['relresvec'].append( norm_Mrk / norm_MMlb )
         else:
-            out['relresvec'][k+1] = abs(y[k+1]) / norm_MMlb
+            out['relresvec'].append( abs(y[k+1,0]) / norm_MMlb )
 
         # convergence of updated residual or maxiter reached?
-        if out['relresvec'][k+1] < tol or k+1 == maxiter:
-            norm_ur = out['relresvec'][k+1]
+        if out['relresvec'][-1] < tol or k+1 == maxiter:
+            norm_ur = out['relresvec'][-1]
 
             if not explicit_residual:
                 xk = _compute_explicit_xk(H[:k+1, :k+1], V[:, :k+1], y[:k+1])
                 Mrk, norm_Mrk = _compute_explicit_residual( xk )
-                out['relresvec'][k+1] = norm_Mrk / norm_MMlb
+                out['relresvec'][-1] = norm_Mrk / norm_MMlb
 
             # No convergence of expl. residual?
-            if out['relresvec'][k+1] >= tol:
+            if out['relresvec'][-1] >= tol:
                 # Was this the last iteration?
                 if k+1 == maxiter:
                     warnings.warn('Iter %d: No convergence! expl. res = %e >= tol =%e in last it. (upd. res = %e)' \
-                        % (k+1, out['relresvec'][k+1], tol, norm_ur))
+                        % (k+1, out['relresvec'][-1], tol, norm_ur))
                     out['info'] = 1
                 else:
                     warnigs.warn('Iter %d: Expl. res = %e >= tol = %e > upd. res = %e.' \
-                        % (k+1, out['relresvec'][k+1], tol, norm_ur))
+                        % (k+1, out['relresvec'][-1], tol, norm_ur))
 
         k += 1
 
-    out['relresvec'] = out['relresvec'][:k+1]
     out['xk'] = _compute_explicit_xk(H[:k,:k], V[:,:k], y[:k])
     if return_basis:
         out['Vfull'] = V[:, :k+1]
@@ -1199,8 +1365,8 @@ def newton( x0,
                 #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
 
             if num_deflation_vectors > 0:
-                ritz_vals, W = get_p_ritz(W, AW, out['Vfull'], out['Hfull'],
-                                          M = Minv, Minv=M,
+                ritz_vals, W = get_p_harmonic_ritz(jacobian, W, AW, out['Vfull'], out['Hfull'],
+                                          Minv = Minv, M = M,
                                           p = num_deflation_vectors,
                                           mode = 'SM',
                                           inner_product = model_evaluator.inner_product)
