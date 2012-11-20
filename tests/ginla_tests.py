@@ -1,5 +1,5 @@
 import voropy
-import pynosh.nls_modelevaluator as gp
+import pynosh.modelevaluator_nls as nls
 import numpy as np
 import unittest
 from scipy.sparse import spdiags
@@ -14,11 +14,11 @@ class TestF(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        modeleval = gp.NlsModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
+        modeleval = nls.NlsModelEvaluator(mesh, V=point_data['V'], A=point_data['A'])
 
         # compute the ginzburg-landau residual
         psi = point_data['psi'][:,0] + 1j * point_data['psi'][:,1]
-        r = modeleval.compute_f(psi)
+        r = modeleval.compute_f(psi, mu, 1.0)
 
         # scale with D for compliance with the Ginla (C++) tests
         if mesh.control_volumes is None:
@@ -98,22 +98,22 @@ class TestKeo(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        modeleval = gp.NlsModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
+        modeleval = nls.NlsModelEvaluator(mesh, V=point_data['V'], A=point_data['A'])
 
         # Assemble the KEO.
-        modeleval._assemble_keo()
+        keo = modeleval._get_keo(mu)
 
         tol = 1.0e-13
 
         # Check that the matrix is Hermitian.
-        KK = modeleval._keo  - modeleval._keo.H
+        KK = keo - keo.H
         self.assertAlmostEqual( 0.0,
                                 KK.sum(),
                                 delta=tol )
 
         # Check the matrix sum.
         self.assertAlmostEqual( control_values['sum real'],
-                                modeleval._keo.sum(),
+                                keo.sum(),
                                 delta=tol )
 
         # Check the 1-norm of the matrix |Re(K)| + |Im(K)|.
@@ -121,7 +121,7 @@ class TestKeo(unittest.TestCase):
         # structure
         #   Re(K) -Im(K)
         #   Im(K)  Re(K).
-        K = abs(modeleval._keo.real) + abs(modeleval._keo.imag)
+        K = abs(keo.real) + abs(keo.imag)
         self.assertAlmostEqual( control_values['norm 1'],
                                 np.max(K.sum(0)),
                                 delta=tol )
@@ -173,10 +173,10 @@ class TestJacobian(unittest.TestCase):
         psi = psi.reshape(num_unknowns,1)
 
         # build the model evaluator
-        modeleval = gp.NlsModelEvaluator(mesh, g=1.0, V=point_data['V'], A=point_data['A'], mu=mu)
+        modeleval = nls.NlsModelEvaluator(mesh, V=point_data['V'], A=point_data['A'])
 
         # Get the Jacobian
-        J = modeleval.get_jacobian(psi)
+        J = modeleval.get_jacobian(psi, mu, 1.0)
 
         tol = 1.0e-13
 
@@ -256,9 +256,7 @@ class TestInnerProduct(unittest.TestCase):
         mesh, point_data, field_data = voropy.read( filename )
 
         # build the model evaluator
-        mu = 0.0
-        modeleval = gp.NlsModelEvaluator(mesh, point_data['A'], mu)
-
+        modeleval = nls.NlsModelEvaluator(mesh, V=point_data['V'], A=point_data['A'])
         tol = 1.0e-13
 
         # For C++ Ginla compatibility:
