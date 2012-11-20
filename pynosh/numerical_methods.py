@@ -384,7 +384,7 @@ def minres(A, b, x0,
         if timer:
             start = time.time()
         # double reortho
-        for l in xrange(0,2):
+        for l in range(0,2):
             # full reortho?
             # cost: (k+1)*(IP + AXPY)
             if full_reortho:
@@ -392,7 +392,7 @@ def minres(A, b, x0,
                 # vectors (thus k+1).
                 # http://memegenerator.net/instance/13779948
                 #
-                for i in xrange(0,k+1):
+                for i in range(0,k+1):
                     ip = inner_product(Vfull[:,[i]], z)[0,0]
                     if abs(ip) > 1.0e-9:
                         warnings.warn('Iter %d: abs(ip) = %g > 1.0e-9: The Krylov basis has become linearly dependent. Maxiter (%d) too large and tolerance too severe (%g)? dim = %d.' % (k+1, abs(ip), maxiter, tol, len(x0)))
@@ -400,7 +400,7 @@ def minres(A, b, x0,
             ## ortho against additional (deflation) vectors?
             ## cost: ndeflW*(IP + AXPY)
             #if deflW is not None:
-            #    for i in xrange(0,deflW.shape[1]):
+            #    for i in range(0,deflW.shape[1]):
             #        ip = inner_product(deflW[:,[i]], z)[0,0]
             #        if abs(ip) > 1.0e-9:
             #            print 'Warning (iter %d): abs(ip) = %g > 1.0e-9: The Krylov basis has lost orthogonality to deflated space (deflW).' % (k+1, abs(ip))
@@ -418,7 +418,7 @@ def minres(A, b, x0,
         v  = _apply(M, z)
         alpha = inner_product(z, v)[0,0]
         if abs(alpha.imag)>1e-12:
-            warnigs.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
+            warnings.warn('Iter %d: abs(alpha.imag) = %g > 1e-12' % (k+1, abs(alpha.imag)))
         alpha = alpha.real
         if alpha<0.0:
             warnings.warn('Iter %d: alpha = %g < 0' % (k+1, alpha))
@@ -664,7 +664,7 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     B = B1[:, 0:-1]
     if scipy.sparse.issparse(Hfull):
         Hfull = Hfull.todense()
-        
+
     # Compute residual norms.
     if nW > 0:
         Einv = np.linalg.inv(E) # can (and should) be obtained from earlier computation
@@ -693,7 +693,7 @@ def get_p_ritz(W, AW, Vfull, Hfull,
         # Calculate the Ritz-residuals in a smart way.
         norm_ritz_res = np.empty(len(ritz_values))
         D = inner_product(AW, MAW)
-        for i in xrange(ritzmat.shape[0]):
+        for i in range(ritzmat.shape[0]):
             w = U[:nW,[i]]
             v = U[nW:,[i]]
             mu = ritz_values[i]
@@ -739,7 +739,7 @@ def get_p_ritz(W, AW, Vfull, Hfull,
             #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
             #print 'Explicit residual: %g' % np.sqrt(abs(zz))
             if debug and norm_ritz_res[i] < 1e-8:
-                print 'Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i])
+                print('Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i]))
         # Get them sorted.
         sorti = np.argsort(norm_ritz_res)
         #yaml_emitter.add_key('min(||ritz res||)')
@@ -764,13 +764,13 @@ def get_p_ritz(W, AW, Vfull, Hfull,
     return ritz_values, ritz_vecs
 # ==============================================================================
 def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
-               p = None, 
+               p = None,
                mode = 'SM',
                Minv=None, M=None, # Minv = M^-1
                inner_product = _ipstd,
                debug = False,
                gundel = True):
-               
+
     """Compute Harmonic Ritz or Gundel pairs from a (possibly deflated) Lanczos procedure.
 
     Arguments:
@@ -790,13 +790,13 @@ def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
         mode: 'SM' -> pairs with smallest Ritzvalues are returned, 'LM' -> largest, 'SR' -> the ones
             with best Residualnorms (M-Norm)
         Minv:  The preconditioner used in the Lanczos procedure.
-        
+
         The arguments thus have to fulfill the following equations:
             AW = A*W.
             Minv*A*Mr*Vfull[:,0:-1] = Vfull*Hfull,
                  where Mr=get_projection(W, AW,...,inner_product).
             inner_product( M [W,Vfull], [W,Vfull] ) = I_{k+n}.
-            
+
     Returns:
         ritz_vals: an array with p or n+k Ritz values.
         ritz_vecs: a Nxp or Nx(n+k) array where the ritz_vecs[:,i] is the
@@ -809,8 +809,8 @@ def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
         #        Minv*A*ritz_vecs[:,i] - ritz_vals[i]*ritz_vecs[:,i].
         #    ritz_vals, ritz_vecs and norm_ritz_res are sorted s.t. the
         #    residual norms are ascending.
-    
-            
+
+
     nW = W.shape[1] #k
     nVfull = Vfull.shape[1] #n+1
     n_plus_k = nW+nVfull-1
@@ -818,44 +818,44 @@ def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
         p = nW + nVfull
     E = inner_product(W, AW)        # ~
     B1 = inner_product(Vfull,AW)   # can (and should) be obtained from projection
-    
+
     B = B1[0:-1,:]
     if scipy.sparse.issparse(Hfull):
         Hfull = Hfull.todense()
 
-   
+
     if nW > 0:
-        Einv = np.linalg.inv(E) 
+        Einv = np.linalg.inv(E)
         MinvAW = _apply(Minv, AW)
     else:
         Einv = np.zeros((0, 0))
         MinvAW = np.zeros((W.shape[0], 0))
-        
-    
+
+
     # Build necessary matrices
     ritzmatA = np.r_[ np.c_[Hfull[0:-1,:] + np.dot(B, np.dot(Einv, B.T.conj())), B],
                       np.c_[B.T.conj(),                        E]
                      ]
-                     
+
     L = np.r_[np.c_[Hfull,                   np.zeros((nVfull,nW))],
               np.c_[np.dot(Einv,B.T.conj()), np.eye(nW)]
               ]
-              
+
     F = inner_product(AW, MinvAW)
-    
+
     ritzmatB = np.r_[ np.c_[np.eye(nVfull), B1],
                       np.c_[B1.T.conj(),            F]
                       ]
-                      
+
     ritzmatB2 = np.dot(np.dot(L.T.conj(),ritzmatB),L)
     # Compute ritzvalues and 'short'ritz_vecs; norm_ritz_res if SR-mode.
     # should be an hermitian problem (one could use 'eigh') but that gets lost sometimes
     from scipy.linalg import eig
     rec_ritz_values, U = eig(ritzmatA,ritzmatB2)
-    
+
     #print 'A hermitisch?: %g' % np.linalg.norm(ritzmatA-ritzmatA.T.conj())
     #print 'B hermitisch?: %g' % np.linalg.norm(ritzmatB2-ritzmatB2.T.conj())
-    
+
     ritz_values = np.reciprocal(rec_ritz_values)
     #print 'I-ip(U,U) = %g' % np.linalg.norm(np.eye(n_plus_k) - np.dot( U.T.conj(), np.dot(ritzmatB2,U)))
     # Sort Ritz values/vectors and residuals s.t. residual is ascending.
@@ -866,11 +866,11 @@ def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
     elif mode == 'SR':
         # Calculate the Ritz-residuals in a smart way.
         ritz_vecs = norm_ritz_res = np.empty(len(ritz_values))
-        for i in xrange(ritzmatA.shape[0]):              
+        for i in range(ritzmatA.shape[0]):
             v = U[:nVfull-1,[i]]
             w1 = U[nVfull-1:,[i]]
             mu = ritz_values[i]
-            
+
             # TODO noch der anderen Reihenfolge von von W und Vful anpassen
             z0 = -mu * w
             z1 = w + np.dot(Einv, np.dot(B, v))
@@ -895,20 +895,20 @@ def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
             #print abs(norm_ritz_res[i] - np.sqrt(abs(zz)))
             #print 'Explicit residual: %g' % np.sqrt(abs(zz))
             if debug and norm_ritz_res[i] < 1e-8:
-                print 'Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i])
+                print('Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i]))
             #selection = sorti[:p]
             #return ritz_values[selection], ritz_vecs[selection]
     # TODO
-    
+
     else:
         raise ValueError('Unknown mode \'%s\'.' % mode)
-       
+
     #S = np.c_[Vfull[:,0:-1],W]
     #AS=_apply(A,S)
     #MinvAS=_apply(Minv,AS)
-    #for i in xrange(ritzmatA.shape[0]):              
+    #for i in range(ritzmatA.shape[0]):
      #   v = U[:nVfull-1,[i]]
-     #   w1 = U[nVfull-1:,[i]]    
+     #   w1 = U[nVfull-1:,[i]]
      #
      #   w = np.dot(S, np.r_[v,w1])
      #   MinvAw = _apply(Minv,_apply(A, w))
@@ -918,9 +918,9 @@ def get_p_harmonic_ritz(A, W, AW, Vfull, Hfull,
      #   from numpy import linalg
         #print 'realy ritz?: %g' % np.linalg.norm(orthotest)
         #print 'norm: %g'% np.sqrt(res_exp_norm)
-        
+
     selection = sorti[:p]
-    
+
     #gundel vectors:
     if gundel:
         ritz_vecs = np.dot(Vfull[:,0:-1],U[0:nVfull-1,selection]) \
@@ -1036,7 +1036,7 @@ def gmres( A, b, x0,
         z = _apply(Ml, _apply(A, _apply(Mr, V[:, [k]])))
 
         # orthogonalize (MGS)
-        for i in xrange(k+1):
+        for i in range(k+1):
             if M is not None:
                 H[i, k] += inner_product(V[:, [i]], z)[0,0]
                 z -= H[i, k] * P[:, [i]]
@@ -1052,7 +1052,7 @@ def gmres( A, b, x0,
             Horig[0:k+2, [k]] = H[0:k+2, [k]]
 
         # Apply previous Givens rotations.
-        for i in xrange(k):
+        for i in range(k):
             H[i:i+2, k] = _apply(G[i], H[i:i+2, k])
 
         # Compute and apply new Givens rotation.
@@ -1132,7 +1132,7 @@ def orth_vec(v, W, inner_product=_ipstd):
     '''Orthogonalize v w.r.t. the orthonormal set W.'''
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def _mod_gram_schmidt(v, W):
-        for k in xrange(W.shape[1]):
+        for k in range(W.shape[1]):
             v -= inner_product(W[:,[k]],v) * W[:,[k]]
         return v
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1160,16 +1160,16 @@ def qr(W, inner_product=_ipstd):
     Q = np.zeros( (m,n), dtype=W.dtype)
     R = np.zeros( (n,n), dtype=W.dtype)
 
-    for i in xrange(0,n):
+    for i in range(0,n):
         Q[:,[i]] = W[:,[i]]
-        for j in xrange(0,i):
+        for j in range(0,i):
             R[j,i] = inner_product(Q[:,[j]], Q[:,[i]])[0,0]
             Q[:,[i]] -= R[j,i] * Q[:,[j]]
         R[i,i] = inner_product(Q[:,[i]],Q[:,[i]])[0,0]
         if R[i,i].imag > 1e-10:
-            print 'R[i,i].imag = %g > 1e-10' % R[i,i].imag
+            print('R[i,i].imag = %g > 1e-10' % R[i,i].imag)
         if R[i,i].real < -1e-14:
-            print 'R[i,i].real = %g < -1e-14' % R[i,i].real
+            print('R[i,i].real = %g < -1e-14' % R[i,i].real)
         if abs(R[i,i]) < 1.0e-14:
             raise ZeroDivisionError('Input vectors linearly dependent?')
         R[i,i] = np.sqrt(abs(R[i,i]))
@@ -1431,7 +1431,7 @@ def jacobi_davidson(A,
 
     resvec = []
     info = 1
-    for m in xrange(maxiter):
+    for m in range(maxiter):
         # orthgonalize t w.r.t. to the basis V
         t = orth_vec(t, V[:,0:m], inner_product=inner_product)
 
@@ -1444,7 +1444,7 @@ def jacobi_davidson(A,
 
         # B = <V,AV>.
         # Only fill the lower triangle of B.
-        for i in xrange(m+1):
+        for i in range(m+1):
             alpha = inner_product(V[:, [i]], AV[:,[m]])[0,0]
             assert alpha.imag < 1.0e-10, 'A not self-adjoint?'
             B[m, i] = alpha.real
@@ -1533,8 +1533,8 @@ def poor_mans_continuation( x0,
 
     current_step_size = initial_step_size
 
-    for k in xrange( max_steps ):
-        print "Continuation step %d (parameter=%e)..." % ( k, parameter_value )
+    for k in range( max_steps ):
+        print('Continuation step %d (parameter=%e)...' % ( k, parameter_value ))
 
         # Try to converge to a solution and adapt the step size.
         converged = False
@@ -1546,18 +1546,18 @@ def poor_mans_continuation( x0,
                                              )
             if error_code != 0:
                 current_step_size *= 0.5
-                print "Continuation step failed (error code %d). Setting step size to %e." \
-                      % ( error_code, current_step_size )
+                print('Continuation step failed (error code %d). Setting step size to %e.'
+                      % ( error_code, current_step_size ))
             else:
                 current_step_size *= 1.0 + adaptivity_aggressiveness * \
                                            (float(max_newton_iters-iters)/max_newton_iters)**2
                 converged = True
                 x = x_new
-                print "Continuation step success!"
+                print('Continuation step success!')
                 break
 
         if not converged:
-            print "Could not find a solution although the step size was %e. Abort." % current_step_size
+            print('Could not find a solution although the step size was %e. Abort.' % current_step_size)
             break
 
 
@@ -1572,6 +1572,6 @@ def poor_mans_continuation( x0,
 
     stats_file.close()
 
-    print "done."
+    print('done.')
     return
 # ==============================================================================

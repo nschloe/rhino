@@ -49,7 +49,7 @@ class TestLinearSolvers(unittest.TestCase):
         self.assertEqual(num_unknowns % 2, 0)
 
         # Create block diagonal matrix [A,0; 0,-A] with a HPD block A
-        A = self._create_sparse_hpd_matrix( num_unknowns/2 )
+        A = self._create_sparse_hpd_matrix(int(num_unknowns/2))
         return scipy.sparse.bmat([[A,None],[None,-A]]).tocsr()
     def _create_sparse_nonherm_matrix(self, num_unknowns, b, c):
         h = 1.0/(num_unknowns+1)
@@ -300,7 +300,7 @@ class TestLinearSolvers(unittest.TestCase):
 
         # Check A*(P*I) against exact A*P
         AP = A*(P*np.eye(N))
-        AP_exact = scipy.sparse.spdiags( range(1,N-1)+[0,0], [0], N, N)
+        AP_exact = scipy.sparse.spdiags(list(range(1,N-1))+[0,0], [0], N, N)
         self.assertAlmostEqual( np.linalg.norm(AP-AP_exact), 0.0, delta=1e-14 )
 
         # Check x0new
