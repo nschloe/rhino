@@ -742,10 +742,8 @@ def get_p_ritz(W, AW, Vfull, Hfull,
                 print('Info: ritz value %g converged with residual %g.' % (ritz_values[i], norm_ritz_res[i]))
         # Get them sorted.
         sorti = np.argsort(norm_ritz_res)
-        #yaml_emitter.add_key('min(||ritz res||)')
-        #yaml_emitter.add_value( min(norm_ritz_res) )
-        #yaml_emitter.add_key('max(||ritz res||)')
-        #yaml_emitter.add_value( max(norm_ritz_res) )
+        #yaml_emitter.add_key_value('min(||ritz res||)', min(norm_ritz_res) )
+        #yaml_emitter.add_key_value('max(||ritz res||)', max(norm_ritz_res) )
     else:
         raise ValueError('Unknown mode \'%s\'.' % mode)
 
@@ -1222,8 +1220,7 @@ def newton( x0,
         if debug:
             yaml_emitter.add_comment('Newton step %d' % (k+1))
             yaml_emitter.begin_map()
-            yaml_emitter.add_key('Fx_norm')
-            yaml_emitter.add_value(Fx_norms[-1])
+            yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
         # Linear tolerance is given by
         #
         # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
@@ -1298,10 +1295,10 @@ def newton( x0,
                                       inner_product = model_evaluator.inner_product
                                       )
             if debug:
-                yaml_emitter.add_key('dim of deflation space')
-                yaml_emitter.add_value( W.shape[1] )
-                yaml_emitter.add_key('||I-ip(W,W)||')
-                yaml_emitter.add_value(np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)))
+                yaml_emitter.add_key_value('dim of deflation space', W.shape[1])
+                yaml_emitter.add_key_value('||I-ip(W,W)||',
+                                           np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+                                           )
                 ix_normalized = 1j*x / np.sqrt(Minner_product(1j*x, 1j*x))
                 ixW = Minner_product(W, ix_normalized)
                 from scipy.linalg import svd
@@ -1338,14 +1335,10 @@ def newton( x0,
                             )
 
         if debug:
-            yaml_emitter.add_key('relresvec')
-            yaml_emitter.add_value(out['relresvec'])
-            #yaml_emitter.add_key('relresvec[-1]')
-            #yaml_emitter.add_value(out['relresvec'][-1])
-            yaml_emitter.add_key('num_iter')
-            yaml_emitter.add_value(len(out['relresvec'])-1)
-            yaml_emitter.add_key('eta')
-            yaml_emitter.add_value(eta)
+            yaml_emitter.add_key_value('relresvec', out['relresvec'])
+            #yaml_emitter.add_key_value('relresvec[-1]', out['relresvec'][-1])
+            yaml_emitter.add_key_value('num_iter', len(out['relresvec'])-1)
+            yaml_emitter.add_key_value('eta', eta)
             #print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
 
         # make sure the solution is alright
@@ -1356,10 +1349,13 @@ def newton( x0,
         if ('Vfull' in out) and ('Hfull' in out):
             if debug:
                 MVfull = out['Pfull'] if ('Pfull' in out) else out['Vfull']
-                yaml_emitter.add_key('||ip(Vfull,W)||')
-                yaml_emitter.add_value( np.linalg.norm(model_evaluator.inner_product(MVfull, W)) )
-                yaml_emitter.add_key('||I-ip(Vfull,Vfull)||')
-                yaml_emitter.add_value( np.linalg.norm(np.eye(out['Vfull'].shape[1]) - model_evaluator.inner_product(MVfull, out['Vfull'])) )
+                yaml_emitter.add_key_value('||ip(Vfull,W)||',
+                                           np.linalg.norm(model_evaluator.inner_product(MVfull, W))
+                                           )
+                yaml_emitter.add_key_value('||I-ip(Vfull,Vfull)||',
+                                           np.linalg.norm(np.eye(out['Vfull'].shape[1])
+                                           - model_evaluator.inner_product(MVfull, out['Vfull']))
+                                          )
                 # next one is time-consuming, uncomment if needed
                 #print '||Minv*A*P*V - V_*H|| = %g' % \
                 #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
@@ -1371,8 +1367,9 @@ def newton( x0,
                                           mode = 'SM',
                                           inner_product = model_evaluator.inner_product)
                 if debug:
-                    yaml_emitter.add_key('||I-ip(Wnew,Wnew)||')
-                    yaml_emitter.add_value( np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W)) )
+                    yaml_emitter.add_key_value('||I-ip(Wnew,Wnew)||',
+                                               np.linalg.norm(np.eye(W.shape[1])-Minner_product(W,W))
+                                               )
             else:
                 W = np.zeros( (len(x),0) )
         else:
@@ -1397,8 +1394,7 @@ def newton( x0,
 
     if debug:
         yaml_emitter.begin_map()
-        yaml_emitter.add_key('Fx_norm')
-        yaml_emitter.add_value(Fx_norms[-1])
+        yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
         yaml_emitter.end_map()
         yaml_emitter.end_seq()
         if Fx_norms[-1] > nonlinear_tol:

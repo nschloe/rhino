@@ -175,8 +175,8 @@ class NlsModelEvaluator:
                         #explicit_residual = False
                         )
             if out['info'] != 0:
-                print 'Preconditioner did not converge; last residual: %g' \
-                      % out['relresvec'][-1]
+                print('Preconditioner did not converge; last residual: %g'
+                     % out['relresvec'][-1])
             # Forget about the cycle used to gauge the residual norm.
             self.tot_amg_cycles += [len(out['relresvec']) - 1]
             return out['xk']

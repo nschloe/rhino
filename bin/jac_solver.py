@@ -32,7 +32,7 @@ def _main():
     mesh, point_data, field_data = voropy.read(args.file_mvp)
 
     # build the model evaluator
-    print 'Creating model evaluator...',
+    print('Creating model evaluator...',)
     start = time.time()
     num_coords = len( mesh.node_coords )
     nls_modeleval = pynosh.modelevaluator_nls.NlsModelEvaluator(mesh,
@@ -45,7 +45,7 @@ def _main():
     else:
         modeleval = nls_modeleval
     end = time.time()
-    print "done. (%gs)" % (end - start)
+    print('done. (%gs)' % (end - start))
 
     # Run through all time steps.
     assert len(args.timesteps) == len(args.mu), \
@@ -53,9 +53,9 @@ def _main():
            % (len(args.timesteps), len(args.mu))
     for (timestep, mu) in zip(args.timesteps, args.mu):
         relresvec = _solve_system(modeleval, args.filename, timestep, mu, args)
-        print 'relresvec:'
-        print relresvec
-        print 'num iters:', len(relresvec)-1
+        print('relresvec:')
+        print(relresvec)
+        print('num iters:', len(relresvec)-1)
         if args.show_relres:
             pp.semilogy(relresvec, 'k')
             pp.show()
@@ -64,18 +64,18 @@ def _main():
 # ==============================================================================
 def _solve_system(modeleval, filename, timestep, mu, args):
     # read the mesh
-    print "Reading current psi...",
+    print('Reading current psi...',)
     start = time.time()
     mesh, point_data, field_data = voropy.read(filename,
                                                timestep=timestep
                                                )
     total = time.time() - start
-    print "done (%gs)." % total
+    print('done (%gs).' % total)
 
     num_coords = len( mesh.node_coords )
     # --------------------------------------------------------------------------
     # set psi at which to create the Jacobian
-    print 'Creating initial guess and right-hand side...',
+    print('Creating initial guess and right-hand side...',)
     start = time.time()
     current_psi = (point_data['psi'][:,0] + 1j * point_data['psi'][:,1]).reshape(-1,1)
 
@@ -104,26 +104,26 @@ def _solve_system(modeleval, filename, timestep, mu, args):
         #rhs[ k ] = cmath.rect(radius[k], arg[k])
     rhs = modeleval.compute_f(x=x, mu=mu, g=1.0)
     end = time.time()
-    print "done. (%gs)" % (end - start)
-    print '||rhs|| = %g' % np.sqrt(modeleval.inner_product(rhs, rhs))
+    print('done. (%gs)' % (end - start))
+    print('||rhs|| = %g' % np.sqrt(modeleval.inner_product(rhs, rhs)))
     # --------------------------------------------------------------------------
     # create the linear operator
-    print 'Getting Jacobian...',
+    print('Getting Jacobian...',)
     start_time = time.clock()
     jacobian = modeleval.get_jacobian(x=x, mu=mu, g=1.0)
     end_time = time.clock()
-    print 'done. (%gs)' % (end_time - start_time)
+    print('done. (%gs)' % (end_time - start_time))
 
     # create precondictioner object
-    print 'Getting preconditioner...',
+    print('Getting preconditioner...',)
     start_time = time.clock()
     prec = modeleval.get_preconditioner_inverse(x=x, mu=mu, g=1.0)
     end_time = time.clock()
-    print 'done. (%gs)' % (end_time - start_time)
+    print('done. (%gs)' % (end_time - start_time))
 
     # --------------------------------------------------------------------------
     # Get reference solution
-    #print "Get reference solution (dim = %d)..." % (2*num_coords),
+    #print 'Get reference solution (dim = %d)...' % (2*num_coords),
     #start_time = time.clock()
     #ref_sol, info, relresvec, errorvec = nm.minres_wrap( jacobian, rhs,
                                           #x0 = phi0,
@@ -134,10 +134,10 @@ def _solve_system(modeleval, filename, timestep, mu, args):
                                         #)
     #end_time = time.clock()
     #if info == 0:
-        #print "success!",
+        #print 'success!',
     #else:
-        #print "no convergence.",
-    #print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
+        #print 'no convergence.',
+    #print ' (', end_time - start_time, 's,', len(relresvec)-1 ,' iters).'
 
     if args.use_deflation:
         W = 1j * x
@@ -162,7 +162,7 @@ def _solve_system(modeleval, filename, timestep, mu, args):
     else:
         raise ValueError('Unknown Krylov solver ''%s''.' % args.krylov_method)
 
-    print "Solving the system (len(x) = %d, bordering: %r)..." % (len(x), args.bordering),
+    print('Solving the system (len(x) = %d, bordering: %r)...' % (len(x), args.bordering),)
     start_time = time.clock()
     timer = False
     out = lin_solve(jacobian, rhs,
@@ -178,8 +178,8 @@ def _solve_system(modeleval, filename, timestep, mu, args):
                     #exact_solution = ref_sol
                     )
     end_time = time.clock()
-    print 'done. (%gs)' % (end_time - start_time)
-    print "(%d,%d)" % (2*num_coords, len(out['relresvec'])-1)
+    print('done. (%gs)' % (end_time - start_time))
+    print('(%d,%d)' % (2*num_coords, len(out['relresvec'])-1))
 
 
     # compute actual residual
@@ -188,10 +188,10 @@ def _solve_system(modeleval, filename, timestep, mu, args):
 
     if timer:
         # pretty-print timings
-        print ' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14)
+        print(' '*22 + 'sum'.rjust(14) + 'mean'.rjust(14) + 'min'.rjust(14) + 'std dev'.rjust(14))
         for key, item in out['times'].items():
-            print '\'%s\': %12g  %12g  %12g  %12g' \
-                % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std())
+            print('\'%s\': %12g  %12g  %12g  %12g'
+                 % (key.ljust(20), item.sum(), item.mean(), item.min(), item.std()))
 
     # Get the number of MG cycles.
     # 'modeleval.num_cycles' contains the number of MG cycles executed
@@ -225,11 +225,11 @@ def _run_one_mu( modeleval,
                ):
     # --------------------------------------------------------------------------
     # build the kinetic energy operator
-    print "Building the KEO..."
+    print('Building the KEO...')
     start_time = time.clock()
     modeleval._assemble_kinetic_energy_operator()
     end_time = time.clock()
-    print "done.", end_time - start_time
+    print('done.', end_time - start_time)
     # --------------------------------------------------------------------------
     # Run the preconditioners and gather the relative residuals.
     relresvecs = _run_preconditioners( jacobian,
@@ -240,9 +240,9 @@ def _run_one_mu( modeleval,
 
     # Plot the relative residuals.
     _plot_relresvecs( test_preconditioners, relresvecs )
-    matplotlib2tikz.save( "one-mu.tikz",
-                          figurewidth = "\\figurewidth",
-                          figureheight = "\\figureheight"
+    matplotlib2tikz.save( 'one-mu.tikz',
+                          figurewidth = '\\figurewidth',
+                          figureheight = '\\figureheight'
                         )
     pp.show()
     return
@@ -269,17 +269,17 @@ def _run_along_top( modeleval,
 
     # run over the mu and solve the equation systems
     for mu in mus:
-        print
-        print " mu =", mu
+        print()
+        print(' mu =', mu)
         # ----------------------------------------------------------------------
         # build the kinetic energy operator
         modeleval.set_parameter( mu )
         precs.set_parameter( mu )
-        print "Building the KEO..."
+        print('Building the KEO...')
         start_time = time.clock()
         modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
-        print "done. (", end_time - start_time, "s)."
+        print('done. (', end_time - start_time, 's).')
         # ----------------------------------------------------------------------
         # Run the preconditioners and gather the relative residuals.
         relresvecs = _run_preconditioners( jacobian,
@@ -305,12 +305,12 @@ def _run_along_top( modeleval,
     # add title and so forth
     pp.title( 'CG convergence for $J$' )
     pp.xlabel( '$\mu$' )
-    pp.ylabel( "Number of iterations till $<10^{-10}$" )
+    pp.ylabel( 'Number of iterations till $<10^{-10}$' )
     pp.legend()
 
-    matplotlib2tikz.save( "toprun.tikz",
-                          figurewidth = "\\figurewidth",
-                          figureheight = "\\figureheight"
+    matplotlib2tikz.save( 'toprun.tikz',
+                          figurewidth = '\\figurewidth',
+                          figureheight = '\\figureheight'
                         )
     pp.show()
 
@@ -355,13 +355,13 @@ def _run_different_meshes( modeleval,
     for mesh_file in mesh_files:
         # ----------------------------------------------------------------------
         # read and set the mesh
-        print
-        print "Reading the mesh..."
+        print()
+        print('Reading the mesh...')
         try:
             mesh = vtkio.read_mesh( mesh_file )
         except AttributeError:
-            raise IOError( "Could not read from file ", mesh_file, "." )
-        print " done."
+            raise IOError( 'Could not read from file ', mesh_file, '.' )
+        print(' done.')
         modeleval.set_mesh( mesh )
         precs.set_mesh( mesh )
         # ----------------------------------------------------------------------
@@ -400,11 +400,11 @@ def _run_different_meshes( modeleval,
 
         # ----------------------------------------------------------------------
         # build the kinetic energy operator
-        print "Building the KEO..."
+        print('Building the KEO...')
         start_time = time.clock()
         modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
-        print "done. (", end_time - start_time, "s)."
+        print('done. (', end_time - start_time, 's).')
         # ----------------------------------------------------------------------
         # Run the preconditioners and gather the relative residuals.
         relresvecs = _run_preconditioners( jacobian,
@@ -422,7 +422,7 @@ def _run_different_meshes( modeleval,
                                                 )
         # ----------------------------------------------------------------------
 
-    print num_iterations
+    print(num_iterations)
 
     # plot them all
     plot_handles = []
@@ -439,11 +439,11 @@ def _run_different_meshes( modeleval,
     # add title and so forth
     pp.title( 'CG convergence for $J$' )
     pp.xlabel( 'Number of unknowns $n$' )
-    pp.ylabel( "Number of iterations till $<10^{-10}$" )
+    pp.ylabel( 'Number of iterations till $<10^{-10}$' )
 
-    matplotlib2tikz.save( "meshrun.tikz",
-                          figurewidth = "\\figurewidth",
-                          figureheight = "\\figureheight"
+    matplotlib2tikz.save( 'meshrun.tikz',
+                          figurewidth = '\\figurewidth',
+                          figureheight = '\\figureheight'
                         )
     pp.show()
 
@@ -456,7 +456,7 @@ def _run_preconditioners( linear_operator, rhs, x0, preconditioners ):
 
     relresvecs = {}
     for prec in preconditioners:
-        print "Solving the system with", prec['name'], "..."
+        print('Solving the system with', prec['name'], '...')
         start_time = time.clock()
         sol, info, relresvec = nm.minres_wrap( linear_operator, rhs,
                                            x0 = x0,
@@ -468,10 +468,10 @@ def _run_preconditioners( linear_operator, rhs, x0, preconditioners ):
         end_time = time.clock()
         relresvecs[ prec['name'] ] = relresvec
         if info == 0:
-            print "success!",
+            print('success!',)
         else:
-            print "no convergence.",
-        print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
+            print('no convergence.',)
+        print(' (', end_time - start_time, 's,', len(relresvec)-1 ,' iters).')
 
     return relresvecs
 # ==============================================================================
@@ -487,7 +487,7 @@ def _plot_relresvecs( test_preconditioners,
     # add title and so forth
     pp.title( 'CG convergence for $J$, $\mu=1.0$' )
     pp.xlabel( '$k$' )
-    pp.ylabel( "$\|r_k\|_M / \|r_0\|_M$" )
+    pp.ylabel( '$\|r_k\|_M / \|r_0\|_M$' )
     pp.legend()
 
     return
@@ -513,7 +513,7 @@ def _plot_l2_condition_numbers( model_evaluator ):
         if model_evaluator._keo is None:
             model_evaluator._assemble_kinetic_energy_operator()
 
-        print 'Smallest..'
+        print('Smallest..')
         # get smallest and largest eigenvalues
         small_eigenval = eigs( model_evaluator._keo,
                                        k = 1,
@@ -522,7 +522,7 @@ def _plot_l2_condition_numbers( model_evaluator ):
                                        return_eigenvectors = False
                                      )
         small_eigenvals[ k ] = small_eigenval[ 0 ]
-        print 'done.', small_eigenvals[ k ]
+        print('done.', small_eigenvals[ k ])
 
         #print 'Largest..'
         #large_eigenval = arpack.eigen( model_evaluator._keo,
@@ -537,8 +537,8 @@ def _plot_l2_condition_numbers( model_evaluator ):
         print
         k += 1
 
-    print small_eigenvals
-    print large_eigenvals
+    print(small_eigenvals)
+    print(large_eigenvals)
 
     pp.plot( mus, small_eigenvals, 'g^' )
     pp.title( 'Smallest magnitude eigenvalues of J' )
@@ -650,6 +650,6 @@ def _parse_input_arguments():
 
     return args
 # ==============================================================================
-if __name__ == "__main__":
+if __name__ == '__main__':
     _main()
 # ==============================================================================

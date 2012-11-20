@@ -18,11 +18,11 @@ class YamlEmitter:
         return
     # ==========================================================================
     def begin_doc(self):
-        print '---'
+        print('---')
         return
     # ==========================================================================
     def add_comment(self, comment):
-        print (self.indent * ' ') + '#', comment
+        print(self.indent*' ' + '# ' + comment)
         return
     # ==========================================================================
     def begin_seq(self):
@@ -35,7 +35,7 @@ class YamlEmitter:
         elif self.envs[-1] == 'map':
             self.indent += 4
             self.next_indent = self.indent
-            print
+            #print()
             self.key_is_next = True
         else:
             raise ValueError('Unknown environment.')
@@ -46,7 +46,7 @@ class YamlEmitter:
     def add_item(self, item):
         assert self.envs
         assert self.envs[-1] == 'seq'
-        print self.next_indent*' ' + '-', item
+        print(self.next_indent*' ' + '-' + item)
         self.next_indent = self.indent
 
         return
@@ -79,7 +79,7 @@ class YamlEmitter:
         elif self.envs[-1] == 'map':
             self.indent += 4
             self.next_indent = self.indent
-            print
+            print()
         else:
             raise ValueError('Unknown environment.')
 
@@ -91,7 +91,7 @@ class YamlEmitter:
         assert self.envs
         assert self.envs[-1] == 'map'
         assert self.key_is_next
-        print (self.next_indent * ' ') + ('%r:' % key),
+        print(self.next_indent*' ' + '%r:' % key)
         self.key_is_next = False
         return
     # ==========================================================================
@@ -99,14 +99,17 @@ class YamlEmitter:
         assert self.envs
         assert self.envs[-1] == 'map'
         assert not self.key_is_next
-        print '%r' % item
+        print('%r' % item)
         self.key_is_next = True
         self.next_indent = self.indent
         return
     # ==========================================================================
     def add_key_value(self, key, value):
-        self.add_key(key)
-        self.add_value(value)
+        assert self.envs
+        assert self.envs[-1] == 'map'
+        assert self.key_is_next
+        print(self.next_indent*' ' + '%r: %r' % (key, value))
+        self.next_indent = self.indent
         return
     # ==========================================================================
     def end_map(self):

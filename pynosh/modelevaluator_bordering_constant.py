@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import numerical_methods as nm
+import pynosh.numerical_methods as nm
 from scipy.sparse.linalg import LinearOperator
 # #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
 class ConstBorderedModelEvaluator:

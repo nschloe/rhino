@@ -18,9 +18,9 @@ def _main():
     ye.begin_doc()
 
     # read the mesh
-    print '# Reading the mesh...',
+    print('# Reading the mesh...')
     mesh, point_data, field_data = voropy.read( args.filename )
-    print 'done.'
+    print('# done.')
 
     num_nodes = len(mesh.node_coords)
 
@@ -64,27 +64,17 @@ def _main():
     import sys, os, datetime
     ye.add_comment('Newton run with newton.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
     ye.add_comment(' '.join(sys.argv))
-    ye.add_key('num_unknowns')
-    ye.add_value(len(psi0))
-    ye.add_key('filename')
-    ye.add_value(args.filename)
-    ye.add_key('mu')
-    ye.add_value(mu)
-    ye.add_key('g')
-    ye.add_value(g)
+    ye.add_key_value('num_unknowns', len(psi0))
+    ye.add_key_value('filename', args.filename)
+    ye.add_key_value('mu', mu)
+    ye.add_key_value('g', g)
 
-    ye.add_key('krylov')
-    ye.add_value(args.krylov_method)
-    ye.add_key('preconditioner type')
-    ye.add_value(args.preconditioner_type)
-    ye.add_key('ix deflation')
-    ye.add_value(args.use_deflation)
-    ye.add_key('extra deflation')
-    ye.add_value(args.num_extra_defl_vectors)
-    ye.add_key('explicit residual')
-    ye.add_value(args.resexp)
-    ye.add_key('bordering')
-    ye.add_value(args.bordering)
+    ye.add_key_value('krylov', args.krylov_method)
+    ye.add_key_value('preconditioner type', args.preconditioner_type)
+    ye.add_key_value('ix deflation', args.use_deflation)
+    ye.add_key_value('extra deflation', args.num_extra_defl_vectors)
+    ye.add_key_value('explicit residual', args.resexp)
+    ye.add_key_value('bordering', args.bordering)
 
     if args.bordering:
         # Build bordered system.
@@ -103,7 +93,7 @@ def _main():
     ye.end_map()
 
     # energy of the state
-    print '# Energy of the final state: %g.' % nls_modeleval.energy(sol)
+    print('# Energy of the final state: %g.' % nls_modeleval.energy(sol))
 
     if args.solutionfile:
         modeleval.mesh.write(args.solutionfile,
