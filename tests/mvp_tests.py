@@ -37,7 +37,6 @@ class TestF(unittest.TestCase):
         integral = np.sum(mesh.control_volumes * np.sum(A**2, axis=1))
         self.assertAlmostEqual(control_values['dipole'], integral, delta = tol)
 
-
         #import time
         #start = time.time()
         A = mvp.magnetic_dot(mesh.node_coords, 2.0, [10.0, 11.0])
