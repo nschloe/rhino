@@ -178,7 +178,7 @@ class TestJacobian(unittest.TestCase):
         # Get the Jacobian
         J = modeleval.get_jacobian(psi, mu, 1.0)
 
-        tol = 1.0e-13
+        tol = 1.0e-12
 
         # [1+i, 1+i, 1+i, ... ]
         phi = (1+1j) * np.ones(num_unknowns, dtype=complex)
@@ -257,7 +257,7 @@ class TestInnerProduct(unittest.TestCase):
 
         # build the model evaluator
         modeleval = nls.NlsModelEvaluator(mesh, V=point_data['V'], A=point_data['A'])
-        tol = 1.0e-13
+        tol = 1.0e-12
 
         # For C++ Ginla compatibility:
         # Compute 1-norm of vector (Re(psi[0]), Im(psi[0]), Re(psi[1]), ... )
