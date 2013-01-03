@@ -95,10 +95,10 @@ def magnetic_dipole(x, x0, m):
 #
 #    return [ ax, ay, 0.0 ]
 # ==============================================================================
-def magnetic_dot(X, magnet_radius, heights):
+def magnetic_dot(X, radius, heights):
     '''Magnetic vector potential corresponding to the field that is induced
     by a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)),
-    with the radius magnet_radius for objects in the x-y-plane.
+    with the radius `radius` for objects in the x-y-plane.
     The potential is derived by interpreting the dot as an infinitesimal
     collection of magnetic dipoles, hence
 
@@ -112,7 +112,7 @@ def magnetic_dot(X, magnet_radius, heights):
     # Choose such that the quads at radius/2 are approximately squares.
     n_radius = int(round(n_phi / np.pi))
 
-    dr = magnet_radius / n_radius
+    dr = radius / n_radius
 
     A = np.zeros((len(X), 3))
 
@@ -140,7 +140,7 @@ def magnetic_dot(X, magnet_radius, heights):
         sin_beta = np.sin(beta)
         cos_beta = np.cos(beta)
         for i_radius in range(n_radius):
-            rad = magnet_radius / n_radius * (i_radius + 0.5)
+            rad = radius / n_radius * (i_radius + 0.5)
             # r = squared distance between grid point X to the
             #     point (x,y) on the magnetic dot
             X_dist[:,0] = X[:,0] - rad * cos_beta
