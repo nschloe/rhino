@@ -227,7 +227,7 @@ class NlsModelEvaluator:
             pyamg.smoothed_aggregation_solver(prec,
             strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
             smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
-            Bimprove=None,
+            improve_candidates=None,
             aggregate='standard',
             presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
             postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
