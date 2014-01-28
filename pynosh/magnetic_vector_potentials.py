@@ -3,23 +3,27 @@ import numpy as np
 #cdef extern from "math.h":
 #    void sincos(double x, double *sin, double *cos)
 #    double sqrt(double x)
-# ==============================================================================
+
+
 def constant_field(X, B):
     '''Converts a spatially constant magnetic field B at X
-    into a corresponding potential.'''
+    into a corresponding potential.
+    '''
     # This is one particular choice that works.
     return 0.5 * np.cross(B, X)
-# ==============================================================================
+
+
 def magnetic_dipole(x, x0, m):
-   '''Magnetic vector potential for the static dipole at x0
-   with orientation m.'''
-   r = x - x0
-   # npsum(...) = ||r||^3 row-wise;
-   # np.cross acts on rows by default;
-   # The ".T" magic makes sure that each row of np.cross(m, r)
-   # gets divided by the corresponding entry in ||r||^3.
-   return (np.cross(m, r).T / np.sum(np.abs(r)**2,axis=-1)**(3./2)).T
-# ==============================================================================
+    '''Magnetic vector potential for the static dipole at x0 with orientation
+    m.
+    '''
+    r = x - x0
+    # npsum(...) = ||r||^3 row-wise;
+    # np.cross acts on rows by default;
+    # The ".T" magic makes sure that each row of np.cross(m, r)
+    # gets divided by the corresponding entry in ||r||^3.
+    return (np.cross(m, r).T / np.sum(np.abs(r)**2, axis=-1)**(3./2)).T
+
 #def magnetic_dot(double x, double y,
 #                 double magnet_radius,
 #                 double height0,
@@ -48,7 +52,8 @@ def magnetic_dipole(x, x0, m):
 #
 #    cdef double ax = 0.0
 #    cdef double ay = 0.0
-#    cdef double beta, rad, r, r_3D0, r_3D1, alpha, x0, y0, x_dist, y_dist, sin_beta, cos_beta
+#    cdef double beta, rad, r, r_3D0, r_3D1, alpha, x0, y0, x_dist, y_dist, \
+#        sin_beta, cos_beta
 #    cdef int i_phi, i_radius
 #
 #    # What we want to have is the value of
@@ -63,7 +68,8 @@ def magnetic_dipole(x, x0, m):
 #    # The integral in zz can be calculated analytically, such that
 #    #
 #    #    I = \int_{disk}
-#    #           [ - (z-zz) / (r2D*sqrt(r3D)) ]_{zz=h_0}^{h_1} ( -(y-yy), x-xx, 0)^T dxx dyy.
+#    #           [ - (z-zz) / (r2D*sqrt(r3D)) ]_{zz=h_0}^{h_1}
+#    #           ( -(y-yy), x-xx, 0)^T dxx dyy.
 #    #
 #    # The integral over the disk is then approximated numerically by
 #    # the summation over little disk segments.
@@ -94,13 +100,14 @@ def magnetic_dipole(x, x0, m):
 #                ay -= x_dist * alpha
 #
 #    return [ ax, ay, 0.0 ]
-# ==============================================================================
+
+
 def magnetic_dot(X, radius, heights):
-    '''Magnetic vector potential corresponding to the field that is induced
-    by a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)),
-    with the radius `radius` for objects in the x-y-plane.
-    The potential is derived by interpreting the dot as an infinitesimal
-    collection of magnetic dipoles, hence
+    '''Magnetic vector potential corresponding to the field that is induced by
+    a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)), with
+    the radius `radius` for objects in the x-y-plane.  The potential is derived
+    by interpreting the dot as an infinitesimal collection of magnetic dipoles,
+    hence
 
        A(x) = \int_{dot} A_{dipole}(x-r) dr.
 
@@ -125,10 +132,12 @@ def magnetic_dot(X, radius, heights):
     #    X := (x, y, z)^T,
     #    XX := (xx, yy, zz)^T
     #
-    # The integral in zz-direction (height) can be calculated analytically, such that
+    # The integral in zz-direction (height) can be calculated analytically,
+    # such that
     #
     #    I = \int_{disk}
-    #           [ - (z-zz) / (r2D*sqrt(r3D)) ]_{zz=h_0}^{h_1} ( -(y-yy), x-xx, 0)^T dxx dyy.
+    #          [ - (z-zz) / (r2D*sqrt(r3D)) ]_{zz=h_0}^{h_1}
+    #          ( -(y-yy), x-xx, 0)^T dxx dyy.
     #
     # The integral over the disk is then approximated numerically by
     # the summation over little disk segments.
@@ -143,8 +152,8 @@ def magnetic_dot(X, radius, heights):
             rad = radius / n_radius * (i_radius + 0.5)
             # r = squared distance between grid point X to the
             #     point (x,y) on the magnetic dot
-            X_dist[:,0] = X[:,0] - rad * cos_beta
-            X_dist[:,1] = X[:,1] - rad * sin_beta
+            X_dist[:, 0] = X[:, 0] - rad * cos_beta
+            X_dist[:, 1] = X[:, 1] - rad * sin_beta
 
             # r = x_dist * x_dist + y_dist * y_dist
             # Note that X_dist indeed only has two components.
@@ -160,11 +169,9 @@ def magnetic_dot(X, radius, heights):
             #   V = pi/n_phi * [(r+dr/2)^2 - (r-dr/2)^2]
             #     = pi/n_phi * 2 * r * dr.
             Alpha = (heights[1]/R_3D1 - heights[0]/R_3D0) / R[ind] \
-                  * np.pi / n_phi * (2.0*rad*dr) # volume
+                * np.pi / n_phi * (2.0*rad*dr)  # volume
             # ax += y_dist * alpha
             # ay -= x_dist * alpha
-            A[ind,0] += X_dist[ind,1] * Alpha
-            A[ind,1] -= X_dist[ind,0] * Alpha
-
+            A[ind, 0] += X_dist[ind, 1] * Alpha
+            A[ind, 1] -= X_dist[ind, 0] * Alpha
     return A
-# ==============================================================================

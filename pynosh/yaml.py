@@ -3,11 +3,12 @@
 '''
 Simple YAML emitter.
 '''
-# #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
+
+
 class YamlEmitter:
-    '''Simple YAML emitter.
     '''
-    # ==========================================================================
+    Simple YAML emitter.
+    '''
     def __init__(self):
         '''Initialization.
         '''
@@ -16,15 +17,15 @@ class YamlEmitter:
         self.next_indent = self.indent
         self.key_is_next = True
         return
-    # ==========================================================================
+
     def begin_doc(self):
         print('---')
         return
-    # ==========================================================================
+
     def add_comment(self, comment):
         print(self.indent*' ' + '# ' + comment)
         return
-    # ==========================================================================
+
     def begin_seq(self):
         if not self.envs:
             pass
@@ -39,24 +40,20 @@ class YamlEmitter:
             self.key_is_next = True
         else:
             raise ValueError('Unknown environment.')
-
         self.envs.append('seq')
         return
-    # ==========================================================================
+
     def add_item(self, item):
         assert self.envs
         assert self.envs[-1] == 'seq'
         print(self.next_indent*' ' + '-' + item)
         self.next_indent = self.indent
-
         return
-    # ==========================================================================
+
     def end_seq(self):
         assert self.envs
         assert self.envs[-1] == 'seq'
-
         self.envs.pop()
-
         if not self.envs:
             pass
         elif self.envs[-1] == 'seq':
@@ -65,10 +62,9 @@ class YamlEmitter:
             self.indent -= 4
         else:
             raise ValueError('Unknown environment.')
-
         self.next_indent = self.indent
         return
-    # ==========================================================================
+
     def begin_map(self):
         if not self.envs:
             pass
@@ -82,11 +78,10 @@ class YamlEmitter:
             print()
         else:
             raise ValueError('Unknown environment.')
-
         self.envs.append('map')
         self.key_is_next = True
         return
-    # ==========================================================================
+
     def add_key(self, key):
         assert self.envs
         assert self.envs[-1] == 'map'
@@ -94,7 +89,7 @@ class YamlEmitter:
         print(self.next_indent*' ' + '%r:' % key)
         self.key_is_next = False
         return
-    # ==========================================================================
+
     def add_value(self, item):
         assert self.envs
         assert self.envs[-1] == 'map'
@@ -103,7 +98,7 @@ class YamlEmitter:
         self.key_is_next = True
         self.next_indent = self.indent
         return
-    # ==========================================================================
+
     def add_key_value(self, key, value):
         assert self.envs
         assert self.envs[-1] == 'map'
@@ -111,13 +106,11 @@ class YamlEmitter:
         print(self.next_indent*' ' + '%r: %r' % (key, value))
         self.next_indent = self.indent
         return
-    # ==========================================================================
+
     def end_map(self):
         assert self.envs
         assert self.envs[-1] == 'map'
-
         self.envs.pop()
-
         if not self.envs:
             pass
         elif self.envs[-1] == 'seq':
@@ -126,8 +119,5 @@ class YamlEmitter:
             self.indent -= 4
         else:
             raise ValueError('Unknown environment.')
-
         self.next_indent = self.indent
         return
-    # ==========================================================================
-# #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=
