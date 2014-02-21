@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 '''Solve nonlinear Schr\"odinger equations.
 '''
-# ==============================================================================
+
 import numpy as np
 
 import pynosh.numerical_methods as nm
@@ -10,7 +10,8 @@ import pynosh.modelevaluator_nls as gpm
 import pynosh.modelevaluator_bordering_constant as bme
 import pynosh.yaml
 import voropy
-# ==============================================================================
+
+
 def _main():
     args = _parse_input_arguments()
 
@@ -19,7 +20,7 @@ def _main():
 
     # read the mesh
     print('# Reading the mesh...')
-    mesh, point_data, field_data = voropy.read( args.filename )
+    mesh, point_data, field_data = voropy.read(args.filename)
     print('# done.')
 
     num_nodes = len(mesh.node_coords)
@@ -30,7 +31,7 @@ def _main():
     elif 'mu' in field_data:
         mu = field_data['mu'][0]
     else:
-        raise RuntimeError('Parameter ''mu'' not found in file or command line.')
+        raise RuntimeError('Parameter ''mu'' not found.')
 
     if 'g' in field_data:
         g = field_data['g'][0]
@@ -42,18 +43,22 @@ def _main():
     else:
         V = -np.ones(num_nodes)
 
-    nls_modeleval = gpm.NlsModelEvaluator(mesh,
-                                          V = V,
-                                          A = point_data['A'],
-                                          preconditioner_type = args.preconditioner_type,
-                                          num_amg_cycles = args.num_amg_cycles)
+    nls_modeleval = \
+        gpm.NlsModelEvaluator(mesh,
+                              V=V,
+                              A=point_data['A'],
+                              preconditioner_type=args.preconditioner_type,
+                              num_amg_cycles=args.num_amg_cycles
+                              )
 
     # initial guess
     if args.initial_name in point_data:
-        psi0 = np.reshape(point_data[args.initial_name][:,0] + 1j * point_data[args.initial_name][:,1],
-                          (num_nodes,1))
+        psi0 = np.reshape(point_data[args.initial_name][:, 0]
+                          + 1j * point_data[args.initial_name][:, 1],
+                          (num_nodes, 1)
+                          )
     else:
-        psi0 = 1.0 * np.ones((num_nodes,1), dtype=complex)
+        psi0 = 1.0 * np.ones((num_nodes, 1), dtype=complex)
         #alpha = 0.3
         #kx = 2
         #ky = 0.5
@@ -61,8 +66,12 @@ def _main():
             #psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
 
     ye.begin_map()
-    import sys, os, datetime
-    ye.add_comment('Newton run with newton.py (%r, %s).' % (os.uname()[1], datetime.datetime.now()))
+    import sys
+    import os
+    import datetime
+    ye.add_comment('Newton run with newton.py (%r, %s).'
+                   % (os.uname()[1], datetime.datetime.now())
+                   )
     ye.add_comment(' '.join(sys.argv))
     ye.add_key_value('num_unknowns', len(psi0))
     ye.add_key_value('filename', args.filename)
@@ -78,7 +87,7 @@ def _main():
 
     if args.bordering:
         # Build bordered system.
-        x0 = np.empty((num_nodes+1,1), dtype=complex)
+        x0 = np.empty((num_nodes+1, 1), dtype=complex)
         x0[0:num_nodes] = psi0
         x0[-1] = 0.0
         # Use psi0 as initial bordering.
@@ -97,12 +106,14 @@ def _main():
 
     if args.solutionfile:
         modeleval.mesh.write(args.solutionfile,
-                             point_data = {'psi': sol, 'A': point_data['A'], 'V': V},
-                             field_data = {'mu': mu, 'g': g}
+                             point_data={'psi': sol,
+                                         'A': point_data['A'],
+                                         'V': V},
+                             field_data={'mu': mu, 'g': g}
                              )
-
     return
-# ==============================================================================
+
+
 def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
     '''Solve with Newton.
     '''
@@ -122,114 +133,115 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
 
     defl = []
     if args.use_deflation:
-        defl.append( lambda x: 1j*x )
+        defl.append(lambda x: 1j*x)
 
     # perform newton iteration
     yaml_emitter.add_key('Newton results')
     newton_out = nm.newton(psi0,
                            modeleval,
-                           linear_solver = lin_solve,
-                           linear_solver_maxiter = 1000, #2*len(psi0),
-                           linear_solver_extra_args = lin_solve_args,
-                           nonlinear_tol = 1.0e-10,
-                           forcing_term = 'constant', #'constant', 'type1', 'type 2'
-                           eta0 = args.eta,
-                           compute_f_extra_args = {'g': g, 'mu': mu},
-                           deflation_generators = defl,
-                           num_deflation_vectors = args.num_extra_defl_vectors,
+                           linear_solver=lin_solve,
+                           linear_solver_maxiter=1000,  # 2*len(psi0),
+                           linear_solver_extra_args=lin_solve_args,
+                           nonlinear_tol=1.0e-10,
+                           forcing_term='constant', # 'constant', 'type1', 'type 2'
+                           eta0=args.eta,
+                           compute_f_extra_args={'g': g, 'mu': mu},
+                           deflation_generators=defl,
+                           num_deflation_vectors=args.num_extra_defl_vectors,
                            debug=debug,
-                           yaml_emitter = yaml_emitter,
-                           newton_maxiter = 30
+                           yaml_emitter=yaml_emitter,
+                           newton_maxiter=30
                            )
     yaml_emitter.add_comment('done.')
     #assert( newton_out['info'] == 0 )
-
     return newton_out
-# ==============================================================================
+
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
     import argparse
 
-    parser = argparse.ArgumentParser( description = 'Find solutions to nonlinear Schrödinger equations.' )
+    parser = argparse.ArgumentParser(
+        description='Find solutions to nonlinear Schrödinger equations.'
+        )
 
     parser.add_argument('filename',
-                        metavar = 'FILE',
-                        type    = str,
-                        help    = 'Mesh file containing the geometry and initial state'
+                        metavar='FILE',
+                        type=str,
+                        help='File containing the geometry and initial state'
                         )
 
     parser.add_argument('--solutionfile', '-s',
-                        metavar = 'SOLUTION_FILE',
-                        default = None,
-                        const = None,
-                        type = str,
-                        help = 'Mesh file to store the final solution'
+                        metavar='SOLUTION_FILE',
+                        default=None,
+                        const=None,
+                        type=str,
+                        help='Mesh file to store the final solution'
                         )
 
     parser.add_argument('--krylov-method', '-k',
-                        choices = ['cg', 'minres', 'minresfo', 'gmres'],
-                        default = 'gmres',
-                        help    = 'which Krylov method to use (default: gmres)'
+                        choices=['cg', 'minres', 'minresfo', 'gmres'],
+                        default='gmres',
+                        help='which Krylov method to use (default: gmres)'
                         )
 
     parser.add_argument('--preconditioner-type', '-p',
-                        choices = ['none', 'exact', 'cycles'],
-                        default = 'none',
-                        help    = 'preconditioner type (default: none)'
+                        choices=['none', 'exact', 'cycles'],
+                        default='none',
+                        help='preconditioner type (default: none)'
                         )
 
     parser.add_argument('--num-amg-cycles', '-a',
-                        type = int,
-                        default = 1,
-                        help    = 'number of AMG cycles (default: 1)'
+                        type=int,
+                        default=1,
+                        help='number of AMG cycles (default: 1)'
                         )
 
     parser.add_argument('--use-deflation', '-d',
-                        action = 'store_true',
-                        default = False,
-                        help    = 'use deflation (default: False)'
+                        action='store_true',
+                        default=False,
+                        help='use deflation (default: False)'
                         )
 
     parser.add_argument('--mu', '-m',
-                        default = None,
-                        type = float,
-                        help = 'override value for mu from FILE (default: None)'
+                        default=None,
+                        type=float,
+                        help='override value for mu from FILE (default: None)'
                         )
 
     parser.add_argument('--eta', '-e',
-                        default = 1e-10,
-                        type = float,
-                        help = 'override value for linear solver tolerance (default: 1e-10)'
+                        default=1e-10,
+                        type=float,
+                        help='linear solver tolerance (default: 1e-10)'
                         )
 
     parser.add_argument('--resexp', '-r',
-                        action = 'store_true',
-                        default = False,
-                        help = 'compute explicit residual norms (default: False)'
+                        action='store_true',
+                        default=False,
+                        help='compute explicit residual norms (default: False)'
                         )
 
     parser.add_argument('--num-extra-defl-vectors', '-n',
-                        default = 0,
-                        type = int,
-                        help = 'number of extra deflation vectors (default: 0)'
+                        default=0,
+                        type=int,
+                        help='number of extra deflation vectors (default: 0)'
                         )
 
     parser.add_argument('--bordering', '-b',
-                        default = False,
-                        action = 'store_true',
-                        help = 'use the bordered formulation to counter the nullspace (default: false)'
+                        default=False,
+                        action='store_true',
+                        help='use the bordered formulation to counter the nullspace (default: false)'
                         )
 
     parser.add_argument('--initial-name', '-i',
-                        metavar = 'INITIAL_NAME',
-                        default = 'psi0',
-                        type = str,
-                        help = 'name of the initial guess stored in FILE (default: psi0)'
+                        metavar='INITIAL_NAME',
+                        default='psi0',
+                        type=str,
+                        help='name of the initial guess stored in FILE (default: psi0)'
                         )
-
     return parser.parse_args()
-# ==============================================================================
+
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================
