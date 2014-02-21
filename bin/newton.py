@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-'''Solve nonlinear Schr\"odinger equations.
+'''
+Solve nonlinear Schrödinger equations.
 '''
 
 import numpy as np
@@ -9,7 +10,9 @@ import pynosh.numerical_methods as nm
 import pynosh.modelevaluator_nls as gpm
 import pynosh.modelevaluator_bordering_constant as bme
 import pynosh.yaml
+
 import voropy
+import krypy
 
 
 def _main():
@@ -120,14 +123,14 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
 
     lin_solve_args = {'explicit_residual': args.resexp}
     if args.krylov_method == 'cg':
-        lin_solve = nm.cg
+        lin_solve = krypy.linsys.Cg
     elif args.krylov_method == 'minres':
-        lin_solve = nm.minres
+        lin_solve = krypy.linsys.Minres
     elif args.krylov_method == 'minresfo':
-        lin_solve = nm.minres
+        lin_solve = krypy.linsys.Minres
         lin_solve_args.update({'full_reortho': True})
     elif args.krylov_method == 'gmres':
-        lin_solve = nm.gmres
+        lin_solve = krypy.linsys.Gmres
     else:
         raise ValueError('Unknown Krylov solver ''%s''.' % args.krylov_method)
 
@@ -143,7 +146,8 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
                            linear_solver_maxiter=1000,  # 2*len(psi0),
                            linear_solver_extra_args=lin_solve_args,
                            nonlinear_tol=1.0e-10,
-                           forcing_term='constant', # 'constant', 'type1', 'type 2'
+                           # 'constant', 'type1', 'type 2'
+                           forcing_term='constant',
                            eta0=args.eta,
                            compute_f_extra_args={'g': g, 'mu': mu},
                            deflation_generators=defl,
@@ -231,14 +235,16 @@ def _parse_input_arguments():
     parser.add_argument('--bordering', '-b',
                         default=False,
                         action='store_true',
-                        help='use the bordered formulation to counter the nullspace (default: false)'
+                        help='use the bordered formulation to counter the '
+                             'nullspace (default: false)'
                         )
 
     parser.add_argument('--initial-name', '-i',
                         metavar='INITIAL_NAME',
                         default='psi0',
                         type=str,
-                        help='name of the initial guess stored in FILE (default: psi0)'
+                        help='name of the initial guess stored in FILE '
+                             '(default: psi0)'
                         )
     return parser.parse_args()
 
