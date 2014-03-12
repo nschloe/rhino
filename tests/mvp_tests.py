@@ -13,7 +13,7 @@ class TestF(unittest.TestCase):
         '''Test $\int_{\Omega} A^2$.'''
 
         # read the mesh
-        mesh, point_data, field_data = voropy.read(filename)
+        mesh, point_data, field_data = voropy.reader.read(filename)
         if mesh.control_volumes is None:
             mesh.compute_control_volumes()
 
