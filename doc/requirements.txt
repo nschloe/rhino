@@ -1,2 +1,2 @@
-krypy
 numpy
+krypy
