@@ -92,8 +92,8 @@ def newton(x0,
            eta_max=1.0e-2,
            alpha=1.5,  # only used by forcing_term='type 2'
            gamma=0.9,  # only used by forcing_term='type 2'
-           deflation_generators=[],
-           num_deflation_vectors=0,
+           #deflation_generators=[],
+           #num_deflation_vectors=0,
            debug=False,
            yaml_emitter=None
            ):
@@ -110,7 +110,7 @@ def newton(x0,
     Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
     Fx_norms = [_norm(Fx, inner_product=model_evaluator.inner_product)]
     eta_previous = None
-    W = np.zeros((len(x), 0))
+    #W = np.zeros((len(x), 0))
     linear_relresvecs = []
 
     # get recycling solver
@@ -161,7 +161,7 @@ def newton(x0,
 
         # Setup linear problem.
         jacobian = model_evaluator.get_jacobian(x, **compute_f_extra_args)
-        initial_guess = np.zeros((len(x), 1))
+        #initial_guess = np.zeros((len(x), 1))
         # The .copy() is redundant as Python copies on "-Fx" anyways,
         # but leave it here for clarity.
         rhs = -Fx.copy()
@@ -172,99 +172,88 @@ def newton(x0,
                                                        **compute_f_extra_args
                                                        )
 
-        def Minner_product(x, y):
-            return model_evaluator.inner_product(_apply(M, x), y)
+        #def Minner_product(x, y):
+        #    return model_evaluator.inner_product(_apply(M, x), y)
 
-        # Conditionally deflate the nearly-null vector i*x or others.
-        # TODO Get a more sensible guess for the dtype here.
-        #      If x is real-values, deflation_generator(x) could indeed
-        #      be complex-valued.
-        #      Maybe get the lambda function along with its dtype
-        #      as input argument?
-        U = np.empty((len(x), len(deflation_generators)), dtype=x.dtype)
-        for i, deflation_generator in enumerate(deflation_generators):
-            U[:, [i]] = deflation_generator(x)
+        ## Conditionally deflate the nearly-null vector i*x or others.
+        ## TODO Get a more sensible guess for the dtype here.
+        ##      If x is real-values, deflation_generator(x) could indeed
+        ##      be complex-valued.
+        ##      Maybe get the lambda function along with its dtype
+        ##      as input argument?
+        #U = np.empty((len(x), len(deflation_generators)), dtype=x.dtype)
+        #for i, deflation_generator in enumerate(deflation_generators):
+        #    U[:, [i]] = deflation_generator(x)
 
-        # Gather up all deflation vectors.
-        WW = np.c_[W, U]
+        ## Gather up all deflation vectors.
+        #WW = np.c_[W, U]
 
-        # Brief sanity test for the deflation vectors.
-        # If one of them is (too close to) 0, then qr below will cowardly bail
-        # out, so remove them from the list.
-        del_k = []
-        for col_index, w in enumerate(WW.T):
-            alpha = Minner_product(w[:, None], w[:, None])
-            if abs(alpha) < 1.0e-14:
-                warnings.warn('Deflation vector dropped due to low norm; '
-                              '<v, v> = %g.' % alpha
-                              )
-                del_k.append(col_index)
-        if del_k:
-            WW = np.delete(WW, del_k, 1)
+        ## Brief sanity test for the deflation vectors.
+        ## If one of them is (too close to) 0, then qr below will cowardly bail
+        ## out, so remove them from the list.
+        #del_k = []
+        #for col_index, w in enumerate(WW.T):
+        #    alpha = Minner_product(w[:, None], w[:, None])
+        #    if abs(alpha) < 1.0e-14:
+        #        warnings.warn('Deflation vector dropped due to low norm; '
+        #                      '<v, v> = %g.' % alpha
+        #                      )
+        #        del_k.append(col_index)
+        #if del_k:
+        #    WW = np.delete(WW, del_k, 1)
 
-        # Attention:
-        # If the preconditioner is later solved inexactly then W will be
-        # orthonormal w.r.t. a different inner product! This may affect the
-        # computation of Ritz pairs and their residuals.
-        W, _ = krypy.utils.qr(WW, ip_B=Minner_product)
+        ## Attention:
+        ## If the preconditioner is later solved inexactly then W will be
+        ## orthonormal w.r.t. a different inner product! This may affect the
+        ## computation of Ritz pairs and their residuals.
+        #W, _ = krypy.utils.qr(WW, ip_B=Minner_product)
 
-        if W.shape[1] > 0:
-            AW = jacobian * W
-            P, x0new = krypy.deflation.get_deflation_data(
-                W, AW, rhs,
-                x0=initial_guess,
-                inner_product=model_evaluator.inner_product
-                )
-            if debug:
-                yaml_emitter.add_key_value('dim of deflation space',
-                                           W.shape[1]
-                                           )
-                yaml_emitter.add_key_value(
-                    '||I-ip(W,W)||',
-                    np.linalg.norm(np.eye(W.shape[1]) - Minner_product(W, W))
-                    )
-                ix_normalized = 1j*x / np.sqrt(Minner_product(1j*x, 1j*x))
-                ixW = Minner_product(W, ix_normalized)
-                from scipy.linalg import svd
-                yaml_emitter.add_key_value(
-                    'principal angle',
-                    np.arccos(min(svd(ixW, compute_uv=False)[0], 1.0))
-                    )
-        else:
-            AW = np.zeros((len(x), 0))
-            P = None
-            x0new = initial_guess.copy()
+        #if W.shape[1] > 0:
+        #    AW = jacobian * W
+        #    P, x0new = krypy.deflation.get_deflation_data(
+        #        W, AW, rhs,
+        #        x0=initial_guess,
+        #        inner_product=model_evaluator.inner_product
+        #        )
+        #    if debug:
+        #        yaml_emitter.add_key_value('dim of deflation space',
+        #                                   W.shape[1]
+        #                                   )
+        #        yaml_emitter.add_key_value(
+        #            '||I-ip(W,W)||',
+        #            np.linalg.norm(np.eye(W.shape[1]) - Minner_product(W, W))
+        #            )
+        #        ix_normalized = 1j*x / np.sqrt(Minner_product(1j*x, 1j*x))
+        #        ixW = Minner_product(W, ix_normalized)
+        #        from scipy.linalg import svd
+        #        yaml_emitter.add_key_value(
+        #            'principal angle',
+        #            np.arccos(min(svd(ixW, compute_uv=False)[0], 1.0))
+        #            )
+        #else:
+        #    AW = np.zeros((len(x), 0))
 
-        if num_deflation_vectors > 0:
-            return_basis = True
-
-            # limit to 1 GB memory for Vfull/Pfull (together)
-            from math import floor
-            maxmem = 2**30  # 1 GB
-            maxmem_maxiter = int(floor(maxmem/(2*16*len(x))))
-            if linear_solver_maxiter > maxmem_maxiter:
-                warnings.warn('limiting linear_solver_maxiter to %d instead of %d to fulfill memory constraints (%g GB)' % (maxmem_maxiter, linear_solver_maxiter, maxmem / float(2**30)))
-                linear_solver_maxiter = maxmem_maxiter
-        else:
-            return_basis = False
+        #if num_deflation_vectors > 0:
+        #    # limit to 1 GB memory for Vfull/Pfull (together)
+        #    from math import floor
+        #    maxmem = 2**30  # 1 GB
+        #    maxmem_maxiter = int(floor(maxmem/(2*16*len(x))))
+        #    if linear_solver_maxiter > maxmem_maxiter:
+        #        warnings.warn('limiting linear_solver_maxiter to %d instead of %d to fulfill memory constraints (%g GB)' % (maxmem_maxiter, linear_solver_maxiter, maxmem / float(2**30)))
+        #        linear_solver_maxiter = maxmem_maxiter
 
         # Create the linear system.
+        # TODO check Minv, M
         linear_system = krypy.linsys.LinearSystem(
-            jacobian, rhs, Minv=Minv, ip_B=model_evaluator.inner_product
+            jacobian, rhs, M=Minv, Minv=M, ip_B=model_evaluator.inner_product
             )
 
-        # TODO deflation
         out = recycling_solver.solve(linear_system,
                                      vector_factory,
-                                     x0=x0new,
                                      tol=eta,
                                      maxiter=linear_solver_maxiter,
-                                     **linear_solver_extra_args
+                                     #**linear_solver_extra_args
                                      )
-        # Bugs:
-        # adding  store_arnoldi=return_basis  fails
-        print out
-        exit()
 
         ## Solve the linear system.
         #out = linear_solver(jacobian,
@@ -286,41 +275,41 @@ def newton(x0,
             yaml_emitter.add_key_value('eta', eta)
             #print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
 
-        np.set_printoptions(linewidth=150)
-        if ('Vfull' in out) and ('Hfull' in out):
-            if debug:
-                MVfull = out['Pfull'] if ('Pfull' in out) else out['Vfull']
-                yaml_emitter.add_key_value(
-                    '||ip(Vfull,W)||',
-                    np.linalg.norm(model_evaluator.inner_product(MVfull, W))
-                    )
-                yaml_emitter.add_key_value(
-                    '||I-ip(Vfull,Vfull)||',
-                    np.linalg.norm(np.eye(out['Vfull'].shape[1])
-                        - model_evaluator.inner_product(MVfull, out['Vfull']))
-                    )
-                # next one is time-consuming, uncomment if needed
-                #print '||Minv*A*P*V - V_*H|| = %g' % \
-                #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
+        #np.set_printoptions(linewidth=150)
+        #if ('Vfull' in out) and ('Hfull' in out):
+        #    if debug:
+        #        MVfull = out['Pfull'] if ('Pfull' in out) else out['Vfull']
+        #        yaml_emitter.add_key_value(
+        #            '||ip(Vfull,W)||',
+        #            np.linalg.norm(model_evaluator.inner_product(MVfull, W))
+        #            )
+        #        yaml_emitter.add_key_value(
+        #            '||I-ip(Vfull,Vfull)||',
+        #            np.linalg.norm(np.eye(out['Vfull'].shape[1])
+        #                - model_evaluator.inner_product(MVfull, out['Vfull']))
+        #            )
+        #        # next one is time-consuming, uncomment if needed
+        #        #print '||Minv*A*P*V - V_*H|| = %g' % \
+        #        #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
 
-            if num_deflation_vectors > 0:
-                ritz_vals, W = get_p_harmonic_ritz(
-                    jacobian, W, AW, out['Vfull'], out['Hfull'],
-                    Minv=Minv,
-                    M=M,
-                    p=num_deflation_vectors,
-                    mode='SM',
-                    inner_product=model_evaluator.inner_product
-                    )
-                if debug:
-                    yaml_emitter.add_key_value(
-                        '||I-ip(Wnew,Wnew)||',
-                        np.linalg.norm(np.eye(W.shape[1])-Minner_product(W, W))
-                        )
-            else:
-                W = np.zeros((len(x), 0))
-        else:
-            W = np.zeros((len(x), 0))
+        #    if num_deflation_vectors > 0:
+        #        ritz_vals, W = get_p_harmonic_ritz(
+        #            jacobian, W, AW, out['Vfull'], out['Hfull'],
+        #            Minv=Minv,
+        #            M=M,
+        #            p=num_deflation_vectors,
+        #            mode='SM',
+        #            inner_product=model_evaluator.inner_product
+        #            )
+        #        if debug:
+        #            yaml_emitter.add_key_value(
+        #                '||I-ip(Wnew,Wnew)||',
+        #                np.linalg.norm(np.eye(W.shape[1])-Minner_product(W, W))
+        #                )
+        #    else:
+        #        W = np.zeros((len(x), 0))
+        #else:
+        #    W = np.zeros((len(x), 0))
 
         # save the convergence history
         linear_relresvecs.append(out.resnorms)

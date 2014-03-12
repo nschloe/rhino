@@ -1,5 +1,23 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of PyNosh.
+#
+#  PyNosh is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  PyNosh is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
+#
 '''
 Provide information around the nonlinear Schrödinger equations.
 '''
@@ -12,9 +30,11 @@ import krypy
 class NlsModelEvaluator:
     '''Nonlinear Schrödinger model evaluator class.
     Incorporates
-       * Nonlinear Schrödinger: g=1.0, V==0.0, A==0.0.
-       * Gross--Pitaevskii: g=1.0, V given, A==0.0.
-       * Ginzburg--Landau: g=1.0, V==-1.0, and some magnetic potential A.
+
+       * Nonlinear Schrödinger: :math:`g=1.0, V=0.0, A=0.0`.
+       * Gross--Pitaevskii: :math:`g=1.0`, :math:`V` given, :math:`A=0.0`.
+       * Ginzburg--Landau: :math:`g=1.0, V=-1.0`,
+         and some magnetic potential :math:`A`.
     '''
     def __init__(self,
                  mesh,
@@ -48,7 +68,8 @@ class NlsModelEvaluator:
     def compute_f(self, x, mu, g):
         '''Computes the nonlinear Schrödinger residual
 
-            GP(psi) = K*psi + (V + g*|psi|^2) * psi
+        .. math::
+            GP(\\psi) = K\\psi + (V + g |\\psi|^2) \\psi
         '''
         keo = self._get_keo(mu)
         if self.mesh.control_volumes is None:
@@ -61,18 +82,19 @@ class NlsModelEvaluator:
         '''Returns a LinearOperator object that defines the matrix-vector
         multiplication scheme for the Jacobian operator as in
 
-            A phi + B phi*
+        .. math::
+            A \\phi + B \\phi^*
 
         with
 
-            A = K + I * (V + g * 2*|psi|^2),
-            B = g * diag( psi^2 ).
+        .. math::
+            A &= K + I (V + g \\cdot 2|\\psi|^2),\\\\
+            B &= g \\cdot  diag( \\psi^2 ).
         '''
         def _apply_jacobian(phi):
-            print('phi')
-            print(phi)
-            if not phi:
-                raise ValueError('whut')
+            if phi.shape[1] == 0:
+                # TODO remove
+                return phi
             y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
                 + alpha.reshape(phi.shape) * phi \
                 + gPsi0Squared.reshape(phi.shape) * phi.conj()
@@ -97,8 +119,10 @@ class NlsModelEvaluator:
 
     def get_jacobian_blocks(self, x, mu, g):
         '''Returns
-            A = K + I * (V + g * 2*|psi|^2),
-            B = g * diag( psi^2 ).
+
+        .. math::
+            A &= K + I  (V + g \\cdot 2|\\psi|^2),\\\\
+            B &= g \\cdot diag( \\psi^2 ).
         '''
         def _apply_jacobian(phi):
             y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
@@ -154,10 +178,10 @@ class NlsModelEvaluator:
         else:
             alpha = np.zeros(len(x))
         num_unknowns = len(self.mesh.node_coords)
-        return LinearOperator((num_unknowns, num_unknowns),
-                              _apply_precon,
-                              dtype=self.dtype
-                              )
+        return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
+                                          self.dtype,
+                                          dot=_apply_precon
+                                          )
 
     def get_preconditioner_inverse(self, x, mu, g):
         '''Use AMG to invert M approximately.
@@ -168,19 +192,16 @@ class NlsModelEvaluator:
 
         def _apply_inverse_prec_exact(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
+            linear_system = krypy.linsys.LinearSystem(prec, rhs, M=amg_prec)
             x_init = np.zeros((num_unknowns, 1), dtype=complex)
-            out = nm.cg(prec, rhs, x_init,
-                        tol=1.0e-13,
-                        M=amg_prec,
-                        #explicit_residual = False
-                        )
-            if out['info'] != 0:
-                print('Preconditioner did not converge; last residual: %g'
-                      % out['relresvec'][-1]
-                      )
+            out = krypy.linsys.Cg(linear_system,
+                                  x0=x_init,
+                                  tol=1.0e-13,
+                                  #explicit_residual = False
+                                  )
             # Forget about the cycle used to gauge the residual norm.
-            self.tot_amg_cycles += [len(out['relresvec']) - 1]
-            return out['xk']
+            self.tot_amg_cycles += [len(out.resnorms) - 1]
+            return out.xk
 
         def _apply_inverse_prec_cycles(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
@@ -227,12 +248,23 @@ class NlsModelEvaluator:
         prec_amg_solver = \
             pyamg.smoothed_aggregation_solver(
                 prec,
-                strength=('evolution', {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}),
-                smooth=('energy', {'weighting': 'local', 'krylov': 'cg', 'degree': 2, 'maxiter': 3}),
+                strength=('evolution',
+                          {'epsilon': 4.0, 'k': 2, 'proj_type': 'l2'}
+                          ),
+                smooth=('energy',
+                        {'weighting': 'local',
+                         'krylov': 'cg',
+                         'degree': 2,
+                         'maxiter': 3
+                         }),
                 improve_candidates=None,
                 aggregate='standard',
-                presmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
-                postsmoother=('block_gauss_seidel', {'sweep': 'symmetric', 'iterations': 1}),
+                presmoother=('block_gauss_seidel',
+                             {'sweep': 'symmetric', 'iterations': 1}
+                             ),
+                postsmoother=('block_gauss_seidel',
+                              {'sweep': 'symmetric', 'iterations': 1}
+                              ),
                 max_levels=25,
                 coarse_solver='pinv'
                 )
@@ -245,17 +277,17 @@ class NlsModelEvaluator:
         if self._preconditioner_type == 'cycles':
             if self._num_amg_cycles == np.inf:
                 raise ValueError('Invalid number of cycles.')
-            return LinearOperator((num_unknowns, num_unknowns),
-                                  _apply_inverse_prec_cycles,
-                                  dtype=self.dtype
-                                  )
+            return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
+                                              self.dtype,
+                                              dot=_apply_inverse_prec_cycles
+                                              )
         elif self._preconditioner_type == 'exact':
             import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner(cycle='V')
-            return LinearOperator((num_unknowns, num_unknowns),
-                                  _apply_inverse_prec_exact,
-                                  dtype=self.dtype
-                                  )
+            return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
+                                              dtype=self.dtype,
+                                              dot=_apply_inverse_prec_exact
+                                              )
         else:
             raise ValueError('Unknown preconditioner type ''%s''.'
                              % self._preconditioner_type

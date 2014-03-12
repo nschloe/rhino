@@ -150,8 +150,8 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
                            forcing_term='constant',
                            eta0=args.eta,
                            compute_f_extra_args={'g': g, 'mu': mu},
-                           deflation_generators=defl,
-                           num_deflation_vectors=args.num_extra_defl_vectors,
+                           #deflation_generators=defl,
+                           #num_deflation_vectors=args.num_extra_defl_vectors,
                            debug=debug,
                            yaml_emitter=yaml_emitter,
                            newton_maxiter=30
