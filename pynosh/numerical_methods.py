@@ -113,12 +113,21 @@ def newton(x0,
     W = np.zeros((len(x), 0))
     linear_relresvecs = []
 
+    # get recycling solver
+    recycling_solver = krypy.recycling.RecyclingGmres()
+    # get vector factory
+    vector_factory = krypy.recycling.factories.RitzFactorySimple(
+        n_vectors=3,
+        which='smallest_res'
+        )
+
     if debug:
         import yaml
         if yaml_emitter is None:
             yaml_emitter = yaml.YamlEmitter()
             yaml_emitter.begin_doc()
         yaml_emitter.begin_seq()
+
     while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
         if debug:
             yaml_emitter.add_comment('Newton step %d' % (k+1))
@@ -137,7 +146,7 @@ def newton(x0,
             eta = eta0
         elif forcing_term == 'type 1':
             # linear_relresvec[-1] \approx tol, so this could be replaced.
-            eta = abs(Fx_norms[-1] - out["relresvec"][-1]) / Fx_norms[-2]
+            eta = abs(Fx_norms[-1] - out.resvals[-1]) / Fx_norms[-2]
             eta = max(eta, eta_previous**golden, eta_min)
             eta = min(eta, eta_max)
         elif forcing_term == 'type 2':
@@ -239,31 +248,43 @@ def newton(x0,
         else:
             return_basis = False
 
-        # Solve the linear system.
-        out = linear_solver(jacobian,
-                            rhs,
-                            x0new,
-                            maxiter=linear_solver_maxiter,
-                            Mr=P,
-                            M=Minv,
-                            tol=eta,
-                            ip_B=model_evaluator.inner_product,
-                            store_arnoldi=return_basis,
-                            **linear_solver_extra_args
-                            )
+        # Create the linear system.
+        linear_system = krypy.linsys.LinearSystem(
+            jacobian, rhs, Minv=Minv, ip_B=model_evaluator.inner_product
+            )
+
+        # TODO deflation
+        out = recycling_solver.solve(linear_system,
+                                     vector_factory,
+                                     x0=x0new,
+                                     tol=eta,
+                                     maxiter=linear_solver_maxiter,
+                                     **linear_solver_extra_args
+                                     )
+        # Bugs:
+        # adding  store_arnoldi=return_basis  fails
+        print out
+        exit()
+
+        ## Solve the linear system.
+        #out = linear_solver(jacobian,
+        #                    rhs,
+        #                    x0new,
+        #                    maxiter=linear_solver_maxiter,
+        #                    Mr=P,
+        #                    M=Minv,
+        #                    tol=eta,
+        #                    ip_B=model_evaluator.inner_product,
+        #                    store_arnoldi=return_basis,
+        #                    **linear_solver_extra_args
+        #                    )
 
         if debug:
-            yaml_emitter.add_key_value('relresvec', out['relresvec'])
+            yaml_emitter.add_key_value('relresvec', out.resnorms)
             #yaml_emitter.add_key_value('relresvec[-1]', out['relresvec'][-1])
-            yaml_emitter.add_key_value('num_iter', len(out['relresvec'])-1)
+            yaml_emitter.add_key_value('num_iter', len(out.resnorms)-1)
             yaml_emitter.add_key_value('eta', eta)
             #print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
-
-        # make sure the solution is alright
-        if out['info'] != 0:
-            warnings.warn('Newton: solution from linear solver '
-                          'has info = %d != 0' % out['info']
-                          )
 
         np.set_printoptions(linewidth=150)
         if ('Vfull' in out) and ('Hfull' in out):
@@ -302,10 +323,10 @@ def newton(x0,
             W = np.zeros((len(x), 0))
 
         # save the convergence history
-        linear_relresvecs.append(out['relresvec'])
+        linear_relresvecs.append(out.resnorms)
 
         # perform the Newton update
-        x += out['xk']
+        x += out.xk
 
         # do the household
         k += 1

@@ -5,8 +5,8 @@ Provide information around the nonlinear Schrödinger equations.
 '''
 import numpy as np
 from scipy import sparse, linalg
-from scipy.sparse.linalg import LinearOperator
 import warnings
+import krypy
 
 
 class NlsModelEvaluator:
@@ -69,6 +69,10 @@ class NlsModelEvaluator:
             B = g * diag( psi^2 ).
         '''
         def _apply_jacobian(phi):
+            print('phi')
+            print(phi)
+            if not phi:
+                raise ValueError('whut')
             y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
                 + alpha.reshape(phi.shape) * phi \
                 + gPsi0Squared.reshape(phi.shape) * phi.conj()
@@ -84,10 +88,12 @@ class NlsModelEvaluator:
         gPsi0Squared = g * x**2
 
         num_unknowns = len(self.mesh.node_coords)
-        return LinearOperator((num_unknowns, num_unknowns),
-                              _apply_jacobian,
-                              dtype=self.dtype
-                              )
+
+        return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
+                                          self.dtype,
+                                          dot=_apply_jacobian,
+                                          dot_adj=_apply_jacobian
+                                          )
 
     def get_jacobian_blocks(self, x, mu, g):
         '''Returns
