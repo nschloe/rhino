@@ -92,12 +92,16 @@ class NlsModelEvaluator:
             B &= g \\cdot  diag( \\psi^2 ).
         '''
         def _apply_jacobian(phi):
-            if phi.shape[1] == 0:
-                # TODO remove
-                return phi
-            y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
-                + alpha.reshape(phi.shape) * phi \
-                + gPsi0Squared.reshape(phi.shape) * phi.conj()
+            if len(phi.shape) == 1:
+                shape = phi.shape
+            elif len(phi.shape) == 2:
+                # phi may be a vector of shape (n, k).
+                shape = (phi.shape[0], 1)
+            else:
+                raise ValueError('Illegal phi.')
+            y = (keo * phi) / self.mesh.control_volumes.reshape(shape) \
+                + alpha.reshape(shape) * phi \
+                + gPsi0Squared.reshape(shape) * phi.conj()
             return y
 
         assert x is not None

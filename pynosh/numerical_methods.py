@@ -6,7 +6,6 @@ Collection of numerical algorithms.
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.sputils import upcast
 import numpy as np
-import warnings
 import scipy
 
 import krypy
@@ -454,11 +453,12 @@ def poor_mans_continuation(x0,
                            adaptivity_aggressiveness=1.0
                            ):
     '''Poor man's parameter continuation. With adaptive step size.
-    If the previous step was unsucessful, the step size is cut in half,
-    but if the step was sucessful this strategy increases the step size based
+    If the previous step was unsuccessful, the step size is cut in half,
+    but if the step was successful this strategy increases the step size based
     on the number of nonlinear solver iterations required in the previous step.
-    In particular, the new step size \f$\Delta s_{new}\f$ is given by
+    In particular, the new step size :math:`\Delta s_{new}` is given by
 
+    .. math::
        \Delta s_{new} = \Delta s_{old}\left(1 + a\left(\frac{N_{max} - N}{N_{max}}\right)^2\right).
     '''
 
