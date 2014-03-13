@@ -1,8 +1,5 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-'''Solve nonlinear Schr\"odinger equations.
-'''
-# ==============================================================================
 import numpy as np
 
 import yaml
@@ -12,10 +9,10 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as pp
 import matplotlib2tikz
-# ==============================================================================
+
+
 def _main():
     args = _parse_input_arguments()
-
     # read the file
     handle = open(args.filename)
     data = yaml.load(handle)
@@ -35,51 +32,51 @@ def _main():
     pp.xlabel('Newton step')
     pp.ylabel('||F||')
     pp.title('Krylov: %s    Prec: %r    ix-defl: %r    extra defl: %r    ExpRes: %r    Newton iters: %d' %
-             (data['krylov'], data['preconditioner type'], data['ix deflation'],
-              data['extra deflation'], data['explicit residual'], num_newton_steps)
-             )
+             (data['krylov'],
+              data['preconditioner type'],
+              data['ix deflation'],
+              data['extra deflation'],
+              data['explicit residual'],
+              num_newton_steps
+              ))
 
     # Write the info out to files.
     if args.imgfile:
         pp.savefig(args.imgfile)
     if args.tikzfile:
         matplotlib2tikz.save(args.tikzfile)
-
     return
-# ==============================================================================
+
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
     import argparse
-
-    parser = argparse.ArgumentParser( description = 'Visualize Newton residuals.' )
-
+    parser = argparse.ArgumentParser(description='Visualize Newton residuals.')
     parser.add_argument('filename',
-                        metavar = 'FILE',
-                        type    = str,
-                        help    = 'Newton data file'
+                        metavar='FILE',
+                        type=str,
+                        help='Newton data file'
                         )
 
     parser.add_argument('--imgfile', '-i',
-                        metavar = 'IMG_FILE',
-                        required = True,
-                        default = None,
-                        const = None,
-                        type = str,
-                        help = 'Image file to store the results'
+                        metavar='IMG_FILE',
+                        required=True,
+                        default=None,
+                        const=None,
+                        type=str,
+                        help='Image file to store the results'
                         )
 
     parser.add_argument('--tikzfile', '-t',
-                        metavar = 'TIKZ_FILE',
-                        required = True,
-                        default = None,
-                        const = None,
-                        type = str,
-                        help = 'TikZ file to store the results'
+                        metavar='TIKZ_FILE',
+                        required=True,
+                        default=None,
+                        const=None,
+                        type=str,
+                        help='TikZ file to store the results'
                         )
-
     return parser.parse_args()
-# ==============================================================================
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================
