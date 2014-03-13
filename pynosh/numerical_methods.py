@@ -11,6 +11,179 @@ import scipy
 import krypy
 
 
+class ForcingConstant(object):
+    def __init__(self, eta0):
+        self.eta0 = eta0
+        return
+
+    def get(self, eta_previous, resval_previous, F0, F_1):
+        return self.eta0
+
+
+class Forcing_EW1(object):
+    '''Linear tolerance is given by
+
+    "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
+    -- Eisenstat, Walker
+    http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.15.3196
+
+    See also
+    "NITSOL: A Newton Iterative Solver for Nonlinear Systems"
+    http://epubs.siam.org/sisc/resource/1/sjoce3/v19/i1/p302_s1?isAuthorized=no
+    '''
+    def __init__(self, eta_min=1.0e-6, eta_max=1.0e-2):
+        self.eta_min = eta_min
+        self.eta_max = eta_max
+        return
+
+    def get(self, eta_previous, resval_previous, F0, F_1):
+        from scipy.constants import golden
+        # linear_relresvec[-1] \approx tol, so this could be replaced.
+        eta = abs(F0 - resval_previous) / F_1
+        eta = max(eta, eta_previous**golden, self.eta_min)
+        eta = min(eta, self.eta_max)
+        return eta
+
+
+class Forcing_EW2(object):
+    def __init__(self, eta_min=1.0e-6, eta_max=1.0e-2, alpha=1.5, gamma=0.9):
+        self.eta_min = eta_min
+        self.eta_max = eta_max
+        self.alpha = alpha
+        self.gamma = gamma
+        return
+
+    def get(self, eta_previous, resval_previous, F0, F_1):
+        eta = self.gamma * (F0 / F_1)**self.alpha
+        eta = max(eta, self.gamma * eta_previous**self.alpha, self.eta_min)
+        eta = min(eta, self.eta_max)
+        return eta
+
+
+def newton(x0,
+           model_evaluator,
+           nonlinear_tol=1.0e-10,
+           newton_maxiter=20,
+           linear_solver=krypy.linsys.Gmres,
+           linear_solver_maxiter=None,
+           linear_solver_extra_args={},
+           compute_f_extra_args={},
+           eta0=1.0e-10,
+           forcing_term='constant',
+           debug=False,
+           yaml_emitter=None
+           ):
+    '''Newton's method with different forcing terms.
+    '''
+
+    # Default forcing term.
+    if forcing_term == 'constant':
+        forcing_term = ForcingConstant(eta0)
+
+    # Some initializations.
+    # Set the default error code to 'failure'.
+    error_code = 1
+    k = 0
+
+    x = x0.copy()
+    Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
+    Fx_norms = [_norm(Fx, inner_product=model_evaluator.inner_product)]
+    eta_previous = None
+    #W = np.zeros((len(x), 0))
+    linear_relresvecs = []
+
+    # get recycling solver
+    recycling_solver = krypy.recycling.RecyclingGmres()
+    # get vector factory
+    vector_factory = krypy.recycling.factories.RitzFactorySimple(
+        n_vectors=12,
+        which='smallest_abs'
+        )
+
+    if debug:
+        import yaml
+        if yaml_emitter is None:
+            yaml_emitter = yaml.YamlEmitter()
+            yaml_emitter.begin_doc()
+        yaml_emitter.begin_seq()
+
+    while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
+        if debug:
+            yaml_emitter.add_comment('Newton step %d' % (k+1))
+            yaml_emitter.begin_map()
+            yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
+
+        # Get tolerance for next linear solve.
+        if k == 0:
+            eta = eta0
+        else:
+            eta = forcing_term.get(eta_previous, out.resnorms[-1],
+                                   Fx_norms[-1], Fx_norms[-2]
+                                   )
+        eta_previous = eta
+
+        # Setup linear problem.
+        jacobian = model_evaluator.get_jacobian(x, **compute_f_extra_args)
+
+        M = model_evaluator.get_preconditioner(x, **compute_f_extra_args)
+        Minv = \
+            model_evaluator.get_preconditioner_inverse(x,
+                                                       **compute_f_extra_args
+                                                       )
+
+        # Create the linear system.
+        linear_system = krypy.linsys.LinearSystem(
+            jacobian, -Fx, M=Minv, Minv=M, ip_B=model_evaluator.inner_product
+            )
+
+        out = recycling_solver.solve(linear_system,
+                                     vector_factory,
+                                     tol=eta,
+                                     maxiter=linear_solver_maxiter,
+                                     #**linear_solver_extra_args
+                                     )
+
+        if debug:
+            yaml_emitter.add_key_value('relresvec', out.resnorms)
+            #yaml_emitter.add_key_value('relresvec[-1]', out['relresvec'][-1])
+            yaml_emitter.add_key_value('num_iter', len(out.resnorms)-1)
+            yaml_emitter.add_key_value('eta', eta)
+
+        # save the convergence history
+        linear_relresvecs.append(out.resnorms)
+
+        # perform the Newton update
+        x += out.xk
+
+        # do the household
+        k += 1
+        Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
+        Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
+
+        if debug:
+            yaml_emitter.end_map()
+
+    if Fx_norms[-1] < nonlinear_tol:
+        error_code = 0
+
+    if debug:
+        yaml_emitter.begin_map()
+        yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
+        yaml_emitter.end_map()
+        yaml_emitter.end_seq()
+        if Fx_norms[-1] > nonlinear_tol:
+            yaml_emitter.add_comment(
+                'Newton solver did not converge '
+                '(residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol)
+                )
+
+    return {'x': x,
+            'info': error_code,
+            'Newton residuals': Fx_norms,
+            'linear relresvecs': linear_relresvecs
+            }
+
+
 def _apply(A, x):
     '''Implement A*x for different types of linear operators.'''
     if A is None:
@@ -75,274 +248,6 @@ def _norm(x,
                                  Mx=Mx,
                                  inner_product=inner_product
                                  ))
-
-
-def newton(x0,
-           model_evaluator,
-           nonlinear_tol=1.0e-10,
-           newton_maxiter=20,
-           linear_solver=krypy.linsys.Gmres,
-           linear_solver_maxiter=None,
-           linear_solver_extra_args={},
-           compute_f_extra_args={},
-           forcing_term='constant',
-           eta0=1.0e-1,
-           eta_min=1.0e-6,
-           eta_max=1.0e-2,
-           alpha=1.5,  # only used by forcing_term='type 2'
-           gamma=0.9,  # only used by forcing_term='type 2'
-           #deflation_generators=[],
-           #num_deflation_vectors=0,
-           debug=False,
-           yaml_emitter=None
-           ):
-    '''Newton's method with different forcing terms.
-    '''
-    from scipy.constants import golden
-
-    # Some initializations.
-    # Set the default error code to 'failure'.
-    error_code = 1
-    k = 0
-
-    x = x0.copy()
-    Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
-    Fx_norms = [_norm(Fx, inner_product=model_evaluator.inner_product)]
-    eta_previous = None
-    #W = np.zeros((len(x), 0))
-    linear_relresvecs = []
-
-    # get recycling solver
-    recycling_solver = krypy.recycling.RecyclingGmres()
-    # get vector factory
-    vector_factory = krypy.recycling.factories.RitzFactorySimple(
-        n_vectors=3,
-        which='smallest_res'
-        )
-
-    if debug:
-        import yaml
-        if yaml_emitter is None:
-            yaml_emitter = yaml.YamlEmitter()
-            yaml_emitter.begin_doc()
-        yaml_emitter.begin_seq()
-
-    while Fx_norms[-1] > nonlinear_tol and k < newton_maxiter:
-        if debug:
-            yaml_emitter.add_comment('Newton step %d' % (k+1))
-            yaml_emitter.begin_map()
-            yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
-        # Linear tolerance is given by
-        #
-        # "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
-        # -- Eisenstat, Walker
-        # http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.15.3196
-        #
-        # See also
-        # "NITSOL: A Newton Iterative Solver for Nonlinear Systems"
-        # http://epubs.siam.org/sisc/resource/1/sjoce3/v19/i1/p302_s1?isAuthorized=no
-        if eta_previous is None or forcing_term == 'constant':
-            eta = eta0
-        elif forcing_term == 'type 1':
-            # linear_relresvec[-1] \approx tol, so this could be replaced.
-            eta = abs(Fx_norms[-1] - out.resvals[-1]) / Fx_norms[-2]
-            eta = max(eta, eta_previous**golden, eta_min)
-            eta = min(eta, eta_max)
-        elif forcing_term == 'type 2':
-            eta = gamma * (Fx_norms[-1] / Fx_norms[-2])**alpha
-            eta = max(eta, gamma * eta_previous**alpha, eta_min)
-            eta = min(eta, eta_max)
-        else:
-            raise ValueError('Unknown forcing term \'%s\'. Abort.'
-                             % forcing_term
-                             )
-        eta_previous = eta
-
-        # Setup linear problem.
-        jacobian = model_evaluator.get_jacobian(x, **compute_f_extra_args)
-        #initial_guess = np.zeros((len(x), 1))
-        # The .copy() is redundant as Python copies on "-Fx" anyways,
-        # but leave it here for clarity.
-        rhs = -Fx.copy()
-
-        M = model_evaluator.get_preconditioner(x, **compute_f_extra_args)
-        Minv = \
-            model_evaluator.get_preconditioner_inverse(x,
-                                                       **compute_f_extra_args
-                                                       )
-
-        #def Minner_product(x, y):
-        #    return model_evaluator.inner_product(_apply(M, x), y)
-
-        ## Conditionally deflate the nearly-null vector i*x or others.
-        ## TODO Get a more sensible guess for the dtype here.
-        ##      If x is real-values, deflation_generator(x) could indeed
-        ##      be complex-valued.
-        ##      Maybe get the lambda function along with its dtype
-        ##      as input argument?
-        #U = np.empty((len(x), len(deflation_generators)), dtype=x.dtype)
-        #for i, deflation_generator in enumerate(deflation_generators):
-        #    U[:, [i]] = deflation_generator(x)
-
-        ## Gather up all deflation vectors.
-        #WW = np.c_[W, U]
-
-        ## Brief sanity test for the deflation vectors.
-        ## If one of them is (too close to) 0, then qr below will cowardly bail
-        ## out, so remove them from the list.
-        #del_k = []
-        #for col_index, w in enumerate(WW.T):
-        #    alpha = Minner_product(w[:, None], w[:, None])
-        #    if abs(alpha) < 1.0e-14:
-        #        warnings.warn('Deflation vector dropped due to low norm; '
-        #                      '<v, v> = %g.' % alpha
-        #                      )
-        #        del_k.append(col_index)
-        #if del_k:
-        #    WW = np.delete(WW, del_k, 1)
-
-        ## Attention:
-        ## If the preconditioner is later solved inexactly then W will be
-        ## orthonormal w.r.t. a different inner product! This may affect the
-        ## computation of Ritz pairs and their residuals.
-        #W, _ = krypy.utils.qr(WW, ip_B=Minner_product)
-
-        #if W.shape[1] > 0:
-        #    AW = jacobian * W
-        #    P, x0new = krypy.deflation.get_deflation_data(
-        #        W, AW, rhs,
-        #        x0=initial_guess,
-        #        inner_product=model_evaluator.inner_product
-        #        )
-        #    if debug:
-        #        yaml_emitter.add_key_value('dim of deflation space',
-        #                                   W.shape[1]
-        #                                   )
-        #        yaml_emitter.add_key_value(
-        #            '||I-ip(W,W)||',
-        #            np.linalg.norm(np.eye(W.shape[1]) - Minner_product(W, W))
-        #            )
-        #        ix_normalized = 1j*x / np.sqrt(Minner_product(1j*x, 1j*x))
-        #        ixW = Minner_product(W, ix_normalized)
-        #        from scipy.linalg import svd
-        #        yaml_emitter.add_key_value(
-        #            'principal angle',
-        #            np.arccos(min(svd(ixW, compute_uv=False)[0], 1.0))
-        #            )
-        #else:
-        #    AW = np.zeros((len(x), 0))
-
-        #if num_deflation_vectors > 0:
-        #    # limit to 1 GB memory for Vfull/Pfull (together)
-        #    from math import floor
-        #    maxmem = 2**30  # 1 GB
-        #    maxmem_maxiter = int(floor(maxmem/(2*16*len(x))))
-        #    if linear_solver_maxiter > maxmem_maxiter:
-        #        warnings.warn('limiting linear_solver_maxiter to %d instead of %d to fulfill memory constraints (%g GB)' % (maxmem_maxiter, linear_solver_maxiter, maxmem / float(2**30)))
-        #        linear_solver_maxiter = maxmem_maxiter
-
-        # Create the linear system.
-        # TODO check Minv, M
-        linear_system = krypy.linsys.LinearSystem(
-            jacobian, rhs, M=Minv, Minv=M, ip_B=model_evaluator.inner_product
-            )
-
-        out = recycling_solver.solve(linear_system,
-                                     vector_factory,
-                                     tol=eta,
-                                     maxiter=linear_solver_maxiter,
-                                     #**linear_solver_extra_args
-                                     )
-
-        ## Solve the linear system.
-        #out = linear_solver(jacobian,
-        #                    rhs,
-        #                    x0new,
-        #                    maxiter=linear_solver_maxiter,
-        #                    Mr=P,
-        #                    M=Minv,
-        #                    tol=eta,
-        #                    ip_B=model_evaluator.inner_product,
-        #                    store_arnoldi=return_basis,
-        #                    **linear_solver_extra_args
-        #                    )
-
-        if debug:
-            yaml_emitter.add_key_value('relresvec', out.resnorms)
-            #yaml_emitter.add_key_value('relresvec[-1]', out['relresvec'][-1])
-            yaml_emitter.add_key_value('num_iter', len(out.resnorms)-1)
-            yaml_emitter.add_key_value('eta', eta)
-            #print 'Linear solver \'%s\' performed %d iterations with final residual %g (tol %g).' %(linear_solver.__name__, len(out['relresvec'])-1, out['relresvec'][-1], eta)
-
-        #np.set_printoptions(linewidth=150)
-        #if ('Vfull' in out) and ('Hfull' in out):
-        #    if debug:
-        #        MVfull = out['Pfull'] if ('Pfull' in out) else out['Vfull']
-        #        yaml_emitter.add_key_value(
-        #            '||ip(Vfull,W)||',
-        #            np.linalg.norm(model_evaluator.inner_product(MVfull, W))
-        #            )
-        #        yaml_emitter.add_key_value(
-        #            '||I-ip(Vfull,Vfull)||',
-        #            np.linalg.norm(np.eye(out['Vfull'].shape[1])
-        #                - model_evaluator.inner_product(MVfull, out['Vfull']))
-        #            )
-        #        # next one is time-consuming, uncomment if needed
-        #        #print '||Minv*A*P*V - V_*H|| = %g' % \
-        #        #    np.linalg.norm(_apply(Minv, _apply(jacobian, _apply(P, out['Vfull'][:,0:-1]))) - np.dot(out['Vfull'], out['Hfull']) )
-
-        #    if num_deflation_vectors > 0:
-        #        ritz_vals, W = get_p_harmonic_ritz(
-        #            jacobian, W, AW, out['Vfull'], out['Hfull'],
-        #            Minv=Minv,
-        #            M=M,
-        #            p=num_deflation_vectors,
-        #            mode='SM',
-        #            inner_product=model_evaluator.inner_product
-        #            )
-        #        if debug:
-        #            yaml_emitter.add_key_value(
-        #                '||I-ip(Wnew,Wnew)||',
-        #                np.linalg.norm(np.eye(W.shape[1])-Minner_product(W, W))
-        #                )
-        #    else:
-        #        W = np.zeros((len(x), 0))
-        #else:
-        #    W = np.zeros((len(x), 0))
-
-        # save the convergence history
-        linear_relresvecs.append(out.resnorms)
-
-        # perform the Newton update
-        x += out.xk
-
-        # do the household
-        k += 1
-        Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
-        Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
-
-        if debug:
-            yaml_emitter.end_map()
-
-    if Fx_norms[-1] < nonlinear_tol:
-        error_code = 0
-
-    if debug:
-        yaml_emitter.begin_map()
-        yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
-        yaml_emitter.end_map()
-        yaml_emitter.end_seq()
-        if Fx_norms[-1] > nonlinear_tol:
-            yaml_emitter.add_comment(
-                'Newton solver did not converge '
-                '(residual = %g > %g = tol)' % (Fx_norms[-1], nonlinear_tol)
-                )
-
-    return {'x': x,
-            'info': error_code,
-            'Newton residuals': Fx_norms,
-            'linear relresvecs': linear_relresvecs
-            }
 
 
 def jacobi_davidson(A,

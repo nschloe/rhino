@@ -146,9 +146,8 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
                            linear_solver_maxiter=1000,  # 2*len(psi0),
                            linear_solver_extra_args=lin_solve_args,
                            nonlinear_tol=1.0e-10,
-                           # 'constant', 'type1', 'type 2'
-                           forcing_term='constant',
                            eta0=args.eta,
+                           forcing_term='constant',
                            compute_f_extra_args={'g': g, 'mu': mu},
                            #deflation_generators=defl,
                            #num_deflation_vectors=args.num_extra_defl_vectors,
