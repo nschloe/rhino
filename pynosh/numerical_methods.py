@@ -133,7 +133,8 @@ def newton(x0,
 
         # Create the linear system.
         linear_system = krypy.linsys.LinearSystem(
-            jacobian, -Fx, M=Minv, Minv=M, ip_B=model_evaluator.inner_product
+            jacobian, -Fx, M=Minv, Minv=M, ip_B=model_evaluator.inner_product,
+            normal=True, self_adjoint=True
             )
 
         out = recycling_solver.solve(linear_system,
