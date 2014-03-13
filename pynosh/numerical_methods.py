@@ -92,7 +92,7 @@ def newton(x0,
     # get vector factory
     vector_factory = krypy.recycling.factories.RitzFactorySimple(
         n_vectors=12,
-        which='smallest_abs'
+        which='sm'
         )
 
     if debug:
