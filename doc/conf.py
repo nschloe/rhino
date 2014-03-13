@@ -19,6 +19,8 @@ import mock
 MOCK_MODULES = ['scipy',
                 'scipy.linalg'
                 'scipy.sparse',
+                'scipy.sparse.linalg',
+                'scipy.sparse.sputils',
                 'krypy'
                 ]
 for mod_name in MOCK_MODULES:
