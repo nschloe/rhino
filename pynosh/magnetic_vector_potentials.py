@@ -1,5 +1,5 @@
 '''Module that provides magnetic vector potentials.'''
-import numpy as np
+import numpy
 #cdef extern from "math.h":
 #    void sincos(double x, double *sin, double *cos)
 #    double sqrt(double x)
@@ -10,7 +10,7 @@ def constant_field(X, B):
     into a corresponding potential.
     '''
     # This is one particular choice that works.
-    return 0.5 * np.cross(B, X)
+    return 0.5 * numpy.cross(B, X)
 
 
 def magnetic_dipole(x, x0, m):
@@ -19,10 +19,12 @@ def magnetic_dipole(x, x0, m):
     '''
     r = x - x0
     # npsum(...) = ||r||^3 row-wise;
-    # np.cross acts on rows by default;
-    # The ".T" magic makes sure that each row of np.cross(m, r)
+    # numpy.cross acts on rows by default;
+    # The ".T" magic makes sure that each row of numpy.cross(m, r)
     # gets divided by the corresponding entry in ||r||^3.
-    return (np.cross(m, r).T / np.sum(np.abs(r)**2, axis=-1)**(3./2)).T
+    return (numpy.cross(m, r).T
+            / numpy.sum(numpy.abs(r)**2, axis=-1)**(3./2)
+            ).T
 
 #def magnetic_dot(double x, double y,
 #                 double magnet_radius,
@@ -117,11 +119,11 @@ def magnetic_dot(X, radius, heights):
     # For symmetry, choose a number that is divided by 4.
     n_phi = 100
     # Choose such that the quads at radius/2 are approximately squares.
-    n_radius = int(round(n_phi / np.pi))
+    n_radius = int(round(n_phi / numpy.pi))
 
     dr = radius / n_radius
 
-    A = np.zeros((len(X), 3))
+    A = numpy.zeros((len(X), 3))
 
     # What we want to have is the value of
     #
@@ -143,11 +145,11 @@ def magnetic_dot(X, radius, heights):
     # the summation over little disk segments.
     # An alternative is to use cylindrical coordinates.
     #
-    X_dist = np.empty((X.shape[0], 2))
+    X_dist = numpy.empty((X.shape[0], 2))
     for i_phi in range(n_phi):
-        beta = 2.0 * np.pi / n_phi * i_phi
-        sin_beta = np.sin(beta)
-        cos_beta = np.cos(beta)
+        beta = 2.0 * numpy.pi / n_phi * i_phi
+        sin_beta = numpy.sin(beta)
+        cos_beta = numpy.cos(beta)
         for i_radius in range(n_radius):
             rad = radius / n_radius * (i_radius + 0.5)
             # r = squared distance between grid point X to the
@@ -157,19 +159,19 @@ def magnetic_dot(X, radius, heights):
 
             # r = x_dist * x_dist + y_dist * y_dist
             # Note that X_dist indeed only has two components.
-            R = np.sum(X_dist**2, axis=1)
-            ind = np.nonzero(R > 1.0e-15)
+            R = numpy.sum(X_dist**2, axis=1)
+            ind = numpy.nonzero(R > 1.0e-15)
 
             # 3D distance to point on lower edge (xi,yi,height0)
-            R_3D0 = np.sqrt(R[ind] + heights[0]**2)
+            R_3D0 = numpy.sqrt(R[ind] + heights[0]**2)
             # 3D distance to point on upper edge (xi,yi,height1)
-            R_3D1 = np.sqrt(R[ind] + heights[1]**2)
+            R_3D1 = numpy.sqrt(R[ind] + heights[1]**2)
             # Volume of circle segment = pi*angular_width * r^2,
             # so the volume of a building brick of the discretization is
             #   V = pi/n_phi * [(r+dr/2)^2 - (r-dr/2)^2]
             #     = pi/n_phi * 2 * r * dr.
             Alpha = (heights[1]/R_3D1 - heights[0]/R_3D0) / R[ind] \
-                * np.pi / n_phi * (2.0*rad*dr)  # volume
+                * numpy.pi / n_phi * (2.0*rad*dr)  # volume
             # ax += y_dist * alpha
             # ay -= x_dist * alpha
             A[ind, 0] += X_dist[ind, 1] * Alpha

@@ -21,7 +21,7 @@
 '''
 Provide information around the nonlinear Schrödinger equations.
 '''
-import numpy as np
+import numpy
 from scipy import sparse, linalg
 import warnings
 import krypy
@@ -41,7 +41,7 @@ class NlsModelEvaluator:
                  V=None,
                  A=None,
                  preconditioner_type='none',
-                 num_amg_cycles=np.inf
+                 num_amg_cycles=numpy.inf
                  ):
         '''Initialization. Set mesh.
         '''
@@ -49,11 +49,11 @@ class NlsModelEvaluator:
         self.mesh = mesh
         n = len(mesh.node_coords)
         if V is None:
-            self._V = np.zeros(n)
+            self._V = numpy.zeros(n)
         else:
             self._V = V
         if A is None:
-            self._raw_magnetic_vector_potential = np.zeros((n, 3))
+            self._raw_magnetic_vector_potential = numpy.zeros((n, 3))
         else:
             self._raw_magnetic_vector_potential = A
         self._keo_cache = None
@@ -159,10 +159,11 @@ class NlsModelEvaluator:
         if self._preconditioner_type == 'none':
             return None
         if self._preconditioner_type == 'cycles':
-            warnings.warn('Preconditioner inverted approximately with '
-                          '%d AMG cycles, so get_preconditioner() isn''t exact.'
-                          % self._num_amg_cycles
-                          )
+            warnings.warn(
+                'Preconditioner inverted approximately with '
+                '%d AMG cycles, so get_preconditioner() isn\'t exact.'
+                % self._num_amg_cycles
+                )
 
         def _apply_precon(phi):
             return (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
@@ -180,7 +181,7 @@ class NlsModelEvaluator:
             alpha = g * 2.0 * (x.real**2 + x.imag**2)
             #beta = g * x**2
         else:
-            alpha = np.zeros(len(x))
+            alpha = numpy.zeros(len(x))
         num_unknowns = len(self.mesh.node_coords)
         return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
                                           self.dtype,
@@ -197,7 +198,7 @@ class NlsModelEvaluator:
         def _apply_inverse_prec_exact(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             linear_system = krypy.linsys.LinearSystem(prec, rhs, M=amg_prec)
-            x_init = np.zeros((num_unknowns, 1), dtype=complex)
+            x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
             out = krypy.linsys.Cg(linear_system,
                                   x0=x_init,
                                   tol=1.0e-13,
@@ -209,8 +210,8 @@ class NlsModelEvaluator:
 
         def _apply_inverse_prec_cycles(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
-            x_init = np.zeros((num_unknowns, 1), dtype=complex)
-            x = np.empty((num_unknowns, 1), dtype=complex)
+            x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
+            x = numpy.empty((num_unknowns, 1), dtype=complex)
             residuals = []
             x[:, 0] = prec_amg_solver.solve(rhs,
                                             x0=x_init,
@@ -246,7 +247,7 @@ class NlsModelEvaluator:
         #import scipy.sparse.linalg
         #lambd, v = scipy.sparse.linalg.eigs(prec, which='SM')
         #assert all(abs(lambd.imag) < 1.0e-15)
-        #print '||psi||^2 = %g' % np.linalg.norm(absPsi0Squared)
+        #print '||psi||^2 = %g' % numpy.linalg.norm(absPsi0Squared)
         #print 'lambda =', lambd.real
 
         prec_amg_solver = \
@@ -279,7 +280,7 @@ class NlsModelEvaluator:
         num_unknowns = len(x)
 
         if self._preconditioner_type == 'cycles':
-            if self._num_amg_cycles == np.inf:
+            if self._num_amg_cycles == numpy.inf:
                 raise ValueError('Invalid number of cycles.')
             return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
                                               self.dtype,
@@ -322,8 +323,9 @@ class NlsModelEvaluator:
         elif len(phi0.shape) == 2:
             scaledPhi0 = \
                 self.mesh.control_volumes.reshape((phi0.shape[0], 1)) * phi0
-        # np.vdot only works for vectors, so use np.dot(....T.conj()) here.
-        return np.dot(scaledPhi0.T.conj(), phi1).real
+        # numpy.vdot only works for vectors, so use numpy.dot(....T.conj())
+        # here.
+        return numpy.dot(scaledPhi0.T.conj(), phi1).real
 
     def energy(self, psi):
         '''Compute the Gibbs free energy.
@@ -357,7 +359,7 @@ class NlsModelEvaluator:
                 # Fetch the cached values.
                 alpha = self._edgecoeff_cache[k]
                 alphaExp0 = self._edgecoeff_cache[k] \
-                    * np.exp(1j * mvp_edge_cache[k])
+                    * numpy.exp(1j * mvp_edge_cache[k])
                 # Sum them into the matrix.
                 self._keo_cache[node_indices[0], node_indices[0]] += alpha
                 self._keo_cache[node_indices[0], node_indices[1]] -= alphaExp0.conj()
@@ -377,7 +379,7 @@ class NlsModelEvaluator:
             self.mesh.create_adjacent_entities()
 
         num_edges = len(self.mesh.edges)
-        self._edgecoeff_cache = np.zeros(num_edges, dtype=float)
+        self._edgecoeff_cache = numpy.zeros(num_edges, dtype=float)
 
         if self.mesh.cell_volumes is None:
             self.mesh.create_cell_volumes()
@@ -397,9 +399,9 @@ class NlsModelEvaluator:
             #
             # has to hold for all vectors u in the plane spanned by the edges,
             # particularly by the edges themselves.
-            A = np.dot(edges[cell_edge_gids], edges[cell_edge_gids].T)
-            # Careful here! As of NumPy 1.7, np.diag() returns a view.
-            rhs = vol * np.diag(A).copy()
+            A = numpy.dot(edges[cell_edge_gids], edges[cell_edge_gids].T)
+            # Careful here! As of NumPy 1.7, numpy.diag() returns a view.
+            rhs = vol * numpy.diag(A).copy()
             A = A**2
 
             # Append the the resulting coefficients to the coefficient cache.
@@ -407,7 +409,7 @@ class NlsModelEvaluator:
             try:
                 self._edgecoeff_cache[cell_edge_gids] += \
                     linalg.solve(A, rhs, sym_pos=True)
-            except np.linalg.linalg.LinAlgError:
+            except numpy.linalg.linalg.LinAlgError:
                 # The matrix A appears to be singular,
                 # and the only circumstance that makes this
                 # happening is the cell being degenerate.
@@ -440,7 +442,7 @@ class NlsModelEvaluator:
         mvp = 0.5 * (self._get_mvp(mu, self.mesh.edges['nodes'][:, 1])
                      + self._get_mvp(mu, self.mesh.edges['nodes'][:, 0])
                      )
-        return np.sum(edges * mvp, 1)
+        return numpy.sum(edges * mvp, 1)
 
     def _get_mvp(self, mu, index):
         return mu * self._raw_magnetic_vector_potential[index]
@@ -480,7 +482,7 @@ class NlsModelEvaluator:
                 ## Instead of projecting onto the normalized edge and then
                 ## multiplying with the edge length for the approximation of
                 ## the integral, just project on the not normalized edge.
-                #a_integral = np.dot( node1 - node0,
+                #a_integral = numpy.dot( node1 - node0,
                                      #self._magnetic_vector_potential(midpoint)
                                    #)
 
