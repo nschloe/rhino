@@ -286,7 +286,6 @@ class NlsModelEvaluator:
                                               dot=_apply_inverse_prec_cycles
                                               )
         elif self._preconditioner_type == 'exact':
-            import numerical_methods as nm
             amg_prec = prec_amg_solver.aspreconditioner(cycle='V')
             return krypy.utils.LinearOperator((num_unknowns, num_unknowns),
                                               dtype=self.dtype,

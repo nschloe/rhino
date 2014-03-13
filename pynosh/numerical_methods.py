@@ -3,11 +3,7 @@
 '''
 Collection of numerical algorithms.
 '''
-from scipy.sparse.linalg import LinearOperator
-from scipy.sparse.sputils import upcast
-import numpy as np
-import scipy
-
+import numpy
 import krypy
 
 
@@ -87,9 +83,8 @@ def newton(x0,
 
     x = x0.copy()
     Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
-    Fx_norms = [_norm(Fx, inner_product=model_evaluator.inner_product)]
+    Fx_norms = [numpy.sqrt(model_evaluator.inner_product(Fx, Fx))]
     eta_previous = None
-    #W = np.zeros((len(x), 0))
     linear_relresvecs = []
 
     # get recycling solver
@@ -159,7 +154,7 @@ def newton(x0,
         # do the household
         k += 1
         Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
-        Fx_norms.append(_norm(Fx, inner_product=model_evaluator.inner_product))
+        Fx_norms.append(numpy.sqrt(model_evaluator.inner_product(Fx, Fx)))
 
         if debug:
             yaml_emitter.end_map()
@@ -185,168 +180,6 @@ def newton(x0,
             }
 
 
-def _apply(A, x):
-    '''Implement A*x for different types of linear operators.'''
-    if A is None:
-        return x
-    elif isinstance(A, np.ndarray):
-        return np.dot(A, x)
-    elif scipy.sparse.isspmatrix(A):
-        return A * x
-    elif isinstance(A, scipy.sparse.linalg.LinearOperator):
-        return A * x
-    else:
-        raise ValueError('Unknown operator type "%s".' % type(A))
-
-
-def _ipstd(X, Y):
-    '''Euclidean inner product
-
-    np.vdot only works for vectors and np.dot does not use the conjugate
-    transpose. In Octave/MATLAB notation _ipstd(X,Y) == X'*Y.
-
-    Arguments:
-        X:  array of shape [N,m]
-        Y:  array of shape [N,n]
-
-    Returns:
-        ip: array of shape [m,n] with X^H * Y
-    '''
-    return np.dot(X.T.conj(), Y)
-
-
-def _norm_squared(x,
-                  Mx=None,
-                  inner_product=_ipstd
-                  ):
-    '''Compute the norm^2 w.r.t. to a given scalar product.
-    '''
-    assert(len(x.shape) == 2)
-    assert(x.shape[1] == 1)
-    if Mx is None:
-        rho = inner_product(x, x)[0, 0]
-    else:
-        assert(len(Mx.shape) == 2)
-        assert(Mx.shape[1] == 1)
-        rho = inner_product(x, Mx)[0, 0]
-
-    #    if rho.imag != 0.0: #abs(rho.imag) > abs(rho) * 1.0e-10:
-    if abs(rho.imag) > abs(rho) * 1e-10:
-        raise ValueError('M not positive definite?')
-
-    rho = rho.real
-    if rho < 0.0:
-        raise ValueError('<x,Mx> = %g. M not positive definite?' % rho)
-    return rho
-
-
-def _norm(x,
-          Mx=None,
-          inner_product=_ipstd
-          ):
-    '''Compute the norm w.r.t. to a given scalar product.'''
-    return np.sqrt(_norm_squared(x,
-                                 Mx=Mx,
-                                 inner_product=inner_product
-                                 ))
-
-
-def jacobi_davidson(A,
-                    v0,  # starting vector
-                    tol=1e-5,
-                    maxiter=None,
-                    M=None,
-                    inner_product=_ipstd
-                    ):
-    '''Jacobi-Davidson for the largest-magnitude eigenvalue of a
-    self-adjoint operator.
-    '''
-    xtype = upcast(A.dtype, v0.dtype)
-    num_unknowns = len(v0)
-    if maxiter is None:
-        maxiter = num_unknowns
-    t = v0
-    # Set up fields.
-    V = np.empty((num_unknowns, maxiter), dtype=xtype)
-    AV = np.empty((num_unknowns, maxiter), dtype=xtype)
-    B = np.empty((maxiter, maxiter), dtype=float)
-
-    resvec = []
-    info = 1
-    for m in range(maxiter):
-        # orthgonalize t w.r.t. to the basis V
-        t = orth_vec(t, V[:, 0:m], inner_product=inner_product)
-
-        # normalize
-        norm_t = np.sqrt(inner_product(t, t))[0, 0]
-        assert norm_t > 1.0e-10, '||t|| = 0. Breakdown.'
-
-        V[:, [m]] = t / norm_t
-        AV[:, [m]] = _apply(A, V[:, [m]])
-
-        # B = <V,AV>.
-        # Only fill the lower triangle of B.
-        for i in range(m+1):
-            alpha = inner_product(V[:, [i]], AV[:, [m]])[0, 0]
-            assert alpha.imag < 1.0e-10, 'A not self-adjoint?'
-            B[m, i] = alpha.real
-
-        # Compute the largest eigenpair of B.
-        from scipy.linalg import eigh
-        Theta, S = eigh(B[0:m+1, 0:m+1], lower=True)
-
-        # Extract the largest-magnitude one.
-        index = np.argmax(abs(Theta))
-        theta = Theta[index]
-        s = S[:, [index]]
-        # normalize s in the inner product
-        norm_s = np.sqrt(inner_product(s, s))[0, 0]
-        assert norm_s > 1.0e-10, '||s|| = 0. Breakdown.'
-        s /= norm_s
-
-        # Get u, Au.
-        u = np.dot(V[:, 0:m+1], s)
-        Au = np.dot(AV[:, 0:m+1], s)
-
-        # Compute residual.
-        res = Au - theta*u
-        resvec.append(np.sqrt(inner_product(res, res)[0, 0]))
-
-        if resvec[-1] < tol:
-            info = 0
-            break
-        else:
-            # (Approximately) solve for t\ortho u from
-            # (I-uu*)(A-theta I)(I-uu*) t = -r.
-            def _shifted_projected_operator(A, u, theta):
-                def _apply_proj(phi):
-                    return phi - u * inner_product(u, phi)
-
-                def _apply_shifted_projected_operator(phi):
-                    return _apply_proj(A*_apply_proj(phi) - theta*_apply_proj(phi))
-
-                return LinearOperator((num_unknowns, num_unknowns),
-                                      _apply_shifted_projected_operator,
-                                      dtype=A.dtype
-                                      )
-            assert abs(inner_product(u, res)) < 1.0e-10
-            out = minres(_shifted_projected_operator(A, u, theta),
-                         -res,
-                         x0=np.zeros((num_unknowns,1)),
-                         tol=1.0e-8,
-                         M=M,
-                         #Minv=None,
-                         #Ml=_proj(u),
-                         #Mr=_proj(u),
-                         maxiter=num_unknowns,
-                         inner_product=inner_product
-                         )
-            assert out[1] == 0, 'MINRES did not converge.'
-            t = out[0]
-            assert abs(inner_product(t, u)[0, 0]) < 1.0e-10, abs(inner_product(t, u))[0,0]
-    return theta, u, info, resvec
-
-
 def poor_mans_continuation(x0,
                            model_evaluator,
                            initial_parameter_value,
@@ -365,7 +198,7 @@ def poor_mans_continuation(x0,
     In particular, the new step size :math:`\Delta s_{new}` is given by
 
     .. math::
-       \Delta s_{new} = \Delta s_{old}\left(1 + a\left(\frac{N_{max} - N}{N_{max}}\right)^2\right).
+       \Delta s_{new} = \Delta s_{old}\left(1 + a\left(\\frac{N_{max} - N}{N_{max}}\\right)^2\\right).
     '''
 
     # write header of the statistics file
@@ -391,7 +224,8 @@ def poor_mans_continuation(x0,
                                               )
             if error_code != 0:
                 current_step_size *= 0.5
-                print('Continuation step failed (error code %d). Setting step size to %e.'
+                print(('Continuation step failed (error code %d). '
+                       'Setting step size to %e.')
                       % (error_code, current_step_size)
                       )
             else:
