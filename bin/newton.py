@@ -143,7 +143,7 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
     newton_out = nm.newton(psi0,
                            modeleval,
                            linear_solver=lin_solve,
-                           linear_solver_maxiter=1000,  # 2*len(psi0),
+                           linear_solver_maxiter=200,  # 2*len(psi0),
                            linear_solver_extra_args=lin_solve_args,
                            nonlinear_tol=1.0e-10,
                            eta0=args.eta,

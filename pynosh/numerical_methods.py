@@ -93,7 +93,7 @@ def newton(x0,
     linear_relresvecs = []
 
     # get recycling solver
-    recycling_solver = krypy.recycling.RecyclingGmres()
+    recycling_solver = krypy.recycling.RecyclingMinres()
     # get vector factory
     vector_factory = krypy.recycling.factories.RitzFactorySimple(
         n_vectors=12,
