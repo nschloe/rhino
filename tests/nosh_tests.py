@@ -200,7 +200,7 @@ class TestJacobian(unittest.TestCase):
         tol = 1.0e-12
 
         # [1+i, 1+i, 1+i, ... ]
-        phi = (1 + 1j) * numpy.ones(num_unknowns, dtype=complex)
+        phi = (1 + 1j) * numpy.ones((num_unknowns, 1), dtype=complex)
         val = numpy.vdot(phi,
                          mesh.control_volumes.reshape(phi.shape) * (J*phi)
                          ).real

@@ -3,7 +3,7 @@ import numpy
 import unittest
 
 import voropy
-import pynosh.magnetic_vector_potentials as mvp
+from pynosh import magnetic_vector_potentials as mvp
 
 
 class TestF(unittest.TestCase):
