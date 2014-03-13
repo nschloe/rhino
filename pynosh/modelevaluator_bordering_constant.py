@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-import numpy as np
-import pynosh.numerical_methods as nm
+import numpy
 from scipy.sparse.linalg import LinearOperator
+import krypy
 
 
 class ConstBorderedModelEvaluator:
-    '''Wraps a given model evaluator in a bordering strategy.
-    Does not work with preconditioners.
+    '''
+    Wraps a given model evaluator in a bordering strategy. Does not work with
+    preconditioners.
     '''
     def __init__(self, modeleval, bord):
         '''Initialization.
@@ -20,7 +21,7 @@ class ConstBorderedModelEvaluator:
         '''Compute bordered F.
         '''
         n = len(x) - 1
-        res = np.empty((n+1, 1), dtype=self.dtype)
+        res = numpy.empty((n+1, 1), dtype=self.dtype)
         # Right border: bord * eta.
         res[0:n] = self.inner_modeleval.compute_f(x[0:n]) \
             + self.bord * x[n]
@@ -32,7 +33,7 @@ class ConstBorderedModelEvaluator:
         '''Jacobian of the bordered system.
         '''
         def _apply_jacobian(x):
-            y = np.empty(x.shape, dtype=self.dtype)
+            y = numpy.empty(x.shape, dtype=self.dtype)
             y[0:n] = inner_jacobian * x[0:n] + b.reshape(x[0:n].shape) * x[n]
             assert abs(x[n].imag) < 1.0e-15, 'Not real-valued: %r.' % x[n]
             y[n] = self.inner_modeleval.inner_product(c, x[0:n]) \
@@ -60,33 +61,28 @@ class ConstBorderedModelEvaluator:
         def _apply_jacobian_inverse(x):
             '''Schur thing.'''
             # Test: Use with Jacobian solved exactly.
-            x0new = np.zeros((n, 1), dtype=complex)
             phi0 = x[0:n]
             phi0 = phi0.reshape((n, 1))
-            out0 = nm.minres(jacobian, phi0,
-                             x0new,
-                             tol=1.0e-11,
-                             M=prec,
-                             maxiter=500,
-                             inner_product=self.inner_modeleval.inner_product,
-                             #explicit_residual = True,
-                             #timer=timer
-                             )
-            assert out0['info'] == 0
-            z0 = out0['xk'].reshape(n)
 
-            x0new = np.zeros((n, 1), dtype=complex)
-            out1 = nm.minres(jacobian, b,
-                             x0new,
-                             tol=1.0e-11,
-                             M=prec,
-                             maxiter=500,
-                             inner_product=self.inner_modeleval.inner_product,
-                             #explicit_residual = True,
-                             #timer=timer
-                             )
-            assert out1['info'] == 0
-            z1 = out1['xk'].reshape(n)
+            linear_system0 = krypy.linsys.LinearSystem(
+                jacobian, phi0,
+                ip_B=self.inner_modeleval.inner_product
+                )
+            out0 = krypy.linalg.Minres(linear_system0,
+                                       tol=1.0e-11,
+                                       maxiter=500
+                                       )
+            z0 = out0.xk.reshape(n)
+
+            linear_system1 = krypy.linsys.LinearSystem(
+                jacobian, b,
+                ip_B=self.inner_modeleval.inner_product
+                )
+            out1 = krypy.linalg.Minres(linear_system1,
+                                       tol=1.0e-11,
+                                       maxiter=500
+                                       )
+            z1 = out1.xk.reshape(n)
 
             # Schur complement.
             s = d - self.inner_modeleval.inner_product(c, z1)
@@ -100,7 +96,7 @@ class ConstBorderedModelEvaluator:
             assert abs(x[n].imag) < 1.0e-15
             xn = x[n].real
 
-            y = np.empty(x.shape, dtype=self.dtype)
+            y = numpy.empty(x.shape, dtype=self.dtype)
             y[0:n] = z0 + z1 * 1.0/s * tmp - z1 / s * xn
             y[n] = - 1.0/s * tmp + 1.0/s * xn
             return y
@@ -113,7 +109,7 @@ class ConstBorderedModelEvaluator:
         d = 0.0
 
         jacobian = self.inner_modeleval.get_jacobian(psi0)
-        prec = self.inner_modeleval.get_preconditioner_inverse(psi0)
+        #prec = self.inner_modeleval.get_preconditioner_inverse(psi0)
         return LinearOperator((n+1, n+1),
                               _apply_jacobian_inverse,
                               dtype=self.dtype
@@ -147,7 +143,7 @@ class ConstBorderedModelEvaluator:
             assert abs(x[n].imag) < 1.0e-15
             xn = x[n].real
 
-            y = np.empty(x.shape, dtype=self.dtype)
+            y = numpy.empty(x.shape, dtype=self.dtype)
             y[0:n] = z0 + z1 * 1.0/s * tmp - z1 / s * xn
             y[n] = - 1.0/s * tmp + 1.0/s * xn
             return y
