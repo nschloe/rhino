@@ -13,6 +13,6 @@ install:
   # Using pip makes sure that the package is pip-compatible, too.
   - "pip install ."
   # Use --pre to get krypy alpha
-  - "pip install -r requirements.txt --pre"
+  - "pip install -r requirements.txt"
 # command to run tests
 script: nosetests
