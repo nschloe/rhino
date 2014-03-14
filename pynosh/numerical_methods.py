@@ -60,9 +60,9 @@ def newton(x0,
            model_evaluator,
            nonlinear_tol=1.0e-10,
            newton_maxiter=20,
-           linear_solver=krypy.linsys.Gmres,
-           linear_solver_maxiter=None,
-           linear_solver_extra_args={},
+           RecyclingSolver=krypy.recycling.RecyclingMinres,
+           recycling_solver_kwargs=None,
+           vector_factory_generator=None,
            compute_f_extra_args={},
            eta0=1.0e-10,
            forcing_term='constant',
@@ -76,6 +76,9 @@ def newton(x0,
     if forcing_term == 'constant':
         forcing_term = ForcingConstant(eta0)
 
+    if recycling_solver_kwargs is None:
+        recycling_solver_kwargs = {}
+
     # Some initializations.
     # Set the default error code to 'failure'.
     error_code = 1
@@ -88,12 +91,10 @@ def newton(x0,
     linear_relresvecs = []
 
     # get recycling solver
-    recycling_solver = krypy.recycling.RecyclingMinres()
-    # get vector factory
-    vector_factory = krypy.recycling.factories.RitzFactorySimple(
-        n_vectors=12,
-        which='sm'
-        )
+    recycling_solver = RecyclingSolver()
+
+    # no solution in before first iteration if Newton
+    out = None
 
     if debug:
         import yaml
@@ -126,6 +127,9 @@ def newton(x0,
                                                        **compute_f_extra_args
                                                        )
 
+        # get vector factory
+        vector_factory = vector_factory_generator(x)
+
         # Create the linear system.
         linear_system = krypy.linsys.LinearSystem(
             jacobian, -Fx, M=Minv, Minv=M, ip_B=model_evaluator.inner_product,
@@ -135,8 +139,7 @@ def newton(x0,
         out = recycling_solver.solve(linear_system,
                                      vector_factory,
                                      tol=eta,
-                                     maxiter=linear_solver_maxiter,
-                                     #**linear_solver_extra_args
+                                     **recycling_solver_kwargs
                                      )
 
         if debug:
@@ -198,7 +201,8 @@ def poor_mans_continuation(x0,
     In particular, the new step size :math:`\Delta s_{new}` is given by
 
     .. math::
-       \Delta s_{new} = \Delta s_{old}\left(1 + a\left(\\frac{N_{max} - N}{N_{max}}\\right)^2\\right).
+       \Delta s_{new} = \Delta s_{old}\left(1 + a\left(
+         \\frac{N_{max} - N}{N_{max}}\\right)^2\\right).
     '''
 
     # write header of the statistics file

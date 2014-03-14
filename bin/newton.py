@@ -83,8 +83,8 @@ def _main():
 
     ye.add_key_value('krylov', args.krylov_method)
     ye.add_key_value('preconditioner type', args.preconditioner_type)
-    ye.add_key_value('ix deflation', args.use_deflation)
-    ye.add_key_value('extra deflation', args.num_extra_defl_vectors)
+    ye.add_key_value('ix deflation', args.defl_include_ix)
+    ye.add_key_value('extra deflation', args.defl_num_ritz_vectors)
     ye.add_key_value('explicit residual', args.resexp)
     ye.add_key_value('bordering', args.bordering)
 
@@ -117,40 +117,60 @@ def _main():
     return
 
 
+class IxFactory(krypy.recycling.factories._DeflationVectorFactory):
+    def __init__(self, x):
+        self._x = x
+
+    def get(self, solver):
+        return 1j*self._x
+
+
 def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
     '''Solve with Newton.
     '''
 
-    lin_solve_args = {'explicit_residual': args.resexp}
+    recycling_solver_kwargs = {
+        'explicit_residual': args.resexp,
+        'maxiter': 200
+        }
     if args.krylov_method == 'cg':
-        lin_solve = krypy.linsys.Cg
+        RecyclingSolver = krypy.recycling.RecyclingCg
     elif args.krylov_method == 'minres':
-        lin_solve = krypy.linsys.Minres
+        RecyclingSolver = krypy.recycling.RecyclingMinres
     elif args.krylov_method == 'minresfo':
-        lin_solve = krypy.linsys.Minres
-        lin_solve_args.update({'full_reortho': True})
+        RecyclingSolver = krypy.recycling.RecyclingMinres
+        recycling_solver_kwargs['ortho'] = 'mgs'
     elif args.krylov_method == 'gmres':
-        lin_solve = krypy.linsys.Gmres
+        RecyclingSolver = krypy.recycling.RecyclingGmres
     else:
         raise ValueError('Unknown Krylov solver ''%s''.' % args.krylov_method)
 
-    defl = []
-    if args.use_deflation:
-        defl.append(lambda x: 1j*x)
+    def vector_factory_generator(x):
+        '''Generates the vector factory with i*x if requested.'''
+        if not args.defl_include_ix and args.defl_num_ritz_vectors == 0:
+            # no deflation
+            return None
+        else:
+            ritz_factory = krypy.recycling.factories.RitzFactorySimple(
+                n_vectors=args.defl_num_ritz_vectors,
+                which='sm'
+                )
+            if args.defl_include_ix:
+                return krypy.recycling.factories.UnionFactory(
+                    [ritz_factory, IxFactory(x)])
+            return ritz_factory
 
     # perform newton iteration
     yaml_emitter.add_key('Newton results')
     newton_out = nm.newton(psi0,
                            modeleval,
-                           linear_solver=lin_solve,
-                           linear_solver_maxiter=200,  # 2*len(psi0),
-                           linear_solver_extra_args=lin_solve_args,
+                           RecyclingSolver=RecyclingSolver,
+                           recycling_solver_kwargs=recycling_solver_kwargs,
+                           vector_factory_generator=vector_factory_generator,
                            nonlinear_tol=1.0e-10,
                            eta0=args.eta,
                            forcing_term='constant',
                            compute_f_extra_args={'g': g, 'mu': mu},
-                           #deflation_generators=defl,
-                           #num_deflation_vectors=args.num_extra_defl_vectors,
                            debug=debug,
                            yaml_emitter=yaml_emitter,
                            newton_maxiter=30
@@ -201,12 +221,6 @@ def _parse_input_arguments():
                         help='number of AMG cycles (default: 1)'
                         )
 
-    parser.add_argument('--use-deflation', '-d',
-                        action='store_true',
-                        default=False,
-                        help='use deflation (default: False)'
-                        )
-
     parser.add_argument('--mu', '-m',
                         default=None,
                         type=float,
@@ -225,10 +239,18 @@ def _parse_input_arguments():
                         help='compute explicit residual norms (default: False)'
                         )
 
-    parser.add_argument('--num-extra-defl-vectors', '-n',
+    parser.add_argument('--defl-include-ix', '-x',
+                        action='store_true',
+                        default=False,
+                        help='include 1j*x in the set of deflation vectors '
+                             '(default: False)'
+                        )
+
+    parser.add_argument('--defl-num-ritz-vectors', '-n',
                         default=0,
                         type=int,
-                        help='number of extra deflation vectors (default: 0)'
+                        help='number of Ritz vectors for deflation '
+                             '(default: 0)'
                         )
 
     parser.add_argument('--bordering', '-b',
