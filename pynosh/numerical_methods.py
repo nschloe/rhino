@@ -128,7 +128,10 @@ def newton(x0,
                                                        )
 
         # get vector factory
-        vector_factory = vector_factory_generator(x)
+        if vector_factory_generator is not None:
+            vector_factory = vector_factory_generator(x)
+        else:
+            vector_factory = None
 
         # Create the linear system.
         linear_system = krypy.linsys.LinearSystem(
@@ -179,7 +182,8 @@ def newton(x0,
     return {'x': x,
             'info': error_code,
             'Newton residuals': Fx_norms,
-            'linear relresvecs': linear_relresvecs
+            'linear relresvecs': linear_relresvecs,
+            'recycling_solver': recycling_solver
             }
 
 
