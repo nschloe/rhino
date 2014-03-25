@@ -134,7 +134,7 @@ def newton(x0,
             vector_factory = None
 
         # Create the linear system.
-        linear_system = krypy.linsys.LinearSystem(
+        linear_system = krypy.linsys.TimedLinearSystem(
             jacobian, -Fx, M=Minv, Minv=M, ip_B=model_evaluator.inner_product,
             normal=True, self_adjoint=True
             )
@@ -161,6 +161,11 @@ def newton(x0,
         k += 1
         Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
         Fx_norms.append(numpy.sqrt(model_evaluator.inner_product(Fx, Fx)))
+
+        # run garbage collector in order to prevent MemoryErrors from being
+        # raised
+        import gc
+        gc.collect()
 
         if debug:
             yaml_emitter.end_map()
