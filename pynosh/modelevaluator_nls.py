@@ -195,6 +195,8 @@ class NlsModelEvaluator:
             return None
         import pyamg
 
+        num_unknowns = len(x)
+
         def _apply_inverse_prec_exact(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
             linear_system = krypy.linsys.LinearSystem(prec, rhs, M=amg_prec)
@@ -232,12 +234,10 @@ class NlsModelEvaluator:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         if g > 0.0:
-            prec = keo.copy()
-            diag = prec.diagonal()
+            # don't use .setdiag, cf. https://github.com/scipy/scipy/issues/3501
             alpha = g * 2.0 * (x.real**2 + x.imag**2) \
                 * self.mesh.control_volumes.reshape(x.shape)
-            diag += alpha.reshape(diag.shape)
-            prec.setdiag(diag)
+            prec = keo + sparse.spdiags(alpha[:, 0], [0], num_unknowns, num_unknowns)
         else:
             prec = keo
 
@@ -271,13 +271,12 @@ class NlsModelEvaluator:
                               {'sweep': 'symmetric', 'iterations': 1}
                               ),
                 max_levels=25,
-                coarse_solver='pinv'
+                coarse_solver='splu'
                 )
 
         #print 'operator complexity', prec_amg_solver.operator_complexity()
         #print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
 
-        num_unknowns = len(x)
 
         if self._preconditioner_type == 'cycles':
             if self._num_amg_cycles == numpy.inf:
@@ -342,9 +341,6 @@ class NlsModelEvaluator:
         if self._keo_cache is None or self._keo_cache_mu != mu:
             # Create the matrix structure.
             num_nodes = len(self.mesh.node_coords)
-            self._keo_cache = sparse.lil_matrix((num_nodes, num_nodes),
-                                                dtype=complex
-                                                )
 
             mvp_edge_cache = self._build_mvp_edge_cache(mu)
 
@@ -354,6 +350,11 @@ class NlsModelEvaluator:
             if self.mesh.edges is None:
                 self.mesh.create_adjacent_entities()
 
+            n_edges = len(self.mesh.edges['nodes'])
+            row = numpy.zeros(4*n_edges, dtype=int)
+            col = numpy.zeros(4*n_edges, dtype=int)
+            data = numpy.zeros(4*n_edges, dtype=complex)
+
             # loop over all edges
             for k, node_indices in enumerate(self.mesh.edges['nodes']):
                 # Fetch the cached values.
@@ -361,12 +362,16 @@ class NlsModelEvaluator:
                 alphaExp0 = self._edgecoeff_cache[k] \
                     * numpy.exp(1j * mvp_edge_cache[k])
                 # Sum them into the matrix.
-                self._keo_cache[node_indices[0], node_indices[0]] += alpha
-                self._keo_cache[node_indices[0], node_indices[1]] -= alphaExp0.conj()
-                self._keo_cache[node_indices[1], node_indices[0]] -= alphaExp0
-                self._keo_cache[node_indices[1], node_indices[1]] += alpha
+                row[4*k:4*k+4] = [node_indices[0], node_indices[0],
+                                  node_indices[1], node_indices[1]]
+                col[4*k:4*k+4] = [node_indices[0], node_indices[1],
+                                  node_indices[0], node_indices[1]]
+                data[4*k:4*k+4] = [alpha, -alphaExp0.conj(),
+                                   -alphaExp0, alpha]
+
+            self._keo_cache = sparse.csr_matrix((data, (row, col)),
+                                                (num_nodes, num_nodes))
             # transform the matrix into the more efficient CSR format
-            self._keo_cache = self._keo_cache.tocsr()
             self._keo_cache_mu = mu
         return self._keo_cache
 
