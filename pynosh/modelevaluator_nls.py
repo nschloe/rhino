@@ -211,17 +211,18 @@ class NlsModelEvaluator:
             return out.xk
 
         def _apply_inverse_prec_cycles(phi):
-            rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
+            rhs = self.mesh.control_volumes.reshape((phi.shape[0],1)) * phi
             x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
-            x = numpy.empty((num_unknowns, 1), dtype=complex)
+            x = numpy.empty(phi.shape, dtype=complex)
             residuals = []
-            x[:, 0] = prec_amg_solver.solve(rhs,
-                                            x0=x_init,
-                                            maxiter=self._num_amg_cycles,
-                                            tol=0.0,
-                                            accel=None,
-                                            residuals=residuals
-                                            )
+            for i in range(rhs.shape[1]):
+                x[:, i] = prec_amg_solver.solve(rhs[:, i],
+                                                x0=x_init,
+                                                maxiter=self._num_amg_cycles,
+                                                tol=0.0,
+                                                accel=None,
+                                                residuals=residuals
+                                                )
             # Alternative for one cycle:
             # amg_prec = prec_amg_solver.aspreconditioner( cycle='V' )
             # x = amg_prec * rhs
