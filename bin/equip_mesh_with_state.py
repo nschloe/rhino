@@ -1,12 +1,31 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of pynosh.
+#
+#  pynosh is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  pynosh is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with pynosh.  If not, see <http://www.gnu.org/licenses/>.
+#
 import numpy as np
 import time
 
 import voropy
-# ==============================================================================
-def _main():
 
+
+def _main():
     # get the command line arguments
     args = _parse_options()
 
@@ -25,8 +44,8 @@ def _main():
     else:
         print 'Creating psi...',
         start = time.time()
-        psi = np.empty( num_nodes, dtype = complex )
-        psi[:] = complex( 1.0, 0.0 )
+        psi = np.empty(num_nodes, dtype=complex)
+        psi[:] = complex(1.0, 0.0)
         #for k, node in enumerate(mesh.node_coords):
             #import random, cmath
             #psi[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
@@ -67,7 +86,7 @@ def _main():
         #B = np.array([np.cos(theta) * np.cos(phi),
                       #np.cos(theta) * np.sin(phi),
                       #np.sin(theta)])
-        A = mvp.constant_field(points, np.array([0,0,1]))
+        A = mvp.constant_field(points, np.array([0, 0, 1]))
         #A = mvp.magnetic_dipole(points,
         #                        x0 = np.array([0,0,2]),
         #                        m = np.array([0,0,1])
@@ -109,37 +128,34 @@ def _main():
                )
     elapsed = time.time()-start
     print 'done. (%gs)' % elapsed
-
     return
-# ==============================================================================
+
+
 def _parse_options():
     '''Parse input options.'''
     import argparse
-
-    parser = argparse.ArgumentParser( description = 'Reads a mesh an equips it with psi and A.' )
-
+    parser = argparse.ArgumentParser(
+        description='Reads a mesh an equips it with psi and A.'
+        )
     parser.add_argument('infile',
-                        metavar = 'INFILE',
-                        type    = str,
-                        help    = 'file that contains the mesh'
+                        metavar='INFILE',
+                        type=str,
+                        help='file that contains the mesh'
                         )
-
     parser.add_argument('outfile',
-                        metavar = 'OUFILE',
-                        type    = str,
-                        help    = 'file to be written to'
+                        metavar='OUFILE',
+                        type=str,
+                        help='file to be written to'
                         )
-
-    parser.add_argument('--force-override', '-f',
-                        action = 'store_true',
-                        default = False,
-                        help    = 'override the values present in the input files'
-                        )
-
+    parser.add_argument(
+        '--force-override', '-f',
+        action='store_true',
+        default=False,
+        help='override the values present in the input files'
+        )
     args = parser.parse_args()
-
     return args
-# ==============================================================================
+
+
 if __name__ == "__main__":
     _main()
-# ==============================================================================

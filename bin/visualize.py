@@ -1,8 +1,29 @@
 #!/usr/bin/env python
-'''This script takes a contination file and a solution file and plots
-the states next to a contination diagram. All frames are written to PNG files
-which can later be concatenated into a movie.'''
-# ==============================================================================
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of pynosh.
+#
+#  pynosh is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  pynosh is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with pynosh.  If not, see <http://www.gnu.org/licenses/>.
+#
+'''
+This script takes a continuation file and a solution file and plots the states
+next to a continuation diagram. All frames are written to PNG files which can
+later be concatenated into a movie.
+'''
+
 import os.path
 import numpy as np
 import paraview.simple as pv
@@ -11,19 +32,20 @@ import matplotlib.pyplot as pp
 import matplotlib.image as mpimg
 import matplotlib.cm as cm
 from matplotlib import rc
-rc( 'font', **{'family':'sans-serif','sans-serif':['Helvetica']} )
+rc('font', **{'family': 'sans-serif', 'sans-serif': ['Helvetica']})
 ## for Palatino and other serif fonts use:
 #rc('font',**{'family':'serif','serif':['Palatino']))
 rc('text', usetex=True)
-# ==============================================================================
+
+
 def _main():
     # Get file names from command line.
     args = _parse_arguments()
-
     #_plot_continuation()
     _state2png(args)
     return
-# ==============================================================================
+
+
 def _set_camera(timestep):
     view = pv.GetRenderView()
     #view = pv.GetActiveView()
@@ -49,15 +71,15 @@ def _set_camera(timestep):
     view.CenterAxesVisibility = 0
     view.OrientationAxesVisibility = 0
     view.UseOffscreenRenderingForScreenshots = 0
-
     return
-# ==============================================================================
+
+
 def _state2png(args):
 
     #pv._DisableFirstRenderCameraReset()
 
     # Open the data file.
-    solution_e = pv.OpenDataFile( args.filename )
+    #solution_e = pv.OpenDataFile(args.filename)
     #solution_e.FileRange = [0, 0]
     #solution_e.FilePrefix = args.solution_file
     #solution_e.XMLFileName = ''
@@ -75,7 +97,7 @@ def _state2png(args):
 
     # create arrays
     array_name = '|psi|^2'
-    calc1 = pv.Calculator( ResultArrayName = array_name )
+    calc1 = pv.Calculator(ResultArrayName=array_name)
     calc1.AttributeMode = 'point_data'
     calc1.Function = 'psi__X^2 + psi__Y^2'
     filenames[array_name] = 'abs.png'
@@ -97,15 +119,15 @@ def _state2png(args):
 
     #for filename in filenames.items():
         #_autocrop( filename )
-
     return
-# ==============================================================================
+
+
 def _plot_continuation():
     '''Main function.'''
 
     pv._DisableFirstRenderCameraReset()
 
-    solution_e = pv.OpenDataFile( args.solution_file )
+    solution_e = pv.OpenDataFile(args.solution_file)
 
     #AnimationScene1 = GetAnimationScene()
     solution_e.FileRange = [0, 0]
@@ -172,7 +194,7 @@ def _plot_continuation():
     ## take screenshot
     #filename = 'test0.png'
     #tstep = 0
-    
+
     #_take_screenshot( view, tstep, data_representation, filename )
     # plot screenshot
     fig.add_subplot( 1, 3, 1 )
@@ -267,9 +289,9 @@ def _plot_continuation():
         #pp.savefig( p.stdin, format='jpg' )
 
         print '%d / %d' % (k, num_steps)
-        
+
     return
-# ==============================================================================
+
 def _parse_arguments():
     '''Python 2.7 argument parser.'''
     import argparse
@@ -370,17 +392,16 @@ def _create_circular_hsv_colormap():
                                 rgb[k][0][0], rgb[k][0][1], rgb[k][0][2] ]
 
     return cmap
-# ==============================================================================
-def _autocrop( filename ):
+
+
+def _autocrop(filename):
     '''Autocrop an image stored in file.'''
     import PythonMagick
-
-    image = PythonMagick.Image( filename )
+    image = PythonMagick.Image(filename)
     image.trim()
-    image.write( filename )
-
+    image.write(filename)
     return
-# ==============================================================================
+
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================

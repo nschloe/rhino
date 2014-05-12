@@ -1,17 +1,35 @@
 # -*- coding: utf-8 -*-
-# ==============================================================================
-from scipy.sparse.linalg import eigs, eigsh, LinearOperator
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of pynosh.
+#
+#  pynosh is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  pynosh is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with pynosh.  If not, see <http://www.gnu.org/licenses/>.
+#
+from scipy.sparse.linalg import eigs, LinearOperator
 import time
 import matplotlib.pyplot as pp
 import numpy as np
 
-import matplotlib2tikz
 import voropy
 
 #from lobpcg import lobpcg as my_lobpcg
 import pynosh.modelevaluator_nls as nme
 import pynosh.modelevaluator_bordering_constant as bme
-# ==============================================================================
+
+
 def _main():
     '''Main function.
     '''
@@ -275,7 +293,8 @@ def _complex_with_bordering2real( op ):
                           _jacobian_wrap_apply,
                           dtype = float
                           )
-# ==============================================================================
+
+
 def _plot_eigenvalue_series(x, eigenvals_list):
     '''Plotting series of eigenvalues can be hard to make visually appealing.
     The reason for this is that at each data point, the values are mostly
@@ -285,63 +304,62 @@ def _plot_eigenvalue_series(x, eigenvals_list):
     This function tries to take care of this by guessing which are the
     corresponding values by linear extrapolation.
     '''
-    # --------------------------------------------------------------------------
     def _linear_extrapolation(x0, x1, Y0, Y1, x2):
         '''Linear extrapolation of the data sets (x0,Y0), (x1,Y1) to x2.
         '''
-        return ( (Y1 - Y0) * x2 + x1*Y0 - Y1*x0 ) \
+        return ((Y1 - Y0) * x2 + x1*Y0 - Y1*x0) \
                / (x1 - x0)
-    # --------------------------------------------------------------------------
+
     def _permutation_match(y, y2):
         '''Returns the permutation of y that best matches y2.
         '''
         n = len(y2)
         assert len(y) == n
-        #y = np.array( y ) # to make Boolean indices possible
-        y_new = np.empty( n )
-        y_masked = np.ma.array(y, mask=np.zeros(n, dtype = bool))
+        #y = np.array(y) # to make Boolean indices possible
+        y_new = np.empty(n)
+        y_masked = np.ma.array(y, mask=np.zeros(n, dtype=bool))
         for k in xrange(n):
             min_index = np.argmin(abs(y_masked - y2[k]))
             y_new[k] = y_masked[min_index]
             # mask the index
             y_masked.mask[min_index] = True
         return y_new
-    # --------------------------------------------------------------------------
 
     len_list = len(eigenvals_list)
     num_eigenvalues = len(eigenvals_list[0])
     # Stuff the reordered eigenvalues into an array so we can easily fill the
     # columns and then plot the rows.
     reordered_eigenvalues = np.zeros((num_eigenvalues, len_list), dtype=float)
-    reordered_eigenvalues[:,0] = eigenvals_list[0]
+    reordered_eigenvalues[:, 0] = eigenvals_list[0]
     # use the same values for the first (constant) extrapolation)
-    eigenvals_extrapolation = reordered_eigenvalues[:,0]
-    for k, eigenvalues in enumerate(eigenvals_list[1:]): # skip the first
-        # match the the extrapolation
-        reordered_eigenvalues[:,k+1] = _permutation_match(eigenvalues,
-                                                          eigenvals_extrapolation
-                                                          )
+    eigenvals_extrapolation = reordered_eigenvalues[:, 0]
+    for k, eigenvalues in enumerate(eigenvals_list[1:]):  # skip the first
+        # match the extrapolation
+        reordered_eigenvalues[:, k+1] = \
+            _permutation_match(eigenvalues, eigenvals_extrapolation)
         # linear extrapolation
         if k+2 < len(x):
-            eigenvals_extrapolation = _linear_extrapolation(x[k], x[k+1],
-                                                            reordered_eigenvalues[:,k],
-                                                            reordered_eigenvalues[:,k+1],
-                                                            x[k+2]
-                                                            )
-
+            eigenvals_extrapolation = \
+                _linear_extrapolation(
+                    x[k], x[k+1],
+                    reordered_eigenvalues[:, k],
+                    reordered_eigenvalues[:, k+1],
+                    x[k+2]
+                    )
     # plot it
     for k in xrange(num_eigenvalues):
-        pp.plot(x, reordered_eigenvalues[k,:], '-x')
-
+        pp.plot(x, reordered_eigenvalues[k, :], '-x')
     return
-# ==============================================================================
+
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
     import argparse
 
-    parser = argparse.ArgumentParser(description = \
-                                     'Compute a few eigenvalues of a specified operator.')
+    parser = argparse.ArgumentParser(
+        description='Compute a few eigenvalues of a specified operator.'
+        )
 
     parser.add_argument( 'filename',
                          metavar = 'FILE',
@@ -406,7 +424,7 @@ def _parse_input_arguments():
     args = parser.parse_args()
 
     return args
-# ==============================================================================
+
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================

@@ -1,5 +1,24 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
+#  All rights reserved.
+#
+#  This file is part of pynosh.
+#
+#  pynosh is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  pynosh is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with pynosh.  If not, see <http://www.gnu.org/licenses/>.
+#
 '''Visualize (1+T_d/T) k_d/k
 '''
 # ==============================================================================
@@ -17,7 +36,7 @@ def _main():
     args = _parse_input_arguments()
 
     newton_data = list(yaml.load_all(open(args.newton_data_file)))
-    # initialize 
+    # initialize
     TMinv = 0.0 # default: no preconditioner
     TM = 0.0
 
@@ -36,7 +55,7 @@ def _main():
             Tip = min_time
         if run["target"] == "daxpy":
             Tdaxpy = min_time
-    
+
     # k - number of MINRES iteratios
     # p - number of deflation vectors
     def Tp(p):
@@ -67,7 +86,7 @@ def _main():
         y = [1.0]
         for newton_datum in newton_data:
             if step < len(newton_datum['Newton results']) - 1:
-                num_vanilla_steps = len(vanilla_newton_data['Newton results'][step]['relresvec']) -1 
+                num_vanilla_steps = len(vanilla_newton_data['Newton results'][step]['relresvec']) -1
                 num_steps = len(newton_datum['Newton results'][step]['relresvec']) - 1
 
                 num_defl_vecs = newton_datum['extra deflation']
