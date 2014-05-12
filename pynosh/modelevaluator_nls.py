@@ -211,7 +211,7 @@ class NlsModelEvaluator:
             return out.xk
 
         def _apply_inverse_prec_cycles(phi):
-            rhs = self.mesh.control_volumes.reshape((phi.shape[0],1)) * phi
+            rhs = self.mesh.control_volumes.reshape((phi.shape[0], 1)) * phi
             x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
             x = numpy.empty(phi.shape, dtype=complex)
             residuals = []
@@ -235,7 +235,8 @@ class NlsModelEvaluator:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         if g > 0.0:
-            # don't use .setdiag, cf. https://github.com/scipy/scipy/issues/3501
+            # don't use .setdiag,
+            # cf. https://github.com/scipy/scipy/issues/3501
             alpha = g * 2.0 * (x.real**2 + x.imag**2) \
                 * self.mesh.control_volumes.reshape(x.shape)
             prec = keo + sparse.spdiags(alpha[:, 0], [0], num_unknowns, num_unknowns)
@@ -277,7 +278,6 @@ class NlsModelEvaluator:
 
         #print 'operator complexity', prec_amg_solver.operator_complexity()
         #print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
-
 
         if self._preconditioner_type == 'cycles':
             if self._num_amg_cycles == numpy.inf:
