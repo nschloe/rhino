@@ -107,7 +107,7 @@ def newton(x0,
         if debug:
             yaml_emitter.add_comment('Newton step %d' % (k+1))
             yaml_emitter.begin_map()
-            yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1])
+            yaml_emitter.add_key_value('Fx_norm', Fx_norms[-1][0][0])
 
         # Get tolerance for next linear solve.
         if k == 0:
