@@ -201,24 +201,26 @@ class NlsModelEvaluator:
             assert(len(phi.shape) == 2)
             assert(len(self.mesh.control_volumes.shape) == 1)
             rhs = numpy.empty(phi.shape, dtype=phi.dtype)
+            sol = numpy.empty(phi.shape, dtype=phi.dtype)
             for i in range(phi.shape[1]):
-                rhs[:, i] = self.mesh.control_volumes * phi[:, i]
-            linear_system = krypy.linsys.LinearSystem(
-                prec,
-                rhs,
-                M=amg_prec,
-                self_adjoint=True,
-                positive_definite=True
-                )
-            x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
-            out = krypy.linsys.Cg(linear_system,
-                                  x0=x_init,
-                                  tol=1.0e-13,
-                                  #explicit_residual = False
-                                  )
-            # Forget about the cycle used to gauge the residual norm.
-            self.tot_amg_cycles += [len(out.resnorms) - 1]
-            return out.xk
+                rhs = self.mesh.control_volumes * phi[:, i]
+                linear_system = krypy.linsys.LinearSystem(
+                    prec,
+                    rhs,
+                    M=amg_prec,
+                    self_adjoint=True,
+                    positive_definite=True
+                    )
+                x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
+                out = krypy.linsys.Cg(linear_system,
+                                      x0=x_init,
+                                      tol=1.0e-13,
+                                      #explicit_residual = False
+                                      )
+                sol[:, i] = out.xk[:, 0]
+                # Forget about the cycle used to gauge the residual norm.
+                self.tot_amg_cycles += [len(out.resnorms) - 1]
+            return sol
 
         def _apply_inverse_prec_cycles(phi):
             rhs = self.mesh.control_volumes.reshape((phi.shape[0], 1)) * phi
