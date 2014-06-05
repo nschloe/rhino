@@ -24,3 +24,12 @@ from . import numerical_methods
 from . import preconditioners
 from . import magnetic_vector_potentials
 from . import yaml
+
+__all__ = ['modelevaluator_nls',
+           'modelevaluator_bordering_constant',
+           'numerical_methods',
+           'preconditioners',
+           'magnetic_vector_potentials',
+           'yaml'
+           ]
+__version__ = '1.0.0'

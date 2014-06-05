@@ -5,7 +5,7 @@ Preconditioners for the Jacobian of the Ginzburg--Landau problem.
 '''
 from scipy import sparse
 from scipy.sparse.linalg import splu, spilu
-import numerical_methods as nm
+import pynosh.numerical_methods as nm
 
 
 class Preconditioners:
