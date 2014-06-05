@@ -4,6 +4,8 @@
 Simple YAML emitter.
 '''
 
+# Python 2, 3 compatibility for print().
+from __future__ import print_function
 
 class YamlEmitter:
     '''
@@ -32,7 +34,7 @@ class YamlEmitter:
         elif self.envs[-1] == 'seq':
             self.indent += 2
             self.next_indent = 0
-            print '-',
+            print('-', end='')
         elif self.envs[-1] == 'map':
             self.indent += 4
             self.next_indent = self.indent
@@ -69,7 +71,7 @@ class YamlEmitter:
         if not self.envs:
             pass
         elif self.envs[-1] == 'seq':
-            print self.indent*' ' + '-',
+            print(self.indent*' ' + '-', end='')
             self.indent += 2
             self.next_indent = 0
         elif self.envs[-1] == 'map':
