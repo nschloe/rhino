@@ -251,7 +251,8 @@ class NlsModelEvaluator:
             # cf. https://github.com/scipy/scipy/issues/3501
             alpha = g * 2.0 * (x.real**2 + x.imag**2) \
                 * self.mesh.control_volumes.reshape(x.shape)
-            prec = keo + sparse.spdiags(alpha[:, 0], [0], num_unknowns, num_unknowns)
+            prec = keo \
+                + sparse.spdiags(alpha[:, 0], [0], num_unknowns, num_unknowns)
         else:
             prec = keo
 
@@ -317,7 +318,7 @@ class NlsModelEvaluator:
         def _apply_inverse_prec(phi):
             return spsolve(prec, phi)
         prec = self.get_preconditioner(x)
-        num_unknowns = len(x0)
+        num_unknowns = len(x)
         return LinearOperator((num_unknowns, num_unknowns),
                               _apply_inverse_prec,
                               dtype=self.dtype
