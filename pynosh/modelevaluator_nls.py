@@ -199,7 +199,13 @@ class NlsModelEvaluator:
 
         def _apply_inverse_prec_exact(phi):
             rhs = self.mesh.control_volumes.reshape(phi.shape) * phi
-            linear_system = krypy.linsys.LinearSystem(prec, rhs, M=amg_prec)
+            linear_system = krypy.linsys.LinearSystem(
+                prec,
+                rhs,
+                M=amg_prec,
+                self_adjoint=True,
+                positive_definite=True
+                )
             x_init = numpy.zeros((num_unknowns, 1), dtype=complex)
             out = krypy.linsys.Cg(linear_system,
                                   x0=x_init,
