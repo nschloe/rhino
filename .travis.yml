@@ -14,5 +14,9 @@ install:
   - "pip install ."
   # Use --pre to get krypy alpha
   - "pip install -r requirements.txt"
+  - pip install coveralls
 # command to run tests
-script: nosetests
+script:
+  - nosetests --with-coverage --cover-package=pynosh
+after_success:
+  - coveralls
