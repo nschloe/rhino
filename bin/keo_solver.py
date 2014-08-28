@@ -21,39 +21,34 @@
 '''
 Solve a linear equation system with the kinetic energy operator.
 '''
-import vtkio
 import numerical_methods as nm
 import sys
 from scipy.sparse.linalg import LinearOperator
 import time
+import numpy
+import cmath
 
 import matplotlib.pyplot as pp
 from matplotlib import rc
 rc('text', usetex=True)
 rc('font', family='serif')
+import matplotlib2tikz
 
-from model_evaluator import *
-from preconditioners import *
+import voropy
+
+import pynosh.modelevaluator_nls
+import pynosh.preconditioners
 
 
 def _main():
+    '''Main function.
     '''
-    Main function.
-    '''
-
-    # create model evaluator interface
-    mu = 1.0e-0
-    pynosh_modelval = pynosh_model_evaluator(mu)
-
-    # create preconditioners object
-    precs = preconditioners(pynosh_modelval)
-    precs.set_parameter(mu)
 
     # run the preconditioners
-    _run_different_meshes(pynosh_modelval, precs)
+    _run_different_meshes()
 
     #print 'Solving the system without preconditioning, scipy cg...'
-    #sol, info, relresvec0 = nm.cg_wrap( pynosh_modelval._keo, rhs,
+    #sol, info, relresvec0 = nm.cg_wrap(pynosh_modelval._keo, rhs,
                                         #x0 = psi0,
                                         #tol = 1.0e-10,
                                         #maxiter = 1000,
@@ -63,21 +58,19 @@ def _main():
     ##print info
 
     ## plot (relative) residuals
-    #pp.semilogy( relresvec0, 'ro' )
-    ##pp.semilogy( relresvec1, 'g' )
-    ##pp.semilogy( relresvec2, 'b' )
-    ##pp.semilogy( relresvec3, 'y' )
-    #pp.title( 'Convergence history of CG for the KEO, $\mu=0.1$' )
-    #pp.xlabel( '$k$' )
-    #pp.ylabel( '$\|A_{\mathrm{KEO}}\psi_k-b\|_2$' )
+    #pp.semilogy(relresvec0, 'ro')
+    ##pp.semilogy(relresvec1, 'g')
+    ##pp.semilogy(relresvec2, 'b')
+    ##pp.semilogy(relresvec3, 'y')
+    #pp.title('Convergence history of CG for the KEO, $\mu=0.1$')
+    #pp.xlabel('$k$')
+    #pp.ylabel('$\|A_{\mathrm{KEO}}\psi_k-b\|_2$')
     #pp.show()
 
     return
 
 
-def _run_different_meshes(pynosh_modelval,
-                          precs
-                          ):
+def _run_different_meshes():
     mesh_files = [
         #'states/rectangle10.vtu',
         #'states/rectangle20.vtu',
@@ -101,6 +94,8 @@ def _run_different_meshes(pynosh_modelval,
         'states/rectangle200.vtu'
         ]
 
+    mu = 1.0e-0
+
     # loop over the meshes and compute
     nums_unknowns = []
 
@@ -111,38 +106,40 @@ def _run_different_meshes(pynosh_modelval,
         print
         print 'Reading the mesh...'
         try:
-            mesh, psi, field_data = vtkio.read_mesh(mesh_file)
+            mesh, point_data, field_data = voropy.reader.read(mesh_file)
         except AttributeError:
             print 'Could not read from file ', mesh_file, '.'
             sys.exit()
         print ' done.'
-        pynosh_modelval.set_mesh(mesh)
-        precs.set_mesh(mesh)
+
+        # create model evaluator interface
+        pynosh_modelval = pynosh.model_evaluator_nls(mu)
+
+        # create preconditioners object
+        precs = pynosh.preconditioners(pynosh_modelval)
+        precs.set_parameter(mu)
 
         # recreate all the objects necessary to perform the precondictioner run
-        num_unknowns = len( mesh.nodes )
+        num_unknowns = len(mesh.nodes)
 
-        nums_unknowns.append( num_unknowns )
+        nums_unknowns.append(num_unknowns)
 
         # set psi at which to create the Jacobian
         # generate random numbers within the unit circle
-        radius = np.random.rand( num_unknowns )
-        arg    = np.random.rand( num_unknowns )
-        current_psi = np.empty( num_unknowns,
-                                dtype = complex
-                              )
-        for k in range( num_unknowns ):
-            current_psi[ k ] = cmath.rect(radius[k], arg[k])
-        pynosh_modelval.set_current_psi( current_psi )
+        radius = numpy.random.rand(num_unknowns)
+        arg = numpy.random.rand(num_unknowns)
+        current_psi = numpy.empty(num_unknowns, dtype=complex)
+
+        for k in range(num_unknowns):
+            current_psi[k] = cmath.rect(radius[k], arg[k])
+        pynosh_modelval.set_current_psi(current_psi)
 
         # create right hand side and initial guess
-        rhs  =  np.random.rand( num_unknowns ) \
-            + 1j * np.random.rand( num_unknowns )
+        rhs = numpy.random.rand(num_unknowns) \
+            + 1j * numpy.random.rand(num_unknowns)
 
         # initial guess for all operations
-        psi0 = np.zeros( num_unknowns,
-                         dtype = complex
-                       )
+        psi0 = numpy.zeros(num_unknowns, dtype=complex)
 
         test_preconditioners = _create_preconditioner_list(precs,
                                                            num_unknowns
@@ -236,54 +233,50 @@ def _create_preconditioner_list(precs, num_unknowns):
                                  'precondictioner': prec_keo_symilu2
                                  })
 
-    prec_keo_symilu4 = LinearOperator( (num_unknowns, num_unknowns),
-                                       matvec = precs.keo_symmetric_ilu4,
-                                       dtype = complex
-                                     )
-    test_preconditioners.append( { 'name': 'sym i$LU$4',
-                                   'precondictioner': prec_keo_symilu4
-                                 }
-                               )
+    prec_keo_symilu4 = LinearOperator((num_unknowns, num_unknowns),
+                                      matvec=precs.keo_symmetric_ilu4,
+                                      dtype=complex
+                                      )
+    test_preconditioners.append({'name': 'sym i$LU$4',
+                                 'precondictioner': prec_keo_symilu4
+                                 })
 
-    prec_keo_symilu6 = LinearOperator( (num_unknowns, num_unknowns),
-                                      matvec = precs.keo_symmetric_ilu6,
-                                      dtype = complex
-                                    )
-    test_preconditioners.append( { 'name': 'sym i$LU$6',
-                                   'precondictioner': prec_keo_symilu6
-                                 }
-                               )
+    prec_keo_symilu6 = LinearOperator((num_unknowns, num_unknowns),
+                                      matvec=precs.keo_symmetric_ilu6,
+                                      dtype=complex
+                                      )
+    test_preconditioners.append({'name': 'sym i$LU$6',
+                                 'precondictioner': prec_keo_symilu6
+                                 })
 
-    prec_keo_symilu8 = LinearOperator( (num_unknowns, num_unknowns),
-                                       matvec = precs.keo_symmetric_ilu8,
-                                       dtype = complex
-                                     )
-    test_preconditioners.append( { 'name': 'sym i$LU$8',
-                                   'precondictioner': prec_keo_symilu8
-                                 }
-                               )
+    prec_keo_symilu8 = LinearOperator((num_unknowns, num_unknowns),
+                                      matvec=precs.keo_symmetric_ilu8,
+                                      dtype=complex
+                                      )
+    test_preconditioners.append({'name': 'sym i$LU$8',
+                                 'precondictioner': prec_keo_symilu8
+                                 })
 
+    prec_keo_amg = LinearOperator((num_unknowns, num_unknowns),
+                                  matvec=precs.keo_amg,
+                                  dtype=complex
+                                  )
+    test_preconditioners.append({'name': 'AMG',
+                                 'precondictioner': prec_keo_amg
+                                 })
 
-    prec_keo_amg = LinearOperator( (num_unknowns, num_unknowns),
-                                   matvec = precs.keo_amg,
-                                   dtype = complex
-                                 )
-    test_preconditioners.append( { 'name': 'AMG',
-                                   'precondictioner': prec_keo_amg
-                                 }
-                               )
     return test_preconditioners
 
 
 def _construct_matrix(linear_operator):
     shape = linear_operator.shape
-    A = np.zeros(shape)
-    e = np.zeros(shape[0])
+    A = numpy.zeros(shape)
+    e = numpy.zeros(shape[0])
     for j in range(shape[1]):
         e[j] = 1.0
         A[:, j] = linear_operator * e
         e[j] = 0.0
-    A = np.matrix(A)
+    A = numpy.matrix(A)
     return A
 
 
@@ -309,4 +302,4 @@ if __name__ == '__main__':
     _main()
 
     #import cProfile
-    #cProfile.run( '_main()', 'pfvm_profile.dat' )
+    #cProfile.run('_main()', 'pfvm_profile.dat')
