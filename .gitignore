@@ -1,1 +1,5 @@
 *.pyc
+tests/solver_diagnostic.py
+tests/solver_diagnostic.txt
+doc/_build/
+*.yaml
