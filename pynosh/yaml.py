@@ -39,7 +39,7 @@ class YamlEmitter(object):
         elif self.envs[-1] == 'map':
             self.indent += 4
             self.next_indent = self.indent
-            #print()
+            # print()
             self.key_is_next = True
         else:
             raise ValueError('Unknown environment.')

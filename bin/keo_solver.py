@@ -119,7 +119,7 @@ def _run_different_meshes():
         precs = pynosh.preconditioners(pynosh_modelval)
         precs.set_parameter(mu)
 
-        # recreate all the objects necessary to perform the precondictioner run
+        # recreate all the objects necessary to perform the preconditioner run
         num_unknowns = len(mesh.nodes)
 
         nums_unknowns.append(num_unknowns)
