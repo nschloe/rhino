@@ -128,12 +128,6 @@ class NlsModelEvaluator(object):
             A &= K + I  (V + g \\cdot 2|\\psi|^2),\\\\
             B &= g \\cdot diag( \\psi^2 ).
         '''
-        def _apply_jacobian(phi):
-            y = (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
-                + alpha.reshape(phi.shape) * phi \
-                + gPsi0Squared.reshape(phi.shape) * phi.conj()
-            return y
-
         assert x is not None
 
         if self.mesh.control_volumes is None:
@@ -310,19 +304,20 @@ class NlsModelEvaluator(object):
                              % self._preconditioner_type
                              )
 
-    def _get_preconditioner_inverse_directsolve(self, x):
+    def _get_preconditioner_inverse_directsolve(self, x, mu, g):
         '''Use a direct solver for M^{-1}.
         '''
         from scipy.sparse.linalg import spsolve
 
         def _apply_inverse_prec(phi):
             return spsolve(prec, phi)
-        prec = self.get_preconditioner(x)
+        prec = self.get_preconditioner(x, mu, g)
         num_unknowns = len(x)
-        return LinearOperator((num_unknowns, num_unknowns),
-                              _apply_inverse_prec,
-                              dtype=self.dtype
-                              )
+        return krypy.Utils.LinearOperator(
+            (num_unknowns, num_unknowns),
+            _apply_inverse_prec,
+            dtype=self.dtype
+            )
 
     def inner_product(self, phi0, phi1):
         '''The natural inner product of the problem.
