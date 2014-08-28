@@ -27,7 +27,7 @@ import warnings
 import krypy
 
 
-class NlsModelEvaluator:
+class NlsModelEvaluator(object):
     '''Nonlinear Schrödinger model evaluator class.
     Incorporates
 

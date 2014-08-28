@@ -8,7 +8,7 @@ from scipy.sparse.linalg import splu, spilu
 import pynosh.numerical_methods as nm
 
 
-class Preconditioners:
+class Preconditioners(object):
     '''
     Ginzburg--Landau model evaluator class.
     '''

@@ -4,7 +4,7 @@ from scipy.sparse.linalg import LinearOperator
 import krypy
 
 
-class ConstBorderedModelEvaluator:
+class ConstBorderedModelEvaluator(object):
     '''
     Wraps a given model evaluator in a bordering strategy. Does not work with
     preconditioners.

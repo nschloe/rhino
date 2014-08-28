@@ -7,7 +7,8 @@ Simple YAML emitter.
 # Python 2, 3 compatibility for print().
 from __future__ import print_function
 
-class YamlEmitter:
+
+class YamlEmitter(object):
     '''
     Simple YAML emitter.
     '''
