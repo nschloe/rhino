@@ -237,10 +237,9 @@ class NlsModelEvaluator(object):
 
         keo = self._get_keo(mu)
 
-        if self.mesh.control_volumes is None:
-            self.mesh.compute_control_volumes(variant=self.cv_variant)
-
         if g > 0.0:
+            if self.mesh.control_volumes is None:
+                self.mesh.compute_control_volumes(variant=self.cv_variant)
             # don't use .setdiag,
             # cf. https://github.com/scipy/scipy/issues/3501
             alpha = g * 2.0 * (x.real**2 + x.imag**2) \

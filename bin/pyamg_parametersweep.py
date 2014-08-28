@@ -50,7 +50,21 @@ def _main():
         mesh, V=V, A=point_data['A']
         )
 
-    prec = modeleval.get_preconditioner(psi0, mu, g)
+    # Get the preconditioner for in matrix form
+    keo = modeleval._get_keo(mu)
+    if g > 0.0:
+        if modeleval.mesh.control_volumes is None:
+            modeleval.mesh.compute_control_volumes(
+                variant=modeleval.cv_variant
+                )
+        alpha = g * 2.0 * (psi0.real**2 + psi0.imag**2) \
+            * modeleval.mesh.control_volumes.reshape(psi0.shape)
+        num_unknowns = len(psi0)
+        from scipy import sparse
+        prec = keo \
+            + sparse.spdiags(alpha, [0], num_unknowns, num_unknowns)
+    else:
+        prec = keo
 
     # https://code.google.com/p/pyamg/source/browse/trunk/Examples/SolverDiagnostics/solver_diagnostics.py
     solver_diagnostics(
