@@ -20,7 +20,7 @@ class TestF(unittest.TestCase):
         if mesh.control_volumes is None:
             mesh.compute_control_volumes()
 
-        tol = 1.0e-13
+        tol = 1.0e-10
 
         A = mvp.constant_field(mesh.node_coords, numpy.array([0, 0, 1]))
         integral = numpy.sum(mesh.control_volumes * numpy.sum(A**2, axis=1))
