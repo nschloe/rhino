@@ -18,8 +18,8 @@ The documentation is hosted at
 [pynosh.readthedocs.org](http://pynosh.readthedocs.org).
 
 ### Example
-![Ginzburg-Landau solution](figures/solution-abs.png)
-![Ginzburg-Landau solution](figures/solution-arg.png)
+![Ginzburg-Landau solution abs](https://nschloe.github.io/pynosh/solution-abs.png)
+![Ginzburg-Landau solution arg](https://nschloe.github.io/pynosh/solution-arg.png)
 
 Absolute value and complex argument of a solution of the _Ginzburg-Landau equations_, a particular instance of nonlinear Schrödinger equations. The number of nodes in the discretization is 72166 for this example.
 
