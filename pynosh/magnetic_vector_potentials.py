@@ -19,8 +19,8 @@ def magnetic_dipole(x, x0, m):
     # numpy.cross acts on rows by default;
     # The ".T" magic makes sure that each row of numpy.cross(m, r)
     # gets divided by the corresponding entry in ||r||^3.
-    return (numpy.cross(m, r).T
-            / numpy.sum(numpy.abs(r)**2, axis=-1)**(3./2)
+    return (numpy.cross(m, r).T /
+            numpy.sum(numpy.abs(r)**2, axis=-1)**(3./2)
             ).T
 
 

@@ -39,8 +39,8 @@ class Preconditioners(object):
 
         # Mind that all operations below are executed elementwise.
         a = self._modeleval._keo.diagonal() \
-            - (1.0-self._modeleval._temperature
-               - 2.0*abs(self._modeleval._psi)**2
+            - (1.0-self._modeleval._temperature -
+               2.0*abs(self._modeleval._psi)**2
                )
         b = self._modeleval._psi**2
 
@@ -175,9 +175,9 @@ class Preconditioners(object):
         if self._modeleval._keo is None:
             self._modeleval._assemble_kinetic_energy_operator()
         if self._keoai_lu is None:
-            self._keoai_lu = splu(self._modeleval._keo
-                                  + 1.0e-2 * sparse.identity(len(psi))
-                                  )
+            self._keoai_lu = splu(
+                self._modeleval._keo + 1.0e-2 * sparse.identity(len(psi))
+                )
         return self._keoai_lu.solve(psi)
 
     def set_parameter(self, mu):

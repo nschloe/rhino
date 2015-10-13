@@ -162,7 +162,7 @@ class NlsModelEvaluator(object):
         def _apply_precon(phi):
             return (keo * phi) / self.mesh.control_volumes.reshape(phi.shape) \
                 + alpha.reshape(phi.shape) * phi
-                #+ beta.reshape(phi.shape) * phi.conj()
+                # + beta.reshape(phi.shape) * phi.conj()
 
         assert x is not None
 
@@ -173,7 +173,7 @@ class NlsModelEvaluator(object):
 
         if g > 0.0:
             alpha = g * 2.0 * (x.real**2 + x.imag**2)
-            #beta = g * x**2
+            # beta = g * x**2
         else:
             alpha = numpy.zeros(len(x))
         num_unknowns = len(self.mesh.node_coords)
@@ -209,7 +209,7 @@ class NlsModelEvaluator(object):
                 out = krypy.linsys.Cg(linear_system,
                                       x0=x_init,
                                       tol=1.0e-13,
-                                      #explicit_residual = False
+                                      # explicit_residual = False
                                       )
                 sol[:, i] = out.xk[:, 0]
                 # Forget about the cycle used to gauge the residual norm.
@@ -252,11 +252,11 @@ class NlsModelEvaluator(object):
         # The preconditioner assumes the eigenvalue 0 iff mu=0 and psi=0.
         # This may lead to problems if mu=0 and the Newton iteration
         # converges to psi=0 for psi0 != 0.
-        #import scipy.sparse.linalg
-        #lambd, v = scipy.sparse.linalg.eigs(prec, which='SM')
-        #assert all(abs(lambd.imag) < 1.0e-15)
-        #print '||psi||^2 = %g' % numpy.linalg.norm(absPsi0Squared)
-        #print 'lambda =', lambd.real
+        # import scipy.sparse.linalg
+        # lambd, v = scipy.sparse.linalg.eigs(prec, which='SM')
+        # assert all(abs(lambd.imag) < 1.0e-15)
+        # print '||psi||^2 = %g' % numpy.linalg.norm(absPsi0Squared)
+        # print 'lambda =', lambd.real
 
         prec_amg_solver = \
             pyamg.smoothed_aggregation_solver(
@@ -282,8 +282,8 @@ class NlsModelEvaluator(object):
                 coarse_solver='splu'
                 )
 
-        #print 'operator complexity', prec_amg_solver.operator_complexity()
-        #print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
+        # print 'operator complexity', prec_amg_solver.operator_complexity()
+        # print 'cycle complexity', prec_amg_solver.cycle_complexity('V')
 
         if self._preconditioner_type == 'cycles':
             if self._num_amg_cycles == numpy.inf:
@@ -452,57 +452,58 @@ class NlsModelEvaluator(object):
         # edges[i], mvp[i], and put the result in the cache.
         edges = self.mesh.node_coords[self.mesh.edges['nodes'][:, 1]] \
             - self.mesh.node_coords[self.mesh.edges['nodes'][:, 0]]
-        mvp = 0.5 * (self._get_mvp(mu, self.mesh.edges['nodes'][:, 1])
-                     + self._get_mvp(mu, self.mesh.edges['nodes'][:, 0])
+        mvp = 0.5 * (self._get_mvp(mu, self.mesh.edges['nodes'][:, 1]) +
+                     self._get_mvp(mu, self.mesh.edges['nodes'][:, 0])
                      )
         return numpy.sum(edges * mvp, 1)
 
     def _get_mvp(self, mu, index):
         return mu * self._raw_magnetic_vector_potential[index]
 
-    #def keo_smallest_eigenvalue_approximation( self ):
-        #'''Returns
-           #<v,Av> / <v,v>
-        #with v = ones and A = KEO - Laplace.
-        #This is linear approximation for the smallest magnitude eigenvalue
-        #of KEO.
-        #'''
-        #num_nodes = len( self.mesh.nodes )
+    # def keo_smallest_eigenvalue_approximation(self):
+    #     '''Returns
+    #        <v,Av> / <v,v>
+    #     with v = ones and A = KEO - Laplace.
+    #     This is linear approximation for the smallest magnitude eigenvalue
+    #     of KEO.
+    #     '''
+    #     num_nodes = len(self.mesh.nodes)
 
-        ## compute the FVM entities for the mesh
-        #if self._edge_lengths is None or self._coedge_edge_ratios is None:
-            #self._create_fvm_entities()
+    #     # compute the FVM entities for the mesh
+    #     if self._edge_lengths is None or self._coedge_edge_ratios is None:
+    #         self._create_fvm_entities()
 
-        #k = 0
-        #sum = 0.0
-        #for element in self.mesh.cells:
-            ## loop over the edges
-            #l = 0
-            #for edge in element.edges:
-                ## ------------------------------------------------------------
-                ## Compute the integral
-                ##
-                ##    I = \int_{x0}^{xj} (xj-x0).A(x) dx
-                ##
-                ## numerically by the midpoint rule, i.e.,
-                ##
-                ##    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
-                ##
-                #node0 = self.mesh.nodes[ edge[0] ]
-                #node1 = self.mesh.nodes[ edge[1] ]
-                #midpoint = 0.5 * ( node0 + node1 )
+    #     k = 0
+    #     sum = 0.0
+    #     for element in self.mesh.cells:
+    #         # loop over the edges
+    #         l = 0
+    #         for edge in element.edges:
+    #             # -----------------------------------------------------------
+    #             # Compute the integral
+    #             #
+    #             #    I = \int_{x0}^{xj} (xj-x0).A(x) dx
+    #             #
+    #             # numerically by the midpoint rule, i.e.,
+    #             #
+    #             #    I ~ |xj-x0| * (xj-x0) . A( 0.5*(xj+x0) ).
+    #             #
+    #             node0 = self.mesh.nodes[edge[0]]
+    #             node1 = self.mesh.nodes[edge[1]]
+    #             midpoint = 0.5 * (node0 + node1)
 
-                ## Instead of projecting onto the normalized edge and then
-                ## multiplying with the edge length for the approximation of
-                ## the integral, just project on the not normalized edge.
-                #a_integral = numpy.dot( node1 - node0,
-                                     #self._magnetic_vector_potential(midpoint)
-                                   #)
+    #             # Instead of projecting onto the normalized edge and then
+    #             # multiplying with the edge length for the approximation of
+    #             # the integral, just project on the not normalized edge.
+    #             a_integral = numpy.dot(
+    #                 node1 - node0,
+    #                 self._magnetic_vector_potential(midpoint)
+    #                 )
 
-                ## sum it in
-                #sum += 2.0 * self._coedge_edge_ratios[k][l] * \
-                       #( 1.0 - math.cos( a_integral ) )
-                #l += 1
-            #k += 1
+    #             # sum it in
+    #             sum += 2.0 * self._coedge_edge_ratios[k][l] * \
+    #                 (1.0 - math.cos(a_integral))
+    #             l += 1
+    #         k += 1
 
-        #return sum / len( self.mesh.nodes )
+    #     return sum / len(self.mesh.nodes)
