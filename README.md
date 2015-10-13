@@ -5,6 +5,7 @@
 [![Code Health](https://landscape.io/github/nschloe/pynosh/master/landscape.png)](https://landscape.io/github/nschloe/pynosh/master)
 [![Documentation Status](https://readthedocs.org/projects/pynosh/badge/?version=latest)](https://readthedocs.org/projects/pynosh/?badge=latest)
 [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10341.png)](https://zenodo.org/record/10341)
+[![pypi](https://img.shields.io/pypi/v/pynosh.svg)](https://pypi.python.org/pypi/pynosh)
 
 PyNosh is a solver package for nonlinear Schrödinger equations. It contains the respective model evaluators along with an implementation of Newton's method and optional preconditioner for its linearization.
 
