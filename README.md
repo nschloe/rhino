@@ -5,6 +5,7 @@
 [![Code Health](https://landscape.io/github/nschloe/pynosh/master/landscape.png)](https://landscape.io/github/nschloe/pynosh/master)
 [![Documentation Status](https://readthedocs.org/projects/pynosh/badge/?version=latest)](https://readthedocs.org/projects/pynosh/?badge=latest)
 [![doi](https://zenodo.org/badge/doi/10.5281/zenodo.10341.png)](https://zenodo.org/record/10341)
+[![pypi](https://img.shields.io/pypi/v/pynosh.svg)](https://pypi.python.org/pypi/pynosh)
 
 PyNosh is a solver package for nonlinear Schrödinger equations. It contains the respective model evaluators along with an implementation of Newton's method and optional preconditioner for its linearization.
 
@@ -18,8 +19,8 @@ The documentation is hosted at
 [pynosh.readthedocs.org](http://pynosh.readthedocs.org).
 
 ### Example
-![Ginzburg-Landau solution](figures/solution-abs.png)
-![Ginzburg-Landau solution](figures/solution-arg.png)
+![Ginzburg-Landau solution abs](https://nschloe.github.io/pynosh/solution-abs.png)
+![Ginzburg-Landau solution arg](https://nschloe.github.io/pynosh/solution-arg.png)
 
 Absolute value and complex argument of a solution of the _Ginzburg-Landau equations_, a particular instance of nonlinear Schrödinger equations. The number of nodes in the discretization is 72166 for this example.
 
