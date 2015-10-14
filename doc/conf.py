@@ -14,20 +14,6 @@
 import sys
 import os
 
-# According to hint from
-# <http://blog.rtwilson.com/how-to-make-your-sphinx-documentation-compile-with-readthedocs-when-youre-using-numpy-and-scipy/>.
-import mock
-MOCK_MODULES = ['scipy',
-                'scipy.linalg'
-                'scipy.sparse',
-                'sparse.linalg',
-                'scipy.sparse.linalg',
-                'scipy.sparse.sputils',
-                'krypy'
-                ]
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
