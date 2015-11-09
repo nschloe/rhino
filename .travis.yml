@@ -27,7 +27,7 @@ install:
 script:
   # cd into test directory to make sure we're using the pip-installed
   # pynosh.
-  - cd test
+  - cd tests
   - nosetests --with-coverage --cover-package=pynosh
 
 after_success:
