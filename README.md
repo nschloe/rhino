@@ -31,9 +31,8 @@ particular instance of nonlinear Schrödinger equations. The number of nodes in 
 discretization is 72166 for this example.
 
 # Development
-pynosh is currently maintained by [Nico Schlömer](https://github.com/nschloe). Feel free to contact Nico. Please submit feature requests and bugs as GitHub issues.
-
-pynosh is developed with continuous integration. Current status: [![Build Status](https://travis-ci.org/nschloe/pynosh.png?branch=master)](https://travis-ci.org/nschloe/pynosh)
+pynosh is currently maintained by [Nico Schlömer](https://github.com/nschloe). Feel free
+to contact Nico. Please submit feature requests and bugs as GitHub issues.
 
 # License
 pynosh is free software licensed under the GPL3 License.
