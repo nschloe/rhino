@@ -244,13 +244,15 @@ def poor_mans_continuation(
             )
             if error_code != 0:
                 current_step_size *= 0.5
-                print((
+                print(
                     (
-                        "Continuation step failed (error code %d). "
-                        "Setting step size to %e."
+                        (
+                            "Continuation step failed (error code %d). "
+                            "Setting step size to %e."
+                        )
+                        % (error_code, current_step_size)
                     )
-                    % (error_code, current_step_size)
-                ))
+                )
             else:
                 current_step_size *= (
                     1.0
@@ -263,10 +265,12 @@ def poor_mans_continuation(
                 break
 
         if not converged:
-            print((
-                "Could not find a solution although "
-                "the step size was %e. Abort." % current_step_size
-            ))
+            print(
+                (
+                    "Could not find a solution although "
+                    "the step size was %e. Abort." % current_step_size
+                )
+            )
             break
 
         stats_file.write(
