@@ -1,7 +1,7 @@
 import os
 import numpy
 import unittest
-import voropy
+import meshplex
 
 from pynosh import modelevaluator_nls
 
@@ -13,7 +13,9 @@ class TestF(unittest.TestCase):
 
     def _run_test(self, filename, mu, control_values):
         # read the mesh
-        mesh, point_data, field_data = voropy.reader.read(filename)
+        mesh, point_data, field_data, _ = meshplex.read(filename)
+
+        print(point_data)
 
         # build the model evaluator
         modeleval = modelevaluator_nls.NlsModelEvaluator(
@@ -98,7 +100,7 @@ class TestKeo(unittest.TestCase):
 
     def _run_test(self, filename, mu, control_values):
         # read the mesh
-        mesh, point_data, field_data = voropy.reader.read(filename)
+        mesh, point_data, field_data, _ = meshplex.read(filename)
 
         # build the model evaluator
         modeleval = modelevaluator_nls.NlsModelEvaluator(
@@ -164,7 +166,7 @@ class TestJacobian(unittest.TestCase):
 
     def _run_test(self, filename, mu, actual_values):
         # read the mesh
-        mesh, point_data, field_data = voropy.reader.read(filename)
+        mesh, point_data, field_data, _ = meshplex.read(filename)
         psi = point_data["psi"][:, 0] + 1j * point_data["psi"][:, 1]
         num_unknowns = len(psi)
         psi = psi.reshape(num_unknowns, 1)
@@ -239,7 +241,7 @@ class TestInnerProduct(unittest.TestCase):
 
     def _run_test(self, filename, control_values):
         # read the mesh
-        mesh, point_data, field_data = voropy.reader.read(filename)
+        mesh, point_data, field_data, _ = meshplex.read(filename)
 
         # build the model evaluator
         modeleval = modelevaluator_nls.NlsModelEvaluator(
