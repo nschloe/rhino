@@ -336,35 +336,31 @@ class NlsModelEvaluator(object):
             mvp_edge_cache = self._build_mvp_edge_cache(mu)
 
             # Build caches.
-            if self._edgecoeff_cache is None:
-                self._build_edgecoeff_cache()
-            if self.mesh.edges is None:
-                self.mesh.create_edges()
+            row = []
+            col = []
+            data = []
+            # loop over all half-edges
+            zp = zip(self.mesh.idx_hierarchy.T, self.mesh.ce_ratios.T, mvp_edge_cache.T)
+            for k, (node_indices, ce_ratios, mvp_edge) in enumerate(zp):
+                for i, (edge, alpha, mvp) in enumerate(zip(node_indices, ce_ratios, mvp_edge)):
+                    alphaExp0 = alpha * numpy.exp(1j * mvp)
+                    row += [
+                        edge[0],
+                        edge[0],
+                        edge[1],
+                        edge[1],
+                    ]
+                    col += [
+                        edge[0],
+                        edge[1],
+                        edge[0],
+                        edge[1],
+                    ]
+                    data += [alpha, -alphaExp0.conj(), -alphaExp0, alpha]
 
-            n_edges = len(self.mesh.edges["nodes"])
-            row = numpy.zeros(4 * n_edges, dtype=int)
-            col = numpy.zeros(4 * n_edges, dtype=int)
-            data = numpy.zeros(4 * n_edges, dtype=complex)
-
-            # loop over all edges
-            for k, node_indices in enumerate(self.mesh.edges["nodes"]):
-                # Fetch the cached values.
-                alpha = self._edgecoeff_cache[k]
-                alphaExp0 = self._edgecoeff_cache[k] * numpy.exp(1j * mvp_edge_cache[k])
-                # Sum them into the matrix.
-                row[4 * k : 4 * k + 4] = [
-                    node_indices[0],
-                    node_indices[0],
-                    node_indices[1],
-                    node_indices[1],
-                ]
-                col[4 * k : 4 * k + 4] = [
-                    node_indices[0],
-                    node_indices[1],
-                    node_indices[0],
-                    node_indices[1],
-                ]
-                data[4 * k : 4 * k + 4] = [alpha, -alphaExp0.conj(), -alphaExp0, alpha]
+            row = numpy.array(row)
+            col = numpy.array(col)
+            data = numpy.array(data)
 
             self._keo_cache = sparse.csr_matrix(
                 (data, (row, col)), (num_nodes, num_nodes)
@@ -373,22 +369,8 @@ class NlsModelEvaluator(object):
             self._keo_cache_mu = mu
         return self._keo_cache
 
-    def _build_edgecoeff_cache(self):
-        """Build cache for the edge coefficients.
-        (in 2D: coedge-edge ratios).
-        """
-        num_edges = len(self.mesh.edges["nodes"])
-        self._edgecoeff_cache = numpy.zeros(num_edges, dtype=float)
-        numpy.add.at(self._edgecoeff_cache, self.mesh.cells["edges"].T, self.mesh.ce_ratios)
-        return
-
     def _build_mvp_edge_cache(self, mu):
         """Builds the cache for the magnetic vector potential."""
-
-        # make sure the mesh has edges
-        if self.mesh.edges is None:
-            self.mesh.create_edges()
-
         # Approximate the integral
         #
         #    I = \int_{x0}^{xj} (xj-x0)/|xj-x0| . A(x) dx
@@ -400,15 +382,16 @@ class NlsModelEvaluator(object):
         #
         # The following computes the dot-products of all those
         # edges[i], mvp[i], and put the result in the cache.
-        edges = (
-            self.mesh.node_coords[self.mesh.edges["nodes"][:, 1]]
-            - self.mesh.node_coords[self.mesh.edges["nodes"][:, 0]]
+        half_edges = (
+            self.mesh.node_coords[self.mesh.idx_hierarchy[1]]
+            - self.mesh.node_coords[self.mesh.idx_hierarchy[0]]
         )
         mvp = 0.5 * (
-            self._get_mvp(mu, self.mesh.edges["nodes"][:, 1])
-            + self._get_mvp(mu, self.mesh.edges["nodes"][:, 0])
+            self._get_mvp(mu, self.mesh.idx_hierarchy[1])
+            + self._get_mvp(mu, self.mesh.idx_hierarchy[0])
         )
-        return numpy.sum(edges * mvp, 1)
+
+        return numpy.sum(half_edges * mvp, -1)
 
     def _get_mvp(self, mu, index):
         return mu * self._raw_magnetic_vector_potential[index]
