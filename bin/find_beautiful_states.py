@@ -14,9 +14,9 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    print 'Reading the mesh...',
+    print('Reading the mesh...', end=' ')
     mesh, point_data, field_data = voropy.read(args.filename)
-    print 'done.'
+    print('done.')
 
     # build the model evaluator
     modeleval = gm.NlsModelEvaluator(mesh,
@@ -29,9 +29,9 @@ def _main():
     param_range = np.linspace(args.parameter_range[0],
                               args.parameter_range[1],
                               args.num_parameter_steps)
-    print 'Looking for solutions for %s in' % args.parameter
-    print param_range
-    print
+    print('Looking for solutions for %s in' % args.parameter)
+    print(param_range)
+    print()
     find_beautiful_states(modeleval, args.parameter,
                           param_range, args.forcing_term
                           )
@@ -74,7 +74,7 @@ def find_beautiful_states(modeleval,
         # Loop over initial states.
         for alpha, k in search_space:
             modeleval.set_parameter(param_name, p)
-            print '%s = %g; alpha = %g; k = %s' % (param_name, p, alpha, k,)
+            print('%s = %g; alpha = %g; k = %s' % (param_name, p, alpha, k,))
             # Set the intitial guess for Newton.
             if len(k) == 2:
                 psi0 = alpha \
@@ -90,7 +90,7 @@ def find_beautiful_states(modeleval,
             else:
                 raise RuntimeError('Illegal k.')
 
-            print 'Performing Newton iteration...'
+            print('Performing Newton iteration...')
             linsolve_maxiter = 500  # 2*len(psi0)
             # perform newton iteration
             newton_out = nm.newton(psi0[:, None],
@@ -107,19 +107,19 @@ def find_beautiful_states(modeleval,
                                    debug=True,
                                    newton_maxiter=50
                                    )
-            print ' done.'
+            print(' done.')
 
             num_krylov_iters = \
                 [len(resvec) for resvec in newton_out['linear relresvecs']]
-            print 'Num Krylov iterations:', num_krylov_iters
-            print 'Newton residuals:', newton_out['Newton residuals']
+            print('Num Krylov iterations:', num_krylov_iters)
+            print('Newton residuals:', newton_out['Newton residuals'])
             if newton_out['info'] == 0:
                 num_newton_iters = len(newton_out['linear relresvecs'])
                 psi = newton_out['x']
                 # Use the energy as a measure for ruling out boring states
                 # such as psi==0 or psi==1 overall.
                 energy = modeleval.energy(psi)
-                print 'Energy of solution state: %g.' % energy
+                print('Energy of solution state: %g.' % energy)
                 if energy > -0.999 and energy < -0.001:
                     # Store the file as VTU such that ParaView can loop through
                     # and display them at once. For this, also be sure to keep
@@ -133,9 +133,9 @@ def find_beautiful_states(modeleval,
                     filename += repr(num_newton_iters).rjust(2, '0') \
                         + repr(solution_id).rjust(3, '0') \
                         + '.vtu'
-                    print('Interesting state found for %s=%g!'
+                    print(('Interesting state found for %s=%g!'
                           % (param_name, p),
-                          )
+                          ))
                     # Check if we already stored that one.
                     already_found = False
                     for state in found_solutions:
@@ -148,10 +148,10 @@ def find_beautiful_states(modeleval,
                             already_found = True
                             break
                     if already_found and not save_doubles:
-                        print '-- But we already have that one.'
+                        print('-- But we already have that one.')
                     else:
                         found_solutions.append(psi)
-                        print 'Storing in %s.' % filename
+                        print('Storing in %s.' % filename)
                         if len(k) == 2:
                             function_string = 'psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y)' % (alpha, k[0], k[1])
                         elif len(k) == 3:
@@ -171,7 +171,7 @@ def find_beautiful_states(modeleval,
                                         }
                             )
                         solution_id += 1
-            print
+            print()
     return
 
 

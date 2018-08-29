@@ -324,7 +324,7 @@ ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz(W, AW, Vfull, Hfull,
         for run in runs:
             ye.begin_map()
             ye.add_key_value('target', target)
-            for k,v in run.items():
+            for k,v in list(run.items()):
                 ye.add_key_value(k, v)
             ye.end_map()
 

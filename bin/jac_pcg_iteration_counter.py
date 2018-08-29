@@ -27,7 +27,7 @@ def _main():
 
     state_files = sorted( glob.glob( str(opts.foldername) + '/solution*.vtu' ) )
 
-    print state_files[0]
+    print(state_files[0])
 
     tol = 1.0e-8
     maxiter = 5000
@@ -36,13 +36,13 @@ def _main():
     # Get mu and mesh for the first grid. This way, the mesh doesn't need to
     # be reset in each step; this assumes of course that the mesh doesn't
     # change throughout the computation.
-    print "Reading the state \"" + state_files[0] + "\"..."
+    print("Reading the state \"" + state_files[0] + "\"...")
     try:
         mesh, psi, field_data = vtkio.read_mesh( state_files[0] )
     except AttributeError:
-        print "Could not read from file ", state_files[0], "."
+        print("Could not read from file ", state_files[0], ".")
         raise
-    print " done."
+    print(" done.")
     ginla_modelval = ginla_model_evaluator( field_data["mu"] )
     ginla_modelval.set_mesh( mesh )
 
@@ -54,14 +54,14 @@ def _main():
     num_iterations = []
     for state_file in state_files:
         # read and set the mesh
-        print
-        print "Reading the state \"" + state_file + "\"..."
+        print()
+        print("Reading the state \"" + state_file + "\"...")
         try:
             mesh, psi, field_data = vtkio.read_mesh( state_file )
         except AttributeError:
-            print "Could not read from file ", state_file, "."
+            print("Could not read from file ", state_file, ".")
             raise
-        print " done."
+        print(" done.")
 
         mu = field_data["mu"]
 
@@ -93,14 +93,14 @@ def _main():
              + 1j * np.random.rand( num_unknowns )
 
         # build the kinetic energy operator
-        print "Building the KEO..."
+        print("Building the KEO...")
         start_time = time.clock()
         ginla_modelval._assemble_kinetic_energy_operator()
         end_time = time.clock()
-        print "done. (", end_time - start_time, "s)."
+        print("done. (", end_time - start_time, "s).")
 
         # Run the preconditioners and gather the relative residuals.
-        print "Solving the system with KEO/LU precondictioning..."
+        print("Solving the system with KEO/LU precondictioning...")
         start_time = time.clock()
         sol, info, relresvec = nm.cg_wrap( ginla_jacobian,
                                            rhs,
@@ -112,10 +112,10 @@ def _main():
                                          )
         end_time = time.clock()
         if info == 0:
-            print "success!",
+            print("success!", end=' ')
         else:
-            print "no convergence.",
-        print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
+            print("no convergence.", end=' ')
+        print(" (", end_time - start_time, "s,", len(relresvec)-1 ," iters).")
         #pp.semilogy( relresvec )
         #pp.show()
 

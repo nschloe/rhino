@@ -41,7 +41,7 @@ def _main():
     psi = np.ones(num_unknowns) #+ 1j * np.ones(num_unknowns)
     psi *= 0.5
     #psi = 4.0 * 1.0j * np.ones(num_unknowns)
-    print num_unknowns
+    print(num_unknowns)
     eigenvals_list = []
 
     g = 10.0
@@ -76,7 +76,7 @@ def _main():
         else:
             raise ValueError('Unknown operator \'', args.operator, '\'.')
 
-        print 'Compute eigenvalues for mu =', mu, '...'
+        print('Compute eigenvalues for mu =', mu, '...')
         # get smallesteigenvalues
         start_time = time.clock()
         # use eig as the problem is not symmetric (but it is self-adjoint)
@@ -84,7 +84,7 @@ def _main():
                            #lower = True,
                            )
         end_time = time.clock()
-        print 'done. (', end_time - start_time, 's).'
+        print('done. (', end_time - start_time, 's).')
 
         # sort by ascending eigenvalues
         assert norm(eigenvals.imag, np.inf) < 1.0e-14
@@ -96,7 +96,7 @@ def _main():
         # rebuild complex-valued U
         U_complex = _build_complex_vector(U)
         # normalize
-        for k in xrange(U_complex.shape[1]):
+        for k in range(U_complex.shape[1]):
             norm_Uk = np.sqrt(modeleval.inner_product(U_complex[:,[k]], U_complex[:,[k]]))
             U_complex[:,[k]] /= norm_Uk
 

@@ -85,14 +85,14 @@ def _run_different_meshes():
 
     for mesh_file in mesh_files:
         # read and set the mesh
-        print
-        print 'Reading the mesh...'
+        print()
+        print('Reading the mesh...')
         try:
             mesh, point_data, field_data = voropy.reader.read(mesh_file)
         except AttributeError:
-            print 'Could not read from file ', mesh_file, '.'
+            print('Could not read from file ', mesh_file, '.')
             sys.exit()
-        print ' done.'
+        print(' done.')
 
         # create model evaluator interface
         pynosh_modelval = pynosh.model_evaluator_nls(mu)
@@ -128,11 +128,11 @@ def _run_different_meshes():
                                                            )
 
         # build the kinetic energy operator
-        print 'Building the KEO...'
+        print('Building the KEO...')
         start_time = time.clock()
         pynosh_modelval._assemble_kinetic_energy_operator()
         end_time = time.clock()
-        print 'done. (', end_time - start_time, 's).'
+        print('done. (', end_time - start_time, 's).')
 
         # Run the preconditioners and gather the relative residuals.
         relresvecs = _run_preconditioners(pynosh_modelval._keo,
@@ -143,13 +143,13 @@ def _run_different_meshes():
 
         # append the number of iterations to the data
         for prec in test_preconditioners:
-            if prec['name'] not in num_iterations.keys():
+            if prec['name'] not in list(num_iterations.keys()):
                 num_iterations[prec['name']] = []
             num_iterations[prec['name']].append(
                 len(relresvecs[prec['name']]) - 1
                 )
 
-    print num_iterations
+    print(num_iterations)
 
     # plot them all
     for prec in test_preconditioners:
@@ -180,7 +180,7 @@ def _run_preconditioners(linear_operator, rhs, x0, preconditioners):
     maxiter = 5000
     relresvecs = {}
     for prec in preconditioners:
-        print 'Solving the system with', prec['name'], '...'
+        print('Solving the system with', prec['name'], '...')
         start_time = time.clock()
         sol, info, relresvec = nm.cg_wrap(linear_operator, rhs,
                                           x0=x0,
@@ -191,10 +191,10 @@ def _run_preconditioners(linear_operator, rhs, x0, preconditioners):
         end_time = time.clock()
         relresvecs[prec['name']] = relresvec
         if info == 0:
-            print 'success!',
+            print('success!', end=' ')
         else:
-            print 'no convergence.',
-        print ' (', end_time - start_time, 's,', len(relresvec)-1, ' iters).'
+            print('no convergence.', end=' ')
+        print(' (', end_time - start_time, 's,', len(relresvec)-1, ' iters).')
     return relresvecs
 
 

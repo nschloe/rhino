@@ -17,9 +17,9 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    print 'Reading the mesh...',
+    print('Reading the mesh...', end=' ')
     pynoshmesh, psi, A, field_data = mesh.mesh_io.read_mesh(args.filename)
-    print 'done.'
+    print('done.')
 
     # build the model evaluator
     mu = 8.0e-2
@@ -31,11 +31,11 @@ def _main():
                    dtype=complex
                    )
 
-    nums_deflation_vectors = range(50)
+    nums_deflation_vectors = list(range(50))
     last_resvecs = []
     for num_deflation_vectors in nums_deflation_vectors:
-        print('Performing Newton iteration with %d deflation vectors...'
-              % num_deflation_vectors)
+        print(('Performing Newton iteration with %d deflation vectors...'
+              % num_deflation_vectors))
         # perform newton iteration
         newton_out = nm.newton(psi0,
                                ginla_modelval,
@@ -47,7 +47,7 @@ def _main():
                                deflate_ix=True,
                                num_deflation_vectors=num_deflation_vectors
                                )
-        print ' done.'
+        print(' done.')
         assert newton_out[1] == 0, 'Newton did not converge.'
 
         last_resvecs.append(newton_out[3][-1])

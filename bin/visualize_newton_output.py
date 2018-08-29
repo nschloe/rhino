@@ -21,7 +21,7 @@ def _main():
     #pp.subplot(121)
     # Mind that the last Newton datum only contains the final ||F||.
     num_newton_steps = len(data['Newton results']) - 1
-    for k in xrange(num_newton_steps):
+    for k in range(num_newton_steps):
         pp.semilogy(
             data['Newton results'][k]['relresvec'],
             color=str(1.0 - float(k+1)/num_newton_steps)

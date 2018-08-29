@@ -21,10 +21,10 @@ def _main():
     # Plot Newton residuals.
     # Mind that the last Newton datum only contains the final ||F||.
     num_newton_steps = len(data['Newton results'])
-    x = range(num_newton_steps)
+    x = list(range(num_newton_steps))
     # Extract Newton residuals
     y = np.empty(num_newton_steps)
-    for k in xrange(num_newton_steps):
+    for k in range(num_newton_steps):
         y[k] = data['Newton results'][k]['Fx_norm']
     # Plot it.
     pp.semilogy(x, y)

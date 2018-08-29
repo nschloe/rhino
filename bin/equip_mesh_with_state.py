@@ -11,11 +11,11 @@ def _main():
     args = _parse_options()
 
     # read the mesh
-    print 'Reading mesh...',
+    print('Reading mesh...', end=' ')
     start = time.time()
     mesh, point_data, field_data = voropy.read(args.infile)
     elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
+    print('done. (%gs)' % elapsed)
 
     num_nodes = len(mesh.node_coords)
 
@@ -23,7 +23,7 @@ def _main():
     if not args.force_override and 'psi' in point_data:
         psi = point_data['psi']
     else:
-        print 'Creating psi...',
+        print('Creating psi...', end=' ')
         start = time.time()
         psi = np.empty(num_nodes, dtype=complex)
         psi[:] = complex(1.0, 0.0)
@@ -32,13 +32,13 @@ def _main():
             #psi[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
             #psi[k] = 0.9 * np.cos(0.5 * node[0])
         elapsed = time.time()-start
-        print 'done. (%gs)' % elapsed
+        print('done. (%gs)' % elapsed)
 
     if not args.force_override and 'V' in point_data:
         V = point_data['V']
     else:
         # create values
-        print 'Creating V...',
+        print('Creating V...', end=' ')
         start = time.time()
         V = np.empty(num_nodes)
         V[:] = -1.0
@@ -47,7 +47,7 @@ def _main():
             #X[k] = cmath.rect( random.random(), 2.0 * pi * random.random() )
             #X[k] = 0.9 * np.cos(0.5 * node[0])
         elapsed = time.time()-start
-        print 'done. (%gs)' % elapsed
+        print('done. (%gs)' % elapsed)
 
     if not args.force_override and 'A' in point_data:
         A = point_data['A']
@@ -59,7 +59,7 @@ def _main():
         if points.shape[1] == 2:
             points = np.column_stack((points, np.zeros(len(points))))
         # Add magnetic vector potential.
-        print 'Creating A...',
+        print('Creating A...', end=' ')
         start = time.time()
         #A = points # field A(X) = X -- test case
         import pynosh.magnetic_vector_potentials as mvp
@@ -77,7 +77,7 @@ def _main():
         #for k, node in enumerate(points):
             #A[k] = mvp.magnetic_dot(node, radius=2.0, height0=0.1, height1=1.1)
         elapsed = time.time()-start
-        print 'done. (%gs)' % elapsed
+        print('done. (%gs)' % elapsed)
 
     #if 'thickness' in point_data:
     #    thickness = point_data['thickness']
@@ -101,14 +101,14 @@ def _main():
     #    mu = 1.0
 
     # write the mesh
-    print 'Writing mesh...',
+    print('Writing mesh...', end=' ')
     start = time.time()
     mesh.write(args.outfile,
                point_data={'psi': psi, 'V': V, 'A': A},
                #field_data={'g': g, 'mu': mu}
                )
     elapsed = time.time()-start
-    print 'done. (%gs)' % elapsed
+    print('done. (%gs)' % elapsed)
     return
 
 

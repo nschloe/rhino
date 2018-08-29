@@ -231,9 +231,9 @@ def solver_diagnostics(
     if A.shape[0] != A.shape[1]:
         raise ValueError('expected square matrix')
 
-    print('\nSearching for optimal smoothed aggregation method for '
+    print(('\nSearching for optimal smoothed aggregation method for '
           '(%d,%d) matrix' % A.shape
-          )
+          ))
     print('    ...')
 
     ##
@@ -244,9 +244,9 @@ def solver_diagnostics(
         else:
             symmetry = 'nonsymmetric'
         ##
-        print '    Detected a ' + symmetry + ' matrix'
+        print('    Detected a ' + symmetry + ' matrix')
     else:
-        print '    User specified a ' + symmetry + ' matrix'
+        print('    User specified a ' + symmetry + ' matrix')
 
     ##
     # Detect definiteness
@@ -255,12 +255,12 @@ def solver_diagnostics(
             _approximate_eigenvalues(A, 1e-6, 40)
         if Lambda.min() < 0.0:
             definiteness = 'indefinite'
-            print '    Detected indefiniteness'
+            print('    Detected indefiniteness')
         else:
             definiteness = 'positive'
-            print '    Detected positive definiteness'
+            print('    Detected positive definiteness')
     else:
-        print '    User specified definiteness as ' + definiteness
+        print('    User specified definiteness as ' + definiteness)
 
     ##
     # Default B are (1) a vector of all ones, and
@@ -385,7 +385,7 @@ def solver_diagnostics(
 
     ##
     # Begin loops over parameter choices
-    print '    ...'
+    print('    ...')
     counter = -1
     for cycle in cycle_list:
         for krylov in krylov_list:
@@ -399,7 +399,7 @@ def solver_diagnostics(
                                         for Bimprove in Bimprove_list:
 
                                             counter += 1
-                                            print '    Test %d out of %d'%(counter+1,num_test)
+                                            print('    Test %d out of %d'%(counter+1,num_test))
 
                                             ##
                                             # Grab B vectors
@@ -407,11 +407,11 @@ def solver_diagnostics(
 
                                             ##
                                             # Store this solver setup
-                                            if krylov[1].has_key('tol'):
+                                            if 'tol' in krylov[1]:
                                                 tol = krylov[1]['tol']
                                             else:
                                                 tol = 1e-6
-                                            if krylov[1].has_key('maxiter'):
+                                            if 'maxiter' in krylov[1]:
                                                 maxiter = krylov[1]['maxiter']
                                             else:
                                                 maxiter = 300
@@ -473,9 +473,9 @@ def solver_diagnostics(
                                             except:
                                                 descriptor_indented = '      ' + \
                                                   descriptor.replace('\n', '\n      ')
-                                                print'    --> Failed this test'
-                                                print'    --> Solver descriptor is...'
-                                                print descriptor_indented
+                                                print('    --> Failed this test')
+                                                print('    --> Solver descriptor is...')
+                                                print(descriptor_indented)
                                                 results[counter,:] = inf
     ##
     # Sort results and solver_descriptors according to work-per-doa
@@ -593,14 +593,14 @@ def solver_diagnostics(
     # Close file pointer
     fptr.close()
 
-    print '    ...'
-    print '    --> Diagnostic Results located in ' + fname + '.txt'
-    print '    ...'
-    print '    --> See automatically generated function definition\n' + \
+    print('    ...')
+    print('    --> Diagnostic Results located in ' + fname + '.txt')
+    print('    ...')
+    print('    --> See automatically generated function definition\n' + \
           '        ./' + fname + '.py.\n\n' + \
           '        Use the function defined here to generate and run the best\n' + \
           '        smoothed aggregation method found.  The only argument taken\n' + \
           '        is a CSR/BSR matrix.\n\n' + \
           '        To run: >>> # User must load/generate CSR/BSR matrix A\n' + \
           '                >>> from ' + fname + ' import ' + fname + '\n' + \
-          '                >>> ' + fname + '(A)'
+          '                >>> ' + fname + '(A)')

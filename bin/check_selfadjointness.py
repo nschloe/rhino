@@ -42,27 +42,27 @@ def _main():
         modeleval = nls_modeleval
         x = current_psi
 
-    print 'machine eps = %g' % np.finfo(np.complex).eps
+    print(('machine eps = %g' % np.finfo(np.complex).eps))
 
     mu = args.mu
     g = 1.0
 
     # check the jacobian operator
     J = modeleval.get_jacobian(x, mu, g)
-    print('max(|<v,Ju> - <Jv,u>|) = %g'
+    print(('max(|<v,Ju> - <Jv,u>|) = %g'
           % _check_selfadjointness(J, modeleval.inner_product)
-          )
+          ))
 
     if args.preconditioner_type != 'none':
         # check the preconditioner
         P = modeleval.get_preconditioner(x, mu, g)
-        print('max(|<v,Pu> - <Pv,u>|) = %g'
+        print(('max(|<v,Pu> - <Pv,u>|) = %g'
               % _check_selfadjointness(P, modeleval.inner_product)
-              )
+              ))
         # Check positive definiteness of P.
-        print('min(<u,Pu>) = %g'
+        print(('min(<u,Pu>) = %g'
               % _check_positivedefiniteness(P, modeleval.inner_product)
-              )
+              ))
 
         # check the inverse preconditioner
         #Pinv = modeleval.get_preconditioner_inverse(x, mu, g)
@@ -80,7 +80,7 @@ def _check_selfadjointness(operator, inner_product):
     N = operator.shape[0]
     num_samples = 100
     max_discrepancy = 0.0
-    for k in xrange(num_samples):
+    for k in range(num_samples):
         # Make the last one unconditionally real. This is for bordering.
         u = np.random.rand(N) + 1j * np.random.rand(N)
         u[-1] = u[-1].real
@@ -97,7 +97,7 @@ def _check_positivedefiniteness(operator, inner_product):
     N = operator.shape[0]
     num_samples = 1000
     min_val = np.inf
-    for k in xrange(num_samples):
+    for k in range(num_samples):
         u = np.random.rand(N, 1) + 1j * np.random.rand(N, 1)
         alpha = inner_product(u, operator*u)[0, 0]
         if abs(alpha.imag) > 1.0e-13:

@@ -26,7 +26,7 @@ def _main():
 
     if not args.mu is None:
         mu = args.mu
-        print 'Using mu=%g from command line.' % mu
+        print('Using mu=%g from command line.' % mu)
     elif 'mu' in field_data:
         mu = field_data['mu']
     else:
@@ -34,7 +34,7 @@ def _main():
 
     if not args.g is None:
         g = args.g
-        print 'Using g=%g from command line.' % g
+        print('Using g=%g from command line.' % g)
     elif 'g' in field_data:
         g = field_data['g']
     else:
@@ -114,22 +114,22 @@ def _main():
                                             g
                                             )
 
-        print 'The following eigenvalues were computed:'
-        print sorted(eigenvals)
+        print('The following eigenvalues were computed:')
+        print(sorted(eigenvals))
 
         # Check residuals.
-        print 'Residuals:'
-        for k in xrange(len(eigenvals)):
+        print('Residuals:')
+        for k in range(len(eigenvals)):
             # Convert to complex representation.
             z = X[0::2,k] + 1j * X[1::2,k]
             z /= np.sqrt(modeleval.inner_product(z, z))
             y0 = modeleval.get_jacobian(x0, mu, g) * z
-            print np.linalg.norm(y0 - eigenvals[k] * z)
+            print(np.linalg.norm(y0 - eigenvals[k] * z))
 
         # Normalize and store all eigenvectors & values.
-        print 'Storing corresponding eigenstates...',
+        print('Storing corresponding eigenstates...', end=' ')
         k = 0
-        for k in xrange(len(eigenvals)):
+        for k in range(len(eigenvals)):
             filename = 'eigen%d.vtu' % k
             # Convert to complex representation.
             z = X[0::2,k] + 1j * X[1::2,k]
@@ -138,7 +138,7 @@ def _main():
                        point_data = {'psi': point_data['psi'], 'A': point_data['A'], 'V': point_data['V'], 'eigen': z},
                        field_data = {'g': g, 'mu': mu, 'eigenvalue': eigenvals[k] }
                        )
-        print 'done.'
+        print('done.')
     else:
         # initial guess for the eigenvectors
         X = np.ones((len(mesh.node_coords), 1))
@@ -215,8 +215,8 @@ def _compute_eigenvalues(operator_type,
     else:
         raise ValueError('Unknown operator \'%s\'.' % operator_type)
 
-    print 'Compute the %d %s eigenvalues of %s...' \
-          % (num_eigenvalues, eigenvalue_type, operator_type)
+    print('Compute the %d %s eigenvalues of %s...' \
+          % (num_eigenvalues, eigenvalue_type, operator_type))
     start_time = time.clock()
     eigenvals, X = eigs(A,
                         k = num_eigenvalues,
@@ -226,7 +226,7 @@ def _compute_eigenvalues(operator_type,
                         return_eigenvectors = True
                         )
     end_time = time.clock()
-    print 'done. (', end_time - start_time, 's).'
+    print('done. (', end_time - start_time, 's).')
 
     # make sure they are real (as they are supposed to be)
     assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
@@ -299,7 +299,7 @@ def _plot_eigenvalue_series(x, eigenvals_list):
         #y = np.array(y) # to make Boolean indices possible
         y_new = np.empty(n)
         y_masked = np.ma.array(y, mask=np.zeros(n, dtype=bool))
-        for k in xrange(n):
+        for k in range(n):
             min_index = np.argmin(abs(y_masked - y2[k]))
             y_new[k] = y_masked[min_index]
             # mask the index
@@ -328,7 +328,7 @@ def _plot_eigenvalue_series(x, eigenvals_list):
                     x[k+2]
                     )
     # plot it
-    for k in xrange(num_eigenvalues):
+    for k in range(num_eigenvalues):
         pp.plot(x, reordered_eigenvalues[k, :], '-x')
     return
 

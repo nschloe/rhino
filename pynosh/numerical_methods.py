@@ -99,7 +99,7 @@ def newton(
     out = None
 
     if debug:
-        import yaml
+        from . import yaml
 
         if yaml_emitter is None:
             yaml_emitter = yaml.YamlEmitter()
@@ -231,7 +231,7 @@ def poor_mans_continuation(
     current_step_size = initial_step_size
 
     for k in range(max_steps):
-        print("Continuation step %d (parameter=%e)..." % (k, parameter_value))
+        print(("Continuation step %d (parameter=%e)..." % (k, parameter_value)))
 
         # Try to converge to a solution and adapt the step size.
         converged = False
@@ -244,13 +244,13 @@ def poor_mans_continuation(
             )
             if error_code != 0:
                 current_step_size *= 0.5
-                print(
+                print((
                     (
                         "Continuation step failed (error code %d). "
                         "Setting step size to %e."
                     )
                     % (error_code, current_step_size)
-                )
+                ))
             else:
                 current_step_size *= (
                     1.0
@@ -263,10 +263,10 @@ def poor_mans_continuation(
                 break
 
         if not converged:
-            print(
+            print((
                 "Could not find a solution although "
                 "the step size was %e. Abort." % current_step_size
-            )
+            ))
             break
 
         stats_file.write(

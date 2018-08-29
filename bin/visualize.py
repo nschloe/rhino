@@ -280,7 +280,7 @@ def _plot_continuation():
         patch_file = os.path.join(cache_folder, 'patched%s' % suffix)
         pp.savefig(patch_file, format='png')
         #pp.savefig(p.stdin, format='jpg')
-        print '%d / %d' % (k, num_steps)
+        print('%d / %d' % (k, num_steps))
     return
 
 
@@ -332,7 +332,7 @@ def _absarg2png(filenames):
     view.ResetCamera()
 
     # create calculator filter that computes the Cooper pair density
-    array_name = filenames.keys()[1]
+    array_name = list(filenames.keys())[1]
     # make background green
     view.Background = [0.0, 1.0, 0.0]
     #data_representation.ScalarOpacityFunction = pv.CreatePiecewiseFunction()
@@ -343,10 +343,10 @@ def _absarg2png(filenames):
                 RGBPoints=[0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
                 LockScalarRange=1
                 )
-    pv.WriteImage(filenames.values()[1])
+    pv.WriteImage(list(filenames.values())[1])
     #pv.Render()
 
-    array_name = filenames.keys()[0]
+    array_name = list(filenames.keys())[0]
     # make background gray
     view.Background = [0.5, 0.5, 0.5]
     #data_representation.ScalarOpacityFunction = pv.CreatePiecewiseFunction()
@@ -360,7 +360,7 @@ def _absarg2png(filenames):
     # Don't interpolate scalars as otherwise, the circular HSV color map
     # gets messed up at the pi/-pi seam.
     data_representation.InterpolateScalarsBeforeMapping = 0
-    pv.WriteImage(filenames.values()[0])
+    pv.WriteImage(list(filenames.values())[0])
     return
 
 

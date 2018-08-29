@@ -104,7 +104,7 @@ def _main():
     ye.end_map()
 
     # energy of the state
-    print('# Energy of the final state: %g.' % nls_modeleval.energy(sol))
+    print(('# Energy of the final state: %g.' % nls_modeleval.energy(sol)))
 
     if args.solutionfile:
         modeleval.mesh.write(args.solutionfile,

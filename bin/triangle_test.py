@@ -83,7 +83,7 @@ def _main():
     print('Compare weights with the previous... ')
     err = np.linalg.norm(qweights - weights)
     if err > 1.0e-14:
-        print('Ah! Diff =', qweights - weights)
+        print(('Ah! Diff =', qweights - weights))
     else:
         print('Cool.')
 
@@ -105,12 +105,12 @@ def _main():
 
     #check_weights(qweights, edges, triangle_vol)
 
-    print 'Compare weights with the previous... ',
+    print('Compare weights with the previous... ', end=' ')
     err = np.linalg.norm(qweights - weights)
     if err > 1.0e-14:
-        print 'Ah! Diff =', qweights - weights
+        print('Ah! Diff =', qweights - weights)
     else:
-        print 'Cool.'
+        print('Cool.')
 
     ## alternative computation of the weights
     #covolumes = np.array([np.linalg.norm(midpoints[0] - cc),
@@ -133,8 +133,8 @@ def _show_example(triangle_vertices, midpoints, cc):
     from matplotlib import pyplot as pp
 
     # Plot the situation.
-    for i in xrange(3):
-        for j in xrange(i+1, 3):
+    for i in range(3):
+        for j in range(i+1, 3):
             # Edge (i,j).
             pp.plot([triangle_vertices[i][0], triangle_vertices[j][0]],
                     [triangle_vertices[i][1], triangle_vertices[j][1]],
@@ -172,28 +172,28 @@ def angle( u, v ):
 def check_weights( weights, edges, vol, tol=1.0e-14 ):
     '''Check if the given weights are correct.'''
 
-    print 'Checking weights %g, %g, %g...' % (weights[0], weights[1], weights[2]),
+    print('Checking weights %g, %g, %g...' % (weights[0], weights[1], weights[2]), end=' ')
 
     # try out the weight with a bunch of other random vectors
     m = 1000
     found_mismatch = False
-    for i in xrange(m):
+    for i in range(m):
         u = np.random.rand(2) + 1j * np.random.rand(2)
         v = np.random.rand(2) + 1j * np.random.rand(2)
 
         control_value = np.vdot(u, v) * vol
         p1 = 0.0
-        for j in xrange(3):
+        for j in range(3):
             p1 += np.vdot(u, edges[j]) * np.vdot(edges[j], v) * weights[j]
 
         err = abs(control_value-p1)
         if err > tol:
             found_mismatch = True;
-            print 'Found mismatch by %g.\n' % err
+            print('Found mismatch by %g.\n' % err)
             break
 
     if not found_mismatch:
-        print 'Cool.'
+        print('Cool.')
 
     return
 
