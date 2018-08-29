@@ -4,7 +4,7 @@
 Provide information around the nonlinear Schrödinger equations.
 """
 import numpy
-from scipy import sparse, linalg
+from scipy import sparse
 import warnings
 import krypy
 
@@ -377,50 +377,9 @@ class NlsModelEvaluator(object):
         """Build cache for the edge coefficients.
         (in 2D: coedge-edge ratios).
         """
-        # make sure the mesh has edges
-        if self.mesh.edges is None:
-            self.mesh.create_edges()
-
         num_edges = len(self.mesh.edges["nodes"])
         self._edgecoeff_cache = numpy.zeros(num_edges, dtype=float)
-
-        if self.mesh.cell_volumes is None:
-            self.mesh.create_cell_volumes()
-        vols = self.mesh.cell_volumes
-
-        # Precompute edges.
-        edges = (
-            self.mesh.node_coords[self.mesh.edges["nodes"][:, 1]]
-            - self.mesh.node_coords[self.mesh.edges["nodes"][:, 0]]
-        )
-
-        # Calculate the covolume-edgelength ratios cell by cell.
-        for vol, cell_edge_gids in zip(vols, self.mesh.cells["edges"]):
-            # Build the equation system:
-            # The equation
-            #
-            # |simplex| ||u||^2 = \sum_i \alpha_i <u,e_i> <e_i,u>
-            #
-            # has to hold for all vectors u in the plane spanned by the edges,
-            # particularly by the edges themselves.
-            A = numpy.dot(edges[cell_edge_gids], edges[cell_edge_gids].T)
-            # Careful here! As of NumPy 1.7, numpy.diag() returns a view.
-            rhs = vol * numpy.diag(A).copy()
-            A = A ** 2
-
-            # Append the the resulting coefficients to the coefficient cache.
-            # The system is posdef iff the simplex isn't degenerate.
-            try:
-                self._edgecoeff_cache[cell_edge_gids] += linalg.solve(
-                    A, rhs, sym_pos=True
-                )
-            except numpy.linalg.linalg.LinAlgError:
-                # The matrix A appears to be singular, and the only
-                # circumstance that makes this happening is the cell being
-                # degenerate.  Hence, it has volume 0, and so all the edge
-                # coefficients are 0, too.  Hence, do nothing.
-                pass
-
+        numpy.add.at(self._edgecoeff_cache, self.mesh.cells["edges"].T, self.mesh.ce_ratios)
         return
 
     def _build_mvp_edge_cache(self, mu):
