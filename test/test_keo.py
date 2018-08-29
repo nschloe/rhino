@@ -9,12 +9,15 @@ import pytest
 from pynosh import modelevaluator_nls
 
 
-@pytest.mark.parametrize("filename, control_values", [
-    ("rectanglesmall.e", [0.0063121712308067401, 10.224658806561596]),
-    ("pacman.e", [0.37044264296585938, 10.000520856079092]),
-    ("cubesmall.e", [8.3541623155714007e-05, 10.058364522531498]),
-    ("brick-w-hole.e", [0.16763276012920181, 15.131119904340618]),
-])
+@pytest.mark.parametrize(
+    "filename, control_values",
+    [
+        ("rectanglesmall.e", [0.0063121712308067401, 10.224658806561596]),
+        ("pacman.e", [0.37044264296585938, 10.000520856079092]),
+        ("cubesmall.e", [8.3541623155714007e-05, 10.058364522531498]),
+        ("brick-w-hole.e", [0.16763276012920181, 15.131119904340618]),
+    ],
+)
 def test(filename, control_values):
     this_path = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(this_path, filename)
