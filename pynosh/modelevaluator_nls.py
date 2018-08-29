@@ -313,8 +313,7 @@ class NlsModelEvaluator(object):
             scaledPhi0 = self.mesh.control_volumes * phi0
         elif len(phi0.shape) == 2:
             scaledPhi0 = self.mesh.control_volumes.reshape((phi0.shape[0], 1)) * phi0
-        # numpy.vdot only works for vectors, so use numpy.dot(....T.conj())
-        # here.
+        # numpy.vdot only works for vectors, so use numpy.dot(....T.conj()) here.
         return numpy.dot(scaledPhi0.T.conj(), phi1).real
 
     def energy(self, psi):
@@ -335,13 +334,12 @@ class NlsModelEvaluator(object):
 
             mvp_edge_cache = self._build_mvp_edge_cache(mu)
 
-            # Build caches.
             edge = self.mesh.idx_hierarchy.reshape(2, -1)
-            row = numpy.concatenate([edge[0], edge[0], edge[1], edge[1]])
-            col = numpy.concatenate([edge[0], edge[1], edge[0], edge[1]])
-
             alpha = self.mesh.ce_ratios.reshape(-1)
             alphaExp0 = alpha * numpy.exp(1j * mvp_edge_cache.reshape(-1))
+
+            row = numpy.concatenate([edge[0], edge[0], edge[1], edge[1]])
+            col = numpy.concatenate([edge[0], edge[1], edge[0], edge[1]])
             data = numpy.concatenate([alpha, -alphaExp0.conj(), -alphaExp0, alpha])
 
             self._keo_cache = sparse.csr_matrix(

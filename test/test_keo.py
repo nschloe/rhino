@@ -14,6 +14,10 @@ from pynosh import modelevaluator_nls
     [
         ("rectanglesmall.e", [0.0063121712308067401, 10.224658806561596]),
         ("pacman.e", [0.37044264296585938, 10.000520856079092]),
+        # geometric ce_ratios
+        ("cubesmall.e", [0.00012499993489764605, 10.062484361987309]),
+        ("brick-w-hole.e", [0.167357712543159, 12.05581968511059]),
+        # Algebraic ce_ratios:
         # ("cubesmall.e", [8.3541623155714007e-05, 10.058364522531498]),
         # ("brick-w-hole.e", [0.16763276012920181, 15.131119904340618]),
     ],
@@ -38,10 +42,10 @@ def test(filename, control_values):
 
     # Check that the matrix is Hermitian.
     KK = keo - keo.H
-    assert numpy.all(numpy.abs(KK.sum()) < tol)
+    assert abs(KK.sum()) < tol
 
     # Check the matrix sum.
-    assert numpy.all(numpy.abs(control_values[0] - keo.sum()) < tol)
+    assert abs(control_values[0] - keo.sum()) < tol
 
     # Check the 1-norm of the matrix |Re(K)| + |Im(K)|.
     # This equals the 1-norm of the matrix defined by the block
@@ -49,5 +53,5 @@ def test(filename, control_values):
     #   Re(K) -Im(K)
     #   Im(K)  Re(K).
     K = abs(keo.real) + abs(keo.imag)
-    assert numpy.all(numpy.abs(control_values[1] - numpy.max(K.sum(0))) < tol)
+    assert abs(control_values[1] - numpy.max(K.sum(0))) < tol
     return
