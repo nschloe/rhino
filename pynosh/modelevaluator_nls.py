@@ -336,31 +336,13 @@ class NlsModelEvaluator(object):
             mvp_edge_cache = self._build_mvp_edge_cache(mu)
 
             # Build caches.
-            row = []
-            col = []
-            data = []
-            # loop over all half-edges
-            zp = zip(self.mesh.idx_hierarchy.T, self.mesh.ce_ratios.T, mvp_edge_cache.T)
-            for k, (node_indices, ce_ratios, mvp_edge) in enumerate(zp):
-                for i, (edge, alpha, mvp) in enumerate(zip(node_indices, ce_ratios, mvp_edge)):
-                    alphaExp0 = alpha * numpy.exp(1j * mvp)
-                    row += [
-                        edge[0],
-                        edge[0],
-                        edge[1],
-                        edge[1],
-                    ]
-                    col += [
-                        edge[0],
-                        edge[1],
-                        edge[0],
-                        edge[1],
-                    ]
-                    data += [alpha, -alphaExp0.conj(), -alphaExp0, alpha]
+            edge = self.mesh.idx_hierarchy.reshape(2, -1)
+            row = numpy.concatenate([edge[0], edge[0], edge[1], edge[1]])
+            col = numpy.concatenate([edge[0], edge[1], edge[0], edge[1]])
 
-            row = numpy.array(row)
-            col = numpy.array(col)
-            data = numpy.array(data)
+            alpha = self.mesh.ce_ratios.reshape(-1)
+            alphaExp0 = alpha * numpy.exp(1j * mvp_edge_cache.reshape(-1))
+            data = numpy.concatenate([alpha, -alphaExp0.conj(), -alphaExp0, alpha])
 
             self._keo_cache = sparse.csr_matrix(
                 (data, (row, col)), (num_nodes, num_nodes)
