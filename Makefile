@@ -11,7 +11,7 @@ upload: setup.py README.rst
 
 clean:
 	@find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
-	@rm -rf *.egg-info/ build/ dist/ MANIFEST
+	@rm -rf *.egg-info/ build/ dist/ MANIFEST doc/build/
 
 black:
 	black setup.py pynosh/ test/*.py
