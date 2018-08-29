@@ -1,27 +1,8 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
 '''
 Solve Poisson's equation with finite volumes.
 '''
-# ==============================================================================
 import vtkio
 import numerical_methods as nm
 from scipy.sparse.linalg import LinearOperator
@@ -36,7 +17,7 @@ rc( 'font', family = 'serif' )
 from model_evaluator import *
 from preconditioners import *
 import matplotlib2tikz
-# ==============================================================================
+
 def _main():
     '''
     Main function.
@@ -69,11 +50,9 @@ def _main():
     precs = preconditioners( ginla_modelval )
     precs.set_mesh( mesh )
 
-    # --------------------------------------------------------------------------
     # loop over the meshes and compute
     num_iterations = []
     for state_file in state_files:
-        # ----------------------------------------------------------------------
         # read and set the mesh
         print
         print "Reading the state \"" + state_file + "\"..."
@@ -90,7 +69,7 @@ def _main():
         ginla_modelval.set_current_psi( psi )
 
         precs.set_parameter( mu )
-        # ----------------------------------------------------------------------
+
         # recreate all the objects necessary to perform the precondictioner run
         num_unknowns = len( mesh.nodes )
 
@@ -113,14 +92,13 @@ def _main():
         psi0 = np.random.rand( num_unknowns ) \
              + 1j * np.random.rand( num_unknowns )
 
-        # ----------------------------------------------------------------------
         # build the kinetic energy operator
         print "Building the KEO..."
         start_time = time.clock()
         ginla_modelval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print "done. (", end_time - start_time, "s)."
-        # ----------------------------------------------------------------------
+
         # Run the preconditioners and gather the relative residuals.
         print "Solving the system with KEO/LU precondictioning..."
         start_time = time.clock()
@@ -140,10 +118,10 @@ def _main():
         print " (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
         #pp.semilogy( relresvec )
         #pp.show()
-        # ----------------------------------------------------------------------
+
         # append the number of iterations to the data
         num_iterations.append( len( relresvec ) - 1 )
-        # ----------------------------------------------------------------------
+
     print ( num_iterations )
 
     # plot the number of iterations
@@ -160,7 +138,7 @@ def _main():
                         )
     # pp.show()
     return
-# ==============================================================================
+
 def _parse_input_arguments():
     '''
     Parse input arguments.
@@ -180,7 +158,6 @@ def _parse_input_arguments():
 
     (opts, args) = parser.parse_args()
     return opts, args
-# ==============================================================================
+
 if __name__ == "__main__":
     _main()
-# ==============================================================================

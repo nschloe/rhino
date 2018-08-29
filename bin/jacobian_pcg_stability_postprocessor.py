@@ -1,26 +1,5 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
-'''void
-'''
-# ==============================================================================
 import vtkio
 import numerical_methods as nm
 from scipy.sparse.linalg import LinearOperator
@@ -36,7 +15,7 @@ rc( 'font', family = 'serif' )
 from model_evaluator import *
 from preconditioners import *
 import matplotlib2tikz
-# ==============================================================================
+
 def _main():
     '''Main function.
     '''
@@ -74,11 +53,9 @@ def _main():
     num_eigenvalues = 10
     blockvector_x = np.random.rand( num_unknowns, num_eigenvalues )
 
-    # --------------------------------------------------------------------------
     # loop over the meshes and compute
     eigenvalue_series = []
     for state_file in state_files:
-        # ----------------------------------------------------------------------
         # read and set the mesh
         print
         print "Reading the state \"" + state_file + "\"..."
@@ -95,9 +72,8 @@ def _main():
         ginla_modelval.set_current_psi( psi )
 
         precs.set_parameter( mu )
-        # ----------------------------------------------------------------------
-        # recreate all the objects necessary to perform the precondictioner run
 
+        # recreate all the objects necessary to perform the precondictioner run
         ## create precondictioner
         #prec_keolu = LinearOperator( (num_unknowns, num_unknowns),
                                     #matvec = precs.keo_lu,
@@ -110,14 +86,13 @@ def _main():
                                          dtype = complex
                                        )
 
-        # ----------------------------------------------------------------------
         # build the kinetic energy operator
         print "Building the KEO..."
         start_time = time.clock()
         ginla_modelval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print "done. (", end_time - start_time, "s)."
-        # ----------------------------------------------------------------------
+
         # Run the preconditioners and gather the relative residuals.
         print "Compute the eigenvalues with LOBPCG.."
         start_time = time.clock()
@@ -127,10 +102,10 @@ def _main():
         print "done (", end_time - start_time, "s,", len(relresvec)-1 ," iters)."
         #pp.semilogy( relresvec )
         #pp.show()
-        # ----------------------------------------------------------------------
+
         # append the number of iterations to the data
         eigenvalue_series.append( eigenvalues )
-        # ----------------------------------------------------------------------
+
     print ( eigenvalue_series )
 
     ## plot the number of iterations
@@ -147,7 +122,7 @@ def _main():
                         #)
     #pp.show()
     return
-# ==============================================================================
+
 def _parse_input_arguments():
     '''
     Parse input arguments.
@@ -167,10 +142,9 @@ def _parse_input_arguments():
 
     (opts, args) = parser.parse_args()
     return opts, args
-# ==============================================================================
+
 if __name__ == "__main__":
     _main()
 
     #import cProfile
     #cProfile.run( '_main()', 'pfvm_profile.dat' )
-# ==============================================================================

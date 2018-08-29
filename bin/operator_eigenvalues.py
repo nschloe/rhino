@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
-#
 from scipy.sparse.linalg import eigs, LinearOperator
 import time
 import matplotlib.pyplot as pp
@@ -160,7 +142,7 @@ def _main():
     else:
         # initial guess for the eigenvectors
         X = np.ones((len(mesh.node_coords), 1))
-        # ----------------------------------------------------------------------
+
         # set the range of parameters
         steps = 51
         mus = np.linspace( 0.0, 0.5, steps )
@@ -199,9 +181,8 @@ def _main():
                             #figurewidth = '\\figurewidth',
                             #figureheight = '\\figureheight'
                             #)
-        # ----------------------------------------------------------------------
     return
-# ==============================================================================
+
 def _compute_eigenvalues(operator_type,
                          eigenvalue_type,
                          num_eigenvalues,
@@ -251,7 +232,7 @@ def _compute_eigenvalues(operator_type,
     assert all(abs(eigenvals.imag) < 1.0e-10), eigenvals
 
     return eigenvals.real, X
-# ==============================================================================
+
 def _complex2real( op ):
     '''For a given complex-valued operator C^n -> C^n, returns the
     corresponding real-valued operator R^{2n} -> R^{2n}.'''
@@ -269,7 +250,7 @@ def _complex2real( op ):
                           _jacobian_wrap_apply,
                           dtype = float
                           )
-# ==============================================================================
+
 def _complex_with_bordering2real( op ):
     def _jacobian_wrap_apply( x ):
         # Build complex-valued representation.

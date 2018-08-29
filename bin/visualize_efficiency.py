@@ -1,37 +1,14 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
 #
 '''Visualize (1+T_d/T) k_d/k
 '''
-# ==============================================================================
 import numpy as np
 
 import yaml
 import matplotlib
-# Use the AGG backend to make sure that we don't need
-# $DISPLAY to plot something (to files).
-matplotlib.use('agg')
 import matplotlib.pyplot as pp
 import matplotlib2tikz
-# ==============================================================================
+
 def _main():
     args = _parse_input_arguments()
 
@@ -109,7 +86,7 @@ def _main():
         matplotlib2tikz.save(args.tikzfile)
 
     return
-# ==============================================================================
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
@@ -153,7 +130,6 @@ def _parse_input_arguments():
                         )
 
     return parser.parse_args()
-# ==============================================================================
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================

@@ -1,27 +1,8 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
 '''
 Solve the linearized Ginzburg--Landau problem.
 '''
-# ==============================================================================
 from scipy.sparse.linalg import LinearOperator
 import time
 import numpy as np
@@ -36,7 +17,7 @@ import pynosh.modelevaluator_nls
 import pynosh.modelevaluator_bordering_constant
 #import pynosh.preconditioners
 import pynosh.numerical_methods as nm
-# ==============================================================================
+
 def _main():
     '''Main function.
     '''
@@ -79,7 +60,7 @@ def _main():
             pp.show()
 
     return
-# ==============================================================================
+
 def _solve_system(modeleval, filename, timestep, mu, args):
     # read the mesh
     print('Reading current psi...',)
@@ -91,7 +72,7 @@ def _solve_system(modeleval, filename, timestep, mu, args):
     print('done (%gs).' % total)
 
     num_coords = len( mesh.node_coords )
-    # --------------------------------------------------------------------------
+
     # set psi at which to create the Jacobian
     print('Creating initial guess and right-hand side...',)
     start = time.time()
@@ -124,7 +105,7 @@ def _solve_system(modeleval, filename, timestep, mu, args):
     end = time.time()
     print('done. (%gs)' % (end - start))
     print('||rhs|| = %g' % np.sqrt(modeleval.inner_product(rhs, rhs)))
-    # --------------------------------------------------------------------------
+
     # create the linear operator
     print('Getting Jacobian...',)
     start_time = time.clock()
@@ -139,7 +120,6 @@ def _solve_system(modeleval, filename, timestep, mu, args):
     end_time = time.clock()
     print('done. (%gs)' % (end_time - start_time))
 
-    # --------------------------------------------------------------------------
     # Get reference solution
     #print 'Get reference solution (dim = %d)...' % (2*num_coords),
     #start_time = time.clock()
@@ -233,7 +213,7 @@ def _solve_system(modeleval, filename, timestep, mu, args):
     #matplotlib2tikz.save('inf.tex')
 
     return out['relresvec']
-# ==============================================================================
+
 def _run_one_mu( modeleval,
                  precs,
                  jacobian,
@@ -241,14 +221,13 @@ def _run_one_mu( modeleval,
                  psi0,
                  test_preconditioners
                ):
-    # --------------------------------------------------------------------------
     # build the kinetic energy operator
     print('Building the KEO...')
     start_time = time.clock()
     modeleval._assemble_kinetic_energy_operator()
     end_time = time.clock()
     print('done.', end_time - start_time)
-    # --------------------------------------------------------------------------
+
     # Run the preconditioners and gather the relative residuals.
     relresvecs = _run_preconditioners( jacobian,
                                        rhs,
@@ -264,7 +243,7 @@ def _run_one_mu( modeleval,
                         )
     pp.show()
     return
-# ==============================================================================
+
 def _run_along_top( modeleval,
                     precs,
                     jacobian,
@@ -289,7 +268,7 @@ def _run_along_top( modeleval,
     for mu in mus:
         print()
         print(' mu =', mu)
-        # ----------------------------------------------------------------------
+
         # build the kinetic energy operator
         modeleval.set_parameter( mu )
         precs.set_parameter( mu )
@@ -298,20 +277,19 @@ def _run_along_top( modeleval,
         modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print('done. (', end_time - start_time, 's).')
-        # ----------------------------------------------------------------------
+
         # Run the preconditioners and gather the relative residuals.
         relresvecs = _run_preconditioners( jacobian,
                                            rhs,
                                            psi0,
                                            test_preconditioners
                                          )
-        # ----------------------------------------------------------------------
+
         # append the number of iterations to the data
         for prec in test_preconditioners:
             num_iterations[ prec['name'] ].append(
                                              len( relresvecs[prec['name']] ) - 1
                                                  )
-        # ----------------------------------------------------------------------
 
     # plot them all
     for name, num_iteration in num_iterations.iteritems():
@@ -331,9 +309,8 @@ def _run_along_top( modeleval,
                           figureheight = '\\figureheight'
                         )
     pp.show()
-
     return
-# ==============================================================================
+
 def _run_different_meshes( modeleval,
                            precs
                          ):
@@ -364,14 +341,12 @@ def _run_different_meshes( modeleval,
     modeleval.set_parameter( mu )
     precs.set_parameter( mu )
 
-    # --------------------------------------------------------------------------
     # loop over the meshes and compute
     nums_unknowns = []
 
     num_iterations = {}
 
     for mesh_file in mesh_files:
-        # ----------------------------------------------------------------------
         # read and set the mesh
         print()
         print('Reading the mesh...')
@@ -382,7 +357,7 @@ def _run_different_meshes( modeleval,
         print(' done.')
         modeleval.set_mesh( mesh )
         precs.set_mesh( mesh )
-        # ----------------------------------------------------------------------
+
         # recreate all the objects necessary to perform the precondictioner run
         num_coords = len( mesh.nodes )
 
@@ -416,21 +391,20 @@ def _run_different_meshes( modeleval,
 
         test_preconditioners = _create_preconditioner_list( precs, num_coords )
 
-        # ----------------------------------------------------------------------
         # build the kinetic energy operator
         print('Building the KEO...')
         start_time = time.clock()
         modeleval._assemble_kinetic_energy_operator()
         end_time = time.clock()
         print('done. (', end_time - start_time, 's).')
-        # ----------------------------------------------------------------------
+
         # Run the preconditioners and gather the relative residuals.
         relresvecs = _run_preconditioners( jacobian,
                                            rhs,
                                            psi0,
                                            test_preconditioners
                                          )
-        # ----------------------------------------------------------------------
+
         # append the number of iterations to the data
         for prec in test_preconditioners:
             if prec['name'] not in num_iterations.keys():
@@ -438,7 +412,6 @@ def _run_different_meshes( modeleval,
             num_iterations[ prec['name'] ].append(
                                             len( relresvecs[prec['name']] ) - 1
                                                 )
-        # ----------------------------------------------------------------------
 
     print(num_iterations)
 
@@ -464,9 +437,8 @@ def _run_different_meshes( modeleval,
                           figureheight = '\\figureheight'
                         )
     pp.show()
-
     return
-# ==============================================================================
+
 def _run_preconditioners( linear_operator, rhs, x0, preconditioners ):
 
     tol = 1.0e-10
@@ -492,7 +464,7 @@ def _run_preconditioners( linear_operator, rhs, x0, preconditioners ):
         print(' (', end_time - start_time, 's,', len(relresvec)-1 ,' iters).')
 
     return relresvecs
-# ==============================================================================
+
 def _plot_relresvecs( test_preconditioners,
                       relresvecs
                     ):
@@ -509,7 +481,7 @@ def _plot_relresvecs( test_preconditioners,
     pp.legend()
 
     return
-# ==============================================================================
+
 def _plot_l2_condition_numbers( model_evaluator ):
 
     # set the range of parameters
@@ -568,7 +540,7 @@ def _plot_l2_condition_numbers( model_evaluator ):
     pp.show()
 
     return
-# ==============================================================================
+
 def _construct_matrix( linear_operator ):
     shape = linear_operator.shape
 
@@ -582,7 +554,7 @@ def _construct_matrix( linear_operator ):
 
     A = np.matrix( A )
     return A
-# ==============================================================================
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
@@ -667,7 +639,6 @@ def _parse_input_arguments():
     args = parser.parse_args()
 
     return args
-# ==============================================================================
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================

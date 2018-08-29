@@ -1,23 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
-#
 '''
 Provide information around the nonlinear Schrödinger equations.
 '''
@@ -402,7 +384,7 @@ class NlsModelEvaluator(object):
         edges = self.mesh.node_coords[self.mesh.edges['nodes'][:, 1]] \
             - self.mesh.node_coords[self.mesh.edges['nodes'][:, 0]]
 
-        # Calculate the edge contributions cell by cell.
+        # Calculate the covolume-edgelength ratios cell by cell.
         for vol, cell in zip(vols, self.mesh.cells):
             cell_edge_gids = cell['edges']
             # Build the equation system:
@@ -423,13 +405,12 @@ class NlsModelEvaluator(object):
                 self._edgecoeff_cache[cell_edge_gids] += \
                     linalg.solve(A, rhs, sym_pos=True)
             except numpy.linalg.linalg.LinAlgError:
-                # The matrix A appears to be singular,
-                # and the only circumstance that makes this
-                # happening is the cell being degenerate.
-                # Hence, it has volume 0, and so all the edge
-                # coefficients are 0, too.
-                # Hence, do nothing.
+                # The matrix A appears to be singular, and the only
+                # circumstance that makes this happening is the cell being
+                # degenerate.  Hence, it has volume 0, and so all the edge
+                # coefficients are 0, too.  Hence, do nothing.
                 pass
+
         return
 
     def _build_mvp_edge_cache(self, mu):

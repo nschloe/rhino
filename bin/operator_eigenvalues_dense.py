@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# ==============================================================================
+#
 from scipy.linalg import norm, eig, eigh
 from scipy.sparse import spdiags
 import time
@@ -11,7 +11,7 @@ import matplotlib2tikz
 #from lobpcg import lobpcg as my_lobpcg
 import voropy
 import pynosh.modelevaluator_nls
-# ==============================================================================
+
 def _main():
     '''Main function.
     '''
@@ -43,36 +43,36 @@ def _main():
     #psi = 4.0 * 1.0j * np.ones(num_unknowns)
     print num_unknowns
     eigenvals_list = []
-    # --------------------------------------------------------------------------
+
     g = 10.0
     for mu in mus:
         if args.operator == 'k':
             # build dense KEO
-            A = modeleval._get_keo(mu).todense()
+            A = modeleval._get_keo(mu).toarray()
             B = None
         elif args.operator == 'p':
             # build dense preconditioner
             P = modeleval.get_preconditioner(psi, mu, g)
-            A = P.todense()
+            A = P.toarray()
             B = None
         elif args.operator == 'j':
             # build dense jacobian
             J1, J2 = modeleval.get_jacobian_blocks(psi, mu, g)
-            A = _build_stacked_operator(J1.todense(), J2.todense())
+            A = _build_stacked_operator(J1.toarray(), J2.toarray())
             B = None
         elif args.operator == 'kj':
             J1, J2 = modeleval.get_jacobian_blocks(psi)
-            A = _build_stacked_operator(J1.todense(), J2.todense())
+            A = _build_stacked_operator(J1.toarray(), J2.toarray())
 
             modeleval._assemble_keo()
             K = _modeleval._keo
-            B = _build_stacked_operator(K.todense())
+            B = _build_stacked_operator(K.toarray())
         elif args.operator == 'pj':
             J1, J2 = modeleval.get_jacobian_blocks(psi)
-            A = _build_stacked_operator(J1.todense(), J2.todense())
+            A = _build_stacked_operator(J1.toarray(), J2.toarray())
 
             P = modeleval.get_preconditioner(psi)
-            B = _build_stacked_operator(P.todense())
+            B = _build_stacked_operator(P.toarray())
         else:
             raise ValueError('Unknown operator \'', args.operator, '\'.')
 
@@ -130,7 +130,6 @@ def _main():
         #    eigenvals[k] = 1- alpha
 
         eigenvals_list.append( eigenvals )
-    # --------------------------------------------------------------------------
 
     # plot the eigenvalues
     #_plot_eigenvalue_series( mus, eigenvals_list )
@@ -155,7 +154,7 @@ def _main():
                          #figureheight = '\\figureheight'
                          #)
     return
-# ==============================================================================
+
 def _build_stacked_operator(A, B=None):
     '''Build the block operator.
        [ A.real+B.real, -A.imag+B.imag ]
@@ -175,14 +174,14 @@ def _build_stacked_operator(A, B=None):
         out[1::2,1::2] -= B.real
 
     return out
-# ==============================================================================
+
 def _build_complex_vector(x):
     '''Build complex vector.
     '''
     xreal = x[0::2,:]
     ximag = x[1::2,:]
     return xreal + 1j * ximag
-# ==============================================================================
+
 def _build_real_vector(x):
     '''Build complex vector.
     '''
@@ -190,7 +189,7 @@ def _build_real_vector(x):
     xx[0::2,:] = x.real
     xx[1::2,:] = x.imag
     return xx
-# ==============================================================================
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
@@ -228,7 +227,6 @@ def _parse_input_arguments():
     args = parser.parse_args()
 
     return args
-# ==============================================================================
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================

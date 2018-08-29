@@ -1,33 +1,13 @@
-#! /usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-#  Copyright (c) 2012--2014, Nico Schlömer, <nico.schloemer@gmail.com>
-#  All rights reserved.
-#
-#  This file is part of PyNosh.
-#
-#  PyNosh is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  PyNosh is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with PyNosh.  If not, see <http://www.gnu.org/licenses/>.
 #
 '''Checker for triangle coefficients.
 '''
-# ==============================================================================
 import numpy as np
 
 #import pynosh.numerical_methods as nm
 #import pynosh.ginla_modelevaluator as gm
 import voropy
-# ==============================================================================
+
 def _main():
     args = _parse_input_arguments()
 
@@ -61,7 +41,7 @@ def _main():
 
     if args.show_example:
         _show_example(triangle_vertices, midpoints, cc)
-    # --------------------------------------------------------------------------
+
     # Find the coefficients numerically.
     A = np.dot(edges, edges.T)
     # Careful here! As of NumPy 1.7, np.diag() returns a view.
@@ -83,7 +63,7 @@ def _main():
         pass
 
     check_weights(weights, edges, triangle_vol)
-    # --------------------------------------------------------------------------
+
     # Qiang's formula.
     #theta = np.array([angle(triangle_vertices[0] - triangle_vertices[2],
                             #triangle_vertices[1] - triangle_vertices[2]),
@@ -115,7 +95,7 @@ def _main():
        #+ cot(theta(2)) * (u0'*e{2})*(u1'*e{2}) ...
        #+ cot(theta(3)) * (u0'*e{3})*(u1'*e{3});
     #p0 - 0.5 * p1
-    # --------------------------------------------------------------------------
+
     # Qiang's formula, passing the angle calculations.
     t = np.array([np.dot( edges[2]/edge_lenghts[2], -edges[1]/edge_lenghts[1]),
                   np.dot(-edges[2]/edge_lenghts[2],  edges[0]/edge_lenghts[0]),
@@ -131,7 +111,7 @@ def _main():
         print 'Ah! Diff =', qweights - weights
     else:
         print 'Cool.'
-    # --------------------------------------------------------------------------
+
     ## alternative computation of the weights
     #covolumes = np.array([np.linalg.norm(midpoints[0] - cc),
                           #np.linalg.norm(midpoints[1] - cc),
@@ -146,11 +126,8 @@ def _main():
         #print 'Ah! Diff =', cweights - weights
     #else:
         #print 'Cool.'
-    # --------------------------------------------------------------------------
-
-
     return
-# ==============================================================================
+
 def _show_example(triangle_vertices, midpoints, cc):
     '''Show an example situation.'''
     from matplotlib import pyplot as pp
@@ -171,9 +148,8 @@ def _show_example(triangle_vertices, midpoints, cc):
     # plot circumcenter
     pp.plot( cc[0], cc[1], 'or' )
     pp.show()
-
     return
-# ==============================================================================
+
 def compute_triangle_cc( node_coords ):
     '''Compute circumcenter.'''
     from vtk import vtkTriangle
@@ -181,18 +157,18 @@ def compute_triangle_cc( node_coords ):
     vtkTriangle.Circumcircle(node_coords[0], node_coords[1], node_coords[2],
                              cc)
     return cc
-# ==============================================================================
+
 def compute_triangle_vol( node_coords ):
     '''Compute triangle volume.'''
     # Shoelace formula.
     return 0.5 * abs( node_coords[0][0] * node_coords[1][1] - node_coords[0][1] * node_coords[1][0]
                     + node_coords[1][0] * node_coords[2][1] - node_coords[1][1] * node_coords[2][0]
                     + node_coords[2][0] * node_coords[0][1] - node_coords[2][1] * node_coords[0][0])
-# ==============================================================================
+
 def angle( u, v ):
     '''Computes the angle between two vectors.'''
     return np.arccos(np.dot(u / np.linalg.norm(u), v / np.linalg.norm(v)))
-# ==============================================================================
+
 def check_weights( weights, edges, vol, tol=1.0e-14 ):
     '''Check if the given weights are correct.'''
 
@@ -220,7 +196,7 @@ def check_weights( weights, edges, vol, tol=1.0e-14 ):
         print 'Cool.'
 
     return
-# ==============================================================================
+
 def _parse_input_arguments():
     '''Parse input arguments.
     '''
@@ -247,7 +223,6 @@ def _parse_input_arguments():
                         #)
 
     return parser.parse_args()
-# ==============================================================================
+
 if __name__ == '__main__':
     _main()
-# ==============================================================================
