@@ -16,12 +16,12 @@ def _main():
     print(b * a)
     print(np.multiply(a, b))
 
-    #a = np.array([[1,2], [3,4]])
-    #x = np.array([[1],[1]])
-    #y = np.array([[2],[2]])
-    #print np.dot(a, x[:,0]) + np.dot(a, y[:,0])
-    #print np.dot(a, x[:,[0]]) + np.dot(a, y[:,[0]])
+    # a = np.array([[1,2], [3,4]])
+    # x = np.array([[1],[1]])
+    # y = np.array([[2],[2]])
+    # print np.dot(a, x[:,0]) + np.dot(a, y[:,0])
+    # print np.dot(a, x[:,[0]]) + np.dot(a, y[:,[0]])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _main()

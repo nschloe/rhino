@@ -9,10 +9,9 @@ from pyamg.util.linalg import _approximate_eigenvalues, ishermitian
 from pyamg.util.utils import print_table
 
 
-
 def solver_diagnostics(
     A,
-    fname='solver_diagnostic',
+    fname="solver_diagnostic",
     definiteness=None,
     symmetry=None,
     strength_list=None,
@@ -24,9 +23,9 @@ def solver_diagnostics(
     krylov_list=None,
     prepostsmoother_list=None,
     B_list=None,
-    coarse_size_list=None
-    ):
-    '''Try many different different parameter combinations for
+    coarse_size_list=None,
+):
+    """Try many different different parameter combinations for
     smoothed_aggregation_solver(...).  The goal is to find appropriate SA
     parameter settings for the arbitrary matrix problem A x = 0 using a
     random initial guess.
@@ -212,165 +211,211 @@ def solver_diagnostics(
     >>> A = gallery.poisson( (50,50), format='csr')
     >>> solver_diagnostics(A, fname='isotropic_diffusion_diagnostics.txt', cycle_list=['V'])
 
-    '''
+    """
 
     ##
     # Preprocess A
     if not (isspmatrix_csr(A) or isspmatrix_bsr(A)):
         try:
             A = csr_matrix(A)
-            print('Implicit conversion of A to CSR in'
-                  'pyamg.smoothed_aggregation_solver')
+            print(
+                "Implicit conversion of A to CSR in" "pyamg.smoothed_aggregation_solver"
+            )
         except:
-            raise TypeError('Argument A must have type csr_matrix or '
-                            'bsr_matrix, or be convertible to csr_matrix'
-                            )
+            raise TypeError(
+                "Argument A must have type csr_matrix or "
+                "bsr_matrix, or be convertible to csr_matrix"
+            )
     #
     A = A.asfptype()
     #
     if A.shape[0] != A.shape[1]:
-        raise ValueError('expected square matrix')
+        raise ValueError("expected square matrix")
 
-    print(('\nSearching for optimal smoothed aggregation method for '
-          '(%d,%d) matrix' % A.shape
-          ))
-    print('    ...')
+    print(
+        (
+            "\nSearching for optimal smoothed aggregation method for "
+            "(%d,%d) matrix" % A.shape
+        )
+    )
+    print("    ...")
 
     ##
     # Detect symmetry
     if symmetry is None:
         if ishermitian(A, fast_check=True):
-            symmetry = 'hermitian'
+            symmetry = "hermitian"
         else:
-            symmetry = 'nonsymmetric'
+            symmetry = "nonsymmetric"
         ##
-        print('    Detected a ' + symmetry + ' matrix')
+        print("    Detected a " + symmetry + " matrix")
     else:
-        print('    User specified a ' + symmetry + ' matrix')
+        print("    User specified a " + symmetry + " matrix")
 
     ##
     # Detect definiteness
     if definiteness is None:
-        [EVect, Lambda, H, V, breakdown_flag] = \
-            _approximate_eigenvalues(A, 1e-6, 40)
+        [EVect, Lambda, H, V, breakdown_flag] = _approximate_eigenvalues(A, 1e-6, 40)
         if Lambda.min() < 0.0:
-            definiteness = 'indefinite'
-            print('    Detected indefiniteness')
+            definiteness = "indefinite"
+            print("    Detected indefiniteness")
         else:
-            definiteness = 'positive'
-            print('    Detected positive definiteness')
+            definiteness = "positive"
+            print("    Detected positive definiteness")
     else:
-        print('    User specified definiteness as ' + definiteness)
+        print("    User specified definiteness as " + definiteness)
 
     ##
     # Default B are (1) a vector of all ones, and
     # (2) if A is BSR, the constant for each variable
     if B_list is None:
-        B_list = [(ones((A.shape[0], 1), dtype=A.dtype),
-                   ones((A.shape[0], 1), dtype=A.dtype),
-                   'B = ones((A.shape[0],1), dtype=A.dtype); BH = B.copy()')]
+        B_list = [
+            (
+                ones((A.shape[0], 1), dtype=A.dtype),
+                ones((A.shape[0], 1), dtype=A.dtype),
+                "B = ones((A.shape[0],1), dtype=A.dtype); BH = B.copy()",
+            )
+        ]
 
         if isspmatrix_bsr(A) and A.blocksize[0] > 1:
             bsize = A.blocksize[0]
             B_list.append(
-                (kron(ones((A.shape[0]/bsize, 1), dtype=A.dtype), eye(bsize)),
-                 kron(ones((A.shape[0]/bsize, 1), dtype=A.dtype), eye(bsize)),
-                 'B = kron(ones((A.shape[0]/A.blocksize[0],1), dtype=A.dtype), eye(A.blocksize[0])); BH = B.copy()'
-                 )
+                (
+                    kron(ones((A.shape[0] / bsize, 1), dtype=A.dtype), eye(bsize)),
+                    kron(ones((A.shape[0] / bsize, 1), dtype=A.dtype), eye(bsize)),
+                    "B = kron(ones((A.shape[0]/A.blocksize[0],1), dtype=A.dtype), eye(A.blocksize[0])); BH = B.copy()",
                 )
+            )
 
     ##
     # Default is to try V- and W-cycles
     if cycle_list is None:
-        cycle_list = ['V', 'W']
+        cycle_list = ["V", "W"]
 
     ##
     # Default strength of connection values
     if strength_list is None:
-        strength_list = [('symmetric', {'theta': 0.0}),
-                         ('evolution', {'k': 2,
-                                        'proj_type': 'l2',
-                                        'epsilon': 2.0
-                                        }),
-                         ('evolution', {'k': 2,
-                                        'proj_type': 'l2',
-                                        'epsilon': 4.0
-                                        })]
+        strength_list = [
+            ("symmetric", {"theta": 0.0}),
+            ("evolution", {"k": 2, "proj_type": "l2", "epsilon": 2.0}),
+            ("evolution", {"k": 2, "proj_type": "l2", "epsilon": 4.0}),
+        ]
 
     ##
     # Default aggregation strategies
     if aggregate_list is None:
-        aggregate_list = ['standard']
+        aggregate_list = ["standard"]
 
     ##
     # Default prolongation smoothers
     if smooth_list is None:
-        if definiteness == 'positive' \
-            and (symmetry == 'hermitian' or symmetry == 'symmetric'):
+        if definiteness == "positive" and (
+            symmetry == "hermitian" or symmetry == "symmetric"
+        ):
             smooth_list = [
-                'jacobi',
-                ('jacobi', {'filter': True, 'weighting': 'local'}),
-                ('energy', {'krylov': 'cg',
-                            'maxiter': 2,
-                            'degree': 1,
-                            'weighting': 'local'
-                            }),
-                ('energy', {'krylov': 'cg',
-                            'maxiter': 3,
-                            'degree': 2,
-                            'weighting': 'local'
-                            }),
-                ('energy', {'krylov': 'cg',
-                            'maxiter': 4,
-                            'degree': 3,
-                            'weighting': 'local'
-                            })
-                ]
-        elif definiteness == 'indefinite' or symmetry=='nonsymmetric':
-            smooth_list =[('energy',{'krylov':'gmres','maxiter':2,'degree':1,'weighting':'local'}),
-                          ('energy',{'krylov':'gmres','maxiter':3,'degree':2,'weighting':'local'}),
-                          ('energy',{'krylov':'gmres','maxiter':4,'degree':3,'weighting':'local'})]
+                "jacobi",
+                ("jacobi", {"filter": True, "weighting": "local"}),
+                (
+                    "energy",
+                    {"krylov": "cg", "maxiter": 2, "degree": 1, "weighting": "local"},
+                ),
+                (
+                    "energy",
+                    {"krylov": "cg", "maxiter": 3, "degree": 2, "weighting": "local"},
+                ),
+                (
+                    "energy",
+                    {"krylov": "cg", "maxiter": 4, "degree": 3, "weighting": "local"},
+                ),
+            ]
+        elif definiteness == "indefinite" or symmetry == "nonsymmetric":
+            smooth_list = [
+                (
+                    "energy",
+                    {
+                        "krylov": "gmres",
+                        "maxiter": 2,
+                        "degree": 1,
+                        "weighting": "local",
+                    },
+                ),
+                (
+                    "energy",
+                    {
+                        "krylov": "gmres",
+                        "maxiter": 3,
+                        "degree": 2,
+                        "weighting": "local",
+                    },
+                ),
+                (
+                    "energy",
+                    {
+                        "krylov": "gmres",
+                        "maxiter": 4,
+                        "degree": 3,
+                        "weighting": "local",
+                    },
+                ),
+            ]
         else:
-            raise ValueError('invalid string for definiteness and/or symmetry')
+            raise ValueError("invalid string for definiteness and/or symmetry")
 
     ##
     # Default pre- and postsmoothers
     if prepostsmoother_list is None:
-        if symmetry == 'nonsymmetric' or definiteness == 'indefinite':
-            prepostsmoother_list = [ (('gauss_seidel_nr', {'sweep':'symmetric', 'iterations':2}),
-                                      ('gauss_seidel_nr', {'sweep':'symmetric', 'iterations':2})) ]
+        if symmetry == "nonsymmetric" or definiteness == "indefinite":
+            prepostsmoother_list = [
+                (
+                    ("gauss_seidel_nr", {"sweep": "symmetric", "iterations": 2}),
+                    ("gauss_seidel_nr", {"sweep": "symmetric", "iterations": 2}),
+                )
+            ]
         else:
-            prepostsmoother_list= [ (('block_gauss_seidel',{'sweep':'symmetric','iterations':1}),
-                                     ('block_gauss_seidel',{'sweep':'symmetric','iterations':1})) ]
+            prepostsmoother_list = [
+                (
+                    ("block_gauss_seidel", {"sweep": "symmetric", "iterations": 1}),
+                    ("block_gauss_seidel", {"sweep": "symmetric", "iterations": 1}),
+                )
+            ]
 
     ##
     # Default Krylov wrapper
     if krylov_list is None:
-        if symmetry == 'nonsymmetric' or definiteness == 'indefinite':
-            krylov_list = [('gmres', {'tol':1e-8, 'maxiter':300})]
+        if symmetry == "nonsymmetric" or definiteness == "indefinite":
+            krylov_list = [("gmres", {"tol": 1e-8, "maxiter": 300})]
         else:
-            krylov_list = [('cg', {'tol':1e-8, 'maxiter':300})]
+            krylov_list = [("cg", {"tol": 1e-8, "maxiter": 300})]
 
     ##
     # Default Bimprove
     if Bimprove_list is None:
-        Bimprove_list = ['default', None]
+        Bimprove_list = ["default", None]
 
     ##
     # Default basic solver parameters
     if max_levels_list is None:
         max_levels_list = [25]
     if coarse_size_list is None:
-        coarse_size_list = [(300, 'pinv')]
+        coarse_size_list = [(300, "pinv")]
 
     ##
     # Setup for ensuing numerical tests
     # The results array will hold in each row, three values:
     # iterations, operator complexity, and work per digit of accuracy
-    num_test = len(cycle_list)*len(strength_list)*len(aggregate_list)*len(smooth_list)* \
-               len(krylov_list)*len(Bimprove_list)*len(max_levels_list)*len(B_list)* \
-               len(coarse_size_list)*len(prepostsmoother_list)
-    results = zeros( (num_test,3) )
+    num_test = (
+        len(cycle_list)
+        * len(strength_list)
+        * len(aggregate_list)
+        * len(smooth_list)
+        * len(krylov_list)
+        * len(Bimprove_list)
+        * len(max_levels_list)
+        * len(B_list)
+        * len(coarse_size_list)
+        * len(prepostsmoother_list)
+    )
+    results = zeros((num_test, 3))
     solver_descriptors = []
     solver_args = []
 
@@ -379,19 +424,19 @@ def solver_diagnostics(
     random.seed(0)
     b = zeros((A.shape[0], 1), dtype=A.dtype)
     if A.dtype == complex:
-        x0 = rand(A.shape[0], 1) + 1.0j*rand(A.shape[0], 1)
+        x0 = rand(A.shape[0], 1) + 1.0j * rand(A.shape[0], 1)
     else:
         x0 = rand(A.shape[0], 1)
 
     ##
     # Begin loops over parameter choices
-    print('    ...')
+    print("    ...")
     counter = -1
     for cycle in cycle_list:
         for krylov in krylov_list:
             for max_levels in max_levels_list:
-                for max_coarse,coarse_solver in coarse_size_list:
-                    for presmoother,postsmoother in prepostsmoother_list:
+                for max_coarse, coarse_solver in coarse_size_list:
+                    for presmoother, postsmoother in prepostsmoother_list:
                         for B_index in range(len(B_list)):
                             for strength in strength_list:
                                 for aggregate in aggregate_list:
@@ -399,208 +444,303 @@ def solver_diagnostics(
                                         for Bimprove in Bimprove_list:
 
                                             counter += 1
-                                            print('    Test %d out of %d'%(counter+1,num_test))
+                                            print(
+                                                "    Test %d out of %d"
+                                                % (counter + 1, num_test)
+                                            )
 
                                             ##
                                             # Grab B vectors
-                                            B,BH,Bdescriptor = B_list[B_index]
+                                            B, BH, Bdescriptor = B_list[B_index]
 
                                             ##
                                             # Store this solver setup
-                                            if 'tol' in krylov[1]:
-                                                tol = krylov[1]['tol']
+                                            if "tol" in krylov[1]:
+                                                tol = krylov[1]["tol"]
                                             else:
                                                 tol = 1e-6
-                                            if 'maxiter' in krylov[1]:
-                                                maxiter = krylov[1]['maxiter']
+                                            if "maxiter" in krylov[1]:
+                                                maxiter = krylov[1]["maxiter"]
                                             else:
                                                 maxiter = 300
                                             ##
-                                            descriptor = '  Solve phase arguments:' + '\n' \
-                                                '    cycle = ' + str(cycle) + '\n' \
-                                                '    krylov accel = ' + str(krylov[0]) + '\n' \
-                                                '    tol = ' + str(tol) + '\n' \
-                                                '    maxiter = ' + str(maxiter)+'\n'\
-                                                '  Setup phase arguments:' + '\n' \
-                                                '    max_levels = ' + str(max_levels) + '\n' \
-                                                '    max_coarse = ' + str(max_coarse) + '\n' \
-                                                '    coarse_solver = ' + str(coarse_solver)+'\n'\
-                                                '    presmoother = ' + str(presmoother) + '\n' \
-                                                '    postsmoother = ' + str(postsmoother) + '\n'\
-                                                '    ' + Bdescriptor + '\n' \
-                                                '    strength = ' + str(strength) + '\n' \
-                                                '    aggregate = ' + str(aggregate) + '\n' \
-                                                '    smooth = ' + str(smooth) + '\n' \
-                                                '    Bimprove = ' + str(Bimprove)
+                                            descriptor = (
+                                                "  Solve phase arguments:" + "\n"
+                                                "    cycle = " + str(cycle) + "\n"
+                                                "    krylov accel = "
+                                                + str(krylov[0])
+                                                + "\n"
+                                                "    tol = " + str(tol) + "\n"
+                                                "    maxiter = " + str(maxiter) + "\n"
+                                                "  Setup phase arguments:" + "\n"
+                                                "    max_levels = "
+                                                + str(max_levels)
+                                                + "\n"
+                                                "    max_coarse = "
+                                                + str(max_coarse)
+                                                + "\n"
+                                                "    coarse_solver = "
+                                                + str(coarse_solver)
+                                                + "\n"
+                                                "    presmoother = "
+                                                + str(presmoother)
+                                                + "\n"
+                                                "    postsmoother = "
+                                                + str(postsmoother)
+                                                + "\n"
+                                                "    " + Bdescriptor + "\n"
+                                                "    strength = " + str(strength) + "\n"
+                                                "    aggregate = "
+                                                + str(aggregate)
+                                                + "\n"
+                                                "    smooth = " + str(smooth) + "\n"
+                                                "    Bimprove = " + str(Bimprove)
+                                            )
                                             solver_descriptors.append(descriptor)
-                                            solver_args.append( {'cycle' : cycle,
-                                                'accel' : str(krylov[0]),
-                                                'tol' : tol, 'maxiter' : maxiter,
-                                                'max_levels' : max_levels, 'max_coarse' : max_coarse,
-                                                'coarse_solver' : coarse_solver, 'B_index' : B_index,
-                                                'presmoother' : presmoother,
-                                                'postsmoother' : postsmoother,
-                                                'strength' : strength, 'aggregate' : aggregate,
-                                                'smooth' : smooth, 'Bimprove' : Bimprove} )
+                                            solver_args.append(
+                                                {
+                                                    "cycle": cycle,
+                                                    "accel": str(krylov[0]),
+                                                    "tol": tol,
+                                                    "maxiter": maxiter,
+                                                    "max_levels": max_levels,
+                                                    "max_coarse": max_coarse,
+                                                    "coarse_solver": coarse_solver,
+                                                    "B_index": B_index,
+                                                    "presmoother": presmoother,
+                                                    "postsmoother": postsmoother,
+                                                    "strength": strength,
+                                                    "aggregate": aggregate,
+                                                    "smooth": smooth,
+                                                    "Bimprove": Bimprove,
+                                                }
+                                            )
 
                                             ##
                                             # Construct solver
                                             try:
-                                                sa = smoothed_aggregation_solver(A, B=B, BH=BH,
-                                                  strength=strength, smooth=smooth,
-                                                  Bimprove=Bimprove, aggregate=aggregate,
-                                                  presmoother=presmoother, max_levels=max_levels,
-                                                  postsmoother=postsmoother, max_coarse=max_coarse,
-                                                  coarse_solver=coarse_solver)
+                                                sa = smoothed_aggregation_solver(
+                                                    A,
+                                                    B=B,
+                                                    BH=BH,
+                                                    strength=strength,
+                                                    smooth=smooth,
+                                                    Bimprove=Bimprove,
+                                                    aggregate=aggregate,
+                                                    presmoother=presmoother,
+                                                    max_levels=max_levels,
+                                                    postsmoother=postsmoother,
+                                                    max_coarse=max_coarse,
+                                                    coarse_solver=coarse_solver,
+                                                )
 
                                                 ##
                                                 # Solve system
                                                 residuals = []
-                                                x = sa.solve(b, x0=x0, accel=krylov[0],
-                                                  cycle=cycle, tol=tol, maxiter=maxiter,
-                                                  residuals=residuals)
+                                                x = sa.solve(
+                                                    b,
+                                                    x0=x0,
+                                                    accel=krylov[0],
+                                                    cycle=cycle,
+                                                    tol=tol,
+                                                    maxiter=maxiter,
+                                                    residuals=residuals,
+                                                )
 
                                                 ##
                                                 # Store results: iters, operator complexity, and
                                                 # work per digit-of-accuracy
-                                                results[counter,0] = len(residuals)
-                                                results[counter,1] = sa.operator_complexity()
-                                                resid_rate = (residuals[-1]/residuals[0])**\
-                                                             (1.0/(len(residuals)-1.))
-                                                results[counter,2] = sa.cycle_complexity()/ \
-                                                                     abs(log10(resid_rate))
+                                                results[counter, 0] = len(residuals)
+                                                results[
+                                                    counter, 1
+                                                ] = sa.operator_complexity()
+                                                resid_rate = (
+                                                    residuals[-1] / residuals[0]
+                                                ) ** (1.0 / (len(residuals) - 1.))
+                                                results[
+                                                    counter, 2
+                                                ] = sa.cycle_complexity() / abs(
+                                                    log10(resid_rate)
+                                                )
 
                                             except:
-                                                descriptor_indented = '      ' + \
-                                                  descriptor.replace('\n', '\n      ')
-                                                print('    --> Failed this test')
-                                                print('    --> Solver descriptor is...')
+                                                descriptor_indented = (
+                                                    "      "
+                                                    + descriptor.replace(
+                                                        "\n", "\n      "
+                                                    )
+                                                )
+                                                print("    --> Failed this test")
+                                                print("    --> Solver descriptor is...")
                                                 print(descriptor_indented)
-                                                results[counter,:] = inf
+                                                results[counter, :] = inf
     ##
     # Sort results and solver_descriptors according to work-per-doa
-    indys = argsort(results[:,2])
-    results = results[indys,:]
+    indys = argsort(results[:, 2])
+    results = results[indys, :]
     solver_descriptors = list(array(solver_descriptors)[indys])
     solver_args = list(array(solver_args)[indys])
 
     ##
     # Create table from results and print to file
-    table = [ ['solver #', 'iters', 'op complexity', 'work per DOA'] ]
+    table = [["solver #", "iters", "op complexity", "work per DOA"]]
     for i in range(results.shape[0]):
-        if (results[i,:] == inf).all() == True:
+        if (results[i, :] == inf).all() == True:
             # in this case the test failed...
-            table.append(['%d'%(i+1), 'err', 'err', 'err'])
+            table.append(["%d" % (i + 1), "err", "err", "err"])
         else:
-            table.append(['%d'%(i+1),'%d'%results[i,0],'%1.1f'%results[i,1],'%1.1f'%results[i,2]])
+            table.append(
+                [
+                    "%d" % (i + 1),
+                    "%d" % results[i, 0],
+                    "%1.1f" % results[i, 1],
+                    "%1.1f" % results[i, 2],
+                ]
+            )
     #
-    fptr = open(fname+'.txt', 'w')
-    fptr.write('****************************************************************\n' + \
-               '*                Begin Solver Diagnostic Results               *\n' + \
-               '*                                                              *\n' + \
-               '*        \'\'solver #\'\' refers to below solver descriptors       *\n' + \
-               '*                                                              *\n' + \
-               '*        \'\'iters\'\' refers to iterations taken                  *\n' + \
-               '*                                                              *\n' + \
-               '*        \'\'op complexity\'\' refers to operator complexity       *\n' + \
-               '*                                                              *\n' + \
-               '*        \'\'work per DOA\'\' refers to work per digit of          *\n' + \
-               '*          accuracy to solve the algebraic system, i.e. it     *\n' + \
-               '*          measures the overall efficiency of the solver       *\n' + \
-               '****************************************************************\n\n')
+    fptr = open(fname + ".txt", "w")
+    fptr.write(
+        "****************************************************************\n"
+        + "*                Begin Solver Diagnostic Results               *\n"
+        + "*                                                              *\n"
+        + "*        ''solver #'' refers to below solver descriptors       *\n"
+        + "*                                                              *\n"
+        + "*        ''iters'' refers to iterations taken                  *\n"
+        + "*                                                              *\n"
+        + "*        ''op complexity'' refers to operator complexity       *\n"
+        + "*                                                              *\n"
+        + "*        ''work per DOA'' refers to work per digit of          *\n"
+        + "*          accuracy to solve the algebraic system, i.e. it     *\n"
+        + "*          measures the overall efficiency of the solver       *\n"
+        + "****************************************************************\n\n"
+    )
     fptr.write(print_table(table))
 
     ##
     # Now print each solver descriptor to file
-    fptr.write('\n****************************************************************\n' + \
-                 '*                 Begin Solver Descriptors                     *\n' + \
-                 '****************************************************************\n\n')
+    fptr.write(
+        "\n****************************************************************\n"
+        + "*                 Begin Solver Descriptors                     *\n"
+        + "****************************************************************\n\n"
+    )
     for i in range(len(solver_descriptors)):
-        fptr.write('Solver Descriptor %d\n'%(i+1))
+        fptr.write("Solver Descriptor %d\n" % (i + 1))
         fptr.write(solver_descriptors[i])
-        fptr.write(' \n \n')
+        fptr.write(" \n \n")
 
     fptr.close()
 
     ##
     # Now write a function definition file that generates the 'best' solver
-    fptr = open(fname + '.py', 'w')
+    fptr = open(fname + ".py", "w")
     # Helper function for file writing
     def to_string(a):
-        if type(a) == type((1,)):   return(str(a))
-        elif type(a) == type('s'):  return('\'%s\''%a)
-        else: return str(a)
+        if type(a) == type((1,)):
+            return str(a)
+        elif type(a) == type("s"):
+            return "'%s'" % a
+        else:
+            return str(a)
+
     #
-    fptr.write('#######################################################################\n')
-    fptr.write('# Function definition automatically generated by solver_diagnostics.py\n')
-    fptr.write('#\n')
-    fptr.write('# Use the function defined here to generate and run the best\n')
-    fptr.write('# smoothed aggregation method found by solver_diagnostics(...).\n')
-    fptr.write('# The only argument taken is a CSR/BSR matrix.\n')
-    fptr.write('#\n')
-    fptr.write('# To run:  >>> # User must load/generate CSR/BSR matrix A\n')
-    fptr.write('#          >>> from ' + fname + ' import ' + fname + '\n' )
-    fptr.write('#          >>> ' + fname + '(A)' + '\n')
-    fptr.write('#######################################################################\n\n')
-    fptr.write('from pyamg import smoothed_aggregation_solver\n')
-    fptr.write('from pyamg.util.linalg import norm\n')
-    fptr.write('from numpy import ones, array, arange, zeros, abs, random\n')
-    fptr.write('from scipy import rand, ravel, log10, kron, eye\n')
-    fptr.write('from scipy.io import loadmat\n')
-    fptr.write('from scipy.sparse import isspmatrix_bsr, isspmatrix_csr\n')
-    fptr.write('import pylab\n\n')
-    fptr.write('def ' + fname + '(A):\n')
-    fptr.write('    ##\n    # Generate B\n')
-    fptr.write('    ' + B_list[B_index][2] + '\n\n')
-    fptr.write('    ##\n    # Random initial guess, zero right-hand side\n')
-    fptr.write('    random.seed(0)\n')
-    fptr.write('    b = zeros((A.shape[0],1))\n')
-    fptr.write('    x0 = rand(A.shape[0],1)\n\n')
-    fptr.write('    ##\n    # Create solver\n')
-    fptr.write('    ml = smoothed_aggregation_solver(A, B=B, BH=BH,\n' + \
-               '        strength=%s,\n'%to_string(solver_args[0]['strength']) + \
-               '        smooth=%s,\n'%to_string(solver_args[0]['smooth']) + \
-               '        Bimprove=%s,\n'%to_string(solver_args[0]['Bimprove']) + \
-               '        aggregate=%s,\n'%to_string(solver_args[0]['aggregate']) + \
-               '        presmoother=%s,\n'%to_string(solver_args[0]['presmoother']) + \
-               '        postsmoother=%s,\n'%to_string(solver_args[0]['postsmoother']) + \
-               '        max_levels=%s,\n'%to_string(solver_args[0]['max_levels']) + \
-               '        max_coarse=%s,\n'%to_string(solver_args[0]['max_coarse']) + \
-               '        coarse_solver=%s)\n\n'%to_string(solver_args[0]['coarse_solver']) )
-    fptr.write('    ##\n    # Solve system\n')
-    fptr.write('    res = []\n')
-    fptr.write('    x = ml.solve(b, x0=x0, tol=%s, residuals=res, accel=%s, maxiter=%s, cycle=%s)\n'%\
-              (to_string(solver_args[0]['tol']),
-               to_string(solver_args[0]['accel']),
-               to_string(solver_args[0]['maxiter']),
-               to_string(solver_args[0]['cycle'])) )
-    fptr.write('    res_rate = (res[-1]/res[0])**(1.0/(len(res)-1.))\n')
-    fptr.write('    normr0 = norm(ravel(b) - ravel(A*x0))\n')
-    fptr.write('    print ' '\n')
-    fptr.write('    print ml\n')
-    fptr.write('    print \'System size:                \' + str(A.shape)\n')
-    fptr.write('    print \'Avg. Resid Reduction:       %1.2f\'%res_rate\n')
-    fptr.write('    print \'Iterations:                 %d\'%len(res)\n')
-    fptr.write('    print \'Operator Complexity:        %1.2f\'%ml.operator_complexity()\n')
-    fptr.write('    print \'Work per DOA:               %1.2f\'%(ml.cycle_complexity()/abs(log10(res_rate)))\n')
-    fptr.write('    print \'Relative residual norm:     %1.2e\'%(norm(ravel(b) - ravel(A*x))/normr0)\n\n')
-    fptr.write('    ##\n    # Plot residual history\n')
-    fptr.write('    pylab.semilogy(array(res)/normr0)\n')
-    fptr.write('    pylab.title(\'Residual Histories\')\n')
-    fptr.write('    pylab.xlabel(\'Iteration\')\n')
-    fptr.write('    pylab.ylabel(\'Relative Residual Norm\')\n')
-    fptr.write('    pylab.show()\n\n')
+    fptr.write(
+        "#######################################################################\n"
+    )
+    fptr.write(
+        "# Function definition automatically generated by solver_diagnostics.py\n"
+    )
+    fptr.write("#\n")
+    fptr.write("# Use the function defined here to generate and run the best\n")
+    fptr.write("# smoothed aggregation method found by solver_diagnostics(...).\n")
+    fptr.write("# The only argument taken is a CSR/BSR matrix.\n")
+    fptr.write("#\n")
+    fptr.write("# To run:  >>> # User must load/generate CSR/BSR matrix A\n")
+    fptr.write("#          >>> from " + fname + " import " + fname + "\n")
+    fptr.write("#          >>> " + fname + "(A)" + "\n")
+    fptr.write(
+        "#######################################################################\n\n"
+    )
+    fptr.write("from pyamg import smoothed_aggregation_solver\n")
+    fptr.write("from pyamg.util.linalg import norm\n")
+    fptr.write("from numpy import ones, array, arange, zeros, abs, random\n")
+    fptr.write("from scipy import rand, ravel, log10, kron, eye\n")
+    fptr.write("from scipy.io import loadmat\n")
+    fptr.write("from scipy.sparse import isspmatrix_bsr, isspmatrix_csr\n")
+    fptr.write("import pylab\n\n")
+    fptr.write("def " + fname + "(A):\n")
+    fptr.write("    ##\n    # Generate B\n")
+    fptr.write("    " + B_list[B_index][2] + "\n\n")
+    fptr.write("    ##\n    # Random initial guess, zero right-hand side\n")
+    fptr.write("    random.seed(0)\n")
+    fptr.write("    b = zeros((A.shape[0],1))\n")
+    fptr.write("    x0 = rand(A.shape[0],1)\n\n")
+    fptr.write("    ##\n    # Create solver\n")
+    fptr.write(
+        "    ml = smoothed_aggregation_solver(A, B=B, BH=BH,\n"
+        + "        strength=%s,\n" % to_string(solver_args[0]["strength"])
+        + "        smooth=%s,\n" % to_string(solver_args[0]["smooth"])
+        + "        Bimprove=%s,\n" % to_string(solver_args[0]["Bimprove"])
+        + "        aggregate=%s,\n" % to_string(solver_args[0]["aggregate"])
+        + "        presmoother=%s,\n" % to_string(solver_args[0]["presmoother"])
+        + "        postsmoother=%s,\n" % to_string(solver_args[0]["postsmoother"])
+        + "        max_levels=%s,\n" % to_string(solver_args[0]["max_levels"])
+        + "        max_coarse=%s,\n" % to_string(solver_args[0]["max_coarse"])
+        + "        coarse_solver=%s)\n\n" % to_string(solver_args[0]["coarse_solver"])
+    )
+    fptr.write("    ##\n    # Solve system\n")
+    fptr.write("    res = []\n")
+    fptr.write(
+        "    x = ml.solve(b, x0=x0, tol=%s, residuals=res, accel=%s, maxiter=%s, cycle=%s)\n"
+        % (
+            to_string(solver_args[0]["tol"]),
+            to_string(solver_args[0]["accel"]),
+            to_string(solver_args[0]["maxiter"]),
+            to_string(solver_args[0]["cycle"]),
+        )
+    )
+    fptr.write("    res_rate = (res[-1]/res[0])**(1.0/(len(res)-1.))\n")
+    fptr.write("    normr0 = norm(ravel(b) - ravel(A*x0))\n")
+    fptr.write("    print " "\n")
+    fptr.write("    print ml\n")
+    fptr.write("    print 'System size:                ' + str(A.shape)\n")
+    fptr.write("    print 'Avg. Resid Reduction:       %1.2f'%res_rate\n")
+    fptr.write("    print 'Iterations:                 %d'%len(res)\n")
+    fptr.write(
+        "    print 'Operator Complexity:        %1.2f'%ml.operator_complexity()\n"
+    )
+    fptr.write(
+        "    print 'Work per DOA:               %1.2f'%(ml.cycle_complexity()/abs(log10(res_rate)))\n"
+    )
+    fptr.write(
+        "    print 'Relative residual norm:     %1.2e'%(norm(ravel(b) - ravel(A*x))/normr0)\n\n"
+    )
+    fptr.write("    ##\n    # Plot residual history\n")
+    fptr.write("    pylab.semilogy(array(res)/normr0)\n")
+    fptr.write("    pylab.title('Residual Histories')\n")
+    fptr.write("    pylab.xlabel('Iteration')\n")
+    fptr.write("    pylab.ylabel('Relative Residual Norm')\n")
+    fptr.write("    pylab.show()\n\n")
     # Close file pointer
     fptr.close()
 
-    print('    ...')
-    print('    --> Diagnostic Results located in ' + fname + '.txt')
-    print('    ...')
-    print('    --> See automatically generated function definition\n' + \
-          '        ./' + fname + '.py.\n\n' + \
-          '        Use the function defined here to generate and run the best\n' + \
-          '        smoothed aggregation method found.  The only argument taken\n' + \
-          '        is a CSR/BSR matrix.\n\n' + \
-          '        To run: >>> # User must load/generate CSR/BSR matrix A\n' + \
-          '                >>> from ' + fname + ' import ' + fname + '\n' + \
-          '                >>> ' + fname + '(A)')
+    print("    ...")
+    print("    --> Diagnostic Results located in " + fname + ".txt")
+    print("    ...")
+    print(
+        "    --> See automatically generated function definition\n"
+        + "        ./"
+        + fname
+        + ".py.\n\n"
+        + "        Use the function defined here to generate and run the best\n"
+        + "        smoothed aggregation method found.  The only argument taken\n"
+        + "        is a CSR/BSR matrix.\n\n"
+        + "        To run: >>> # User must load/generate CSR/BSR matrix A\n"
+        + "                >>> from "
+        + fname
+        + " import "
+        + fname
+        + "\n"
+        + "                >>> "
+        + fname
+        + "(A)"
+    )

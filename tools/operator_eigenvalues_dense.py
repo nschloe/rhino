@@ -8,27 +8,23 @@ import numpy as np
 
 import matplotlib2tikz
 
-#from lobpcg import lobpcg as my_lobpcg
+# from lobpcg import lobpcg as my_lobpcg
 import voropy
 import pynosh.modelevaluator_nls
 
+
 def _main():
-    '''Main function.
-    '''
+    """Main function.
+    """
     args = _parse_input_arguments()
 
     # read the mesh
-    mesh, point_data, field_data = voropy.read(args.filename,
-                                               timestep=args.timestep
-                                               )
+    mesh, point_data, field_data = voropy.read(args.filename, timestep=args.timestep)
 
     # build the model evaluator
-    modeleval = \
-        pynosh.modelevaluator_nls.NlsModelEvaluator(mesh = mesh,
-                                                    A = point_data['A'],
-                                                    V = point_data['V'],
-                                                    preconditioner_type = 'exact'
-                                                    )
+    modeleval = pynosh.modelevaluator_nls.NlsModelEvaluator(
+        mesh=mesh, A=point_data["A"], V=point_data["V"], preconditioner_type="exact"
+    )
 
     # set the range of parameters
     steps = 10
@@ -37,71 +33,75 @@ def _main():
     num_unknowns = len(mesh.node_coords)
 
     # initial guess for the eigenvectors
-    #psi = np.random.rand(num_unknowns) + 1j * np.random.rand(num_unknowns)
-    psi = np.ones(num_unknowns) #+ 1j * np.ones(num_unknowns)
+    # psi = np.random.rand(num_unknowns) + 1j * np.random.rand(num_unknowns)
+    psi = np.ones(num_unknowns)  # + 1j * np.ones(num_unknowns)
     psi *= 0.5
-    #psi = 4.0 * 1.0j * np.ones(num_unknowns)
+    # psi = 4.0 * 1.0j * np.ones(num_unknowns)
     print(num_unknowns)
     eigenvals_list = []
 
     g = 10.0
     for mu in mus:
-        if args.operator == 'k':
+        if args.operator == "k":
             # build dense KEO
             A = modeleval._get_keo(mu).toarray()
             B = None
-        elif args.operator == 'p':
+        elif args.operator == "p":
             # build dense preconditioner
             P = modeleval.get_preconditioner(psi, mu, g)
             A = P.toarray()
             B = None
-        elif args.operator == 'j':
+        elif args.operator == "j":
             # build dense jacobian
             J1, J2 = modeleval.get_jacobian_blocks(psi, mu, g)
             A = _build_stacked_operator(J1.toarray(), J2.toarray())
             B = None
-        elif args.operator == 'kj':
+        elif args.operator == "kj":
             J1, J2 = modeleval.get_jacobian_blocks(psi)
             A = _build_stacked_operator(J1.toarray(), J2.toarray())
 
             modeleval._assemble_keo()
             K = _modeleval._keo
             B = _build_stacked_operator(K.toarray())
-        elif args.operator == 'pj':
+        elif args.operator == "pj":
             J1, J2 = modeleval.get_jacobian_blocks(psi)
             A = _build_stacked_operator(J1.toarray(), J2.toarray())
 
             P = modeleval.get_preconditioner(psi)
             B = _build_stacked_operator(P.toarray())
         else:
-            raise ValueError('Unknown operator \'', args.operator, '\'.')
+            raise ValueError("Unknown operator '", args.operator, "'.")
 
-        print('Compute eigenvalues for mu =', mu, '...')
+        print("Compute eigenvalues for mu =", mu, "...")
         # get smallesteigenvalues
         start_time = time.clock()
         # use eig as the problem is not symmetric (but it is self-adjoint)
-        eigenvals, U = eig(A, b = B,
-                           #lower = True,
-                           )
+        eigenvals, U = eig(
+            A,
+            b=B,
+            # lower = True,
+        )
         end_time = time.clock()
-        print('done. (', end_time - start_time, 's).')
+        print("done. (", end_time - start_time, "s).")
 
         # sort by ascending eigenvalues
         assert norm(eigenvals.imag, np.inf) < 1.0e-14
         eigenvals = eigenvals.real
         sort_indices = np.argsort(eigenvals.real)
         eigenvals = eigenvals[sort_indices]
-        U = U[:,sort_indices]
+        U = U[:, sort_indices]
 
         # rebuild complex-valued U
         U_complex = _build_complex_vector(U)
         # normalize
         for k in range(U_complex.shape[1]):
-            norm_Uk = np.sqrt(modeleval.inner_product(U_complex[:,[k]], U_complex[:,[k]]))
-            U_complex[:,[k]] /= norm_Uk
+            norm_Uk = np.sqrt(
+                modeleval.inner_product(U_complex[:, [k]], U_complex[:, [k]])
+            )
+            U_complex[:, [k]] /= norm_Uk
 
         ## Compare the different expressions for the eigenvalues.
-        #for k in xrange(len(eigenvals)):
+        # for k in xrange(len(eigenvals)):
         #    JU_complex = J1 * U_complex[:,[k]] + J2 * U_complex[:,[k]].conj()
         #    uJu = modeleval.inner_product(U_complex[:,k], JU_complex)[0]
 
@@ -129,104 +129,115 @@ def _main():
         #    # overwrite for plotting
         #    eigenvals[k] = 1- alpha
 
-        eigenvals_list.append( eigenvals )
+        eigenvals_list.append(eigenvals)
 
     # plot the eigenvalues
-    #_plot_eigenvalue_series( mus, eigenvals_list )
+    # _plot_eigenvalue_series( mus, eigenvals_list )
     for ev in eigenvals_list:
-        pp.plot(ev, '.')
+        pp.plot(ev, ".")
 
-    #pp.plot( mus,
-             #small_eigenvals_approx,
-             #'--'
-           #)
-    #pp.legend()
-    pp.title('eigenvalues of %s' % args.operator)
+    # pp.plot( mus,
+    # small_eigenvals_approx,
+    # '--'
+    # )
+    # pp.legend()
+    pp.title("eigenvalues of %s" % args.operator)
 
-    #pp.ylim( ymin = 0.0 )
+    # pp.ylim( ymin = 0.0 )
 
-    #pp.xlabel( '$\mu$' )
+    # pp.xlabel( '$\mu$' )
 
     pp.show()
 
-    #matplotlib2tikz.save('eigenvalues.tikz',
-                         #figurewidth = '\\figurewidth',
-                         #figureheight = '\\figureheight'
-                         #)
+    # matplotlib2tikz.save('eigenvalues.tikz',
+    # figurewidth = '\\figurewidth',
+    # figureheight = '\\figureheight'
+    # )
     return
 
+
 def _build_stacked_operator(A, B=None):
-    '''Build the block operator.
+    """Build the block operator.
        [ A.real+B.real, -A.imag+B.imag ]
        [ A.imag+B.imag,  A.real-B.real ]
-    '''
-    out = np.empty((2*A.shape[0], 2*A.shape[1]), dtype=float)
-    out[0::2,0::2] = A.real
-    out[0::2,1::2] = -A.imag
-    out[1::2,0::2] = A.imag
-    out[1::2,1::2] = A.real
+    """
+    out = np.empty((2 * A.shape[0], 2 * A.shape[1]), dtype=float)
+    out[0::2, 0::2] = A.real
+    out[0::2, 1::2] = -A.imag
+    out[1::2, 0::2] = A.imag
+    out[1::2, 1::2] = A.real
 
     if B is not None:
         assert A.shape == B.shape
-        out[0::2,0::2] += B.real
-        out[0::2,1::2] += B.imag
-        out[1::2,0::2] += B.imag
-        out[1::2,1::2] -= B.real
+        out[0::2, 0::2] += B.real
+        out[0::2, 1::2] += B.imag
+        out[1::2, 0::2] += B.imag
+        out[1::2, 1::2] -= B.real
 
     return out
 
+
 def _build_complex_vector(x):
-    '''Build complex vector.
-    '''
-    xreal = x[0::2,:]
-    ximag = x[1::2,:]
+    """Build complex vector.
+    """
+    xreal = x[0::2, :]
+    ximag = x[1::2, :]
     return xreal + 1j * ximag
 
+
 def _build_real_vector(x):
-    '''Build complex vector.
-    '''
-    xx = np.empty((2*len(x) ,1))
-    xx[0::2,:] = x.real
-    xx[1::2,:] = x.imag
+    """Build complex vector.
+    """
+    xx = np.empty((2 * len(x), 1))
+    xx[0::2, :] = x.real
+    xx[1::2, :] = x.imag
     return xx
 
+
 def _parse_input_arguments():
-    '''Parse input arguments.
-    '''
+    """Parse input arguments.
+    """
     import argparse
 
-    parser = argparse.ArgumentParser(description =
-                                      'Compute all eigenvalues of a specified.')
+    parser = argparse.ArgumentParser(
+        description="Compute all eigenvalues of a specified."
+    )
 
-    parser.add_argument( 'filename',
-                         metavar = 'FILE',
-                         type    = str,
-                         help    = 'ExodusII file containing the geometry and initial state'
-                       )
+    parser.add_argument(
+        "filename",
+        metavar="FILE",
+        type=str,
+        help="ExodusII file containing the geometry and initial state",
+    )
 
-    parser.add_argument( '--timestep', '-t',
-                         metavar='TIMESTEP',
-                         dest='timestep',
-                         nargs='?',
-                         type=int,
-                         const=0,
-                         default=0,
-                         help='read a particular time step (default: 0)'
-                       )
+    parser.add_argument(
+        "--timestep",
+        "-t",
+        metavar="TIMESTEP",
+        dest="timestep",
+        nargs="?",
+        type=int,
+        const=0,
+        default=0,
+        help="read a particular time step (default: 0)",
+    )
 
-    parser.add_argument( '--operator', '-o',
-                         metavar='OPERATOR',
-                         dest='operator',
-                         nargs='?',
-                         type=str,
-                         const='k',
-                         default='k',
-                         help='operator to compute the eigenvalues of (k, p, j, pj; default: k)'
-                       )
+    parser.add_argument(
+        "--operator",
+        "-o",
+        metavar="OPERATOR",
+        dest="operator",
+        nargs="?",
+        type=str,
+        const="k",
+        default="k",
+        help="operator to compute the eigenvalues of (k, p, j, pj; default: k)",
+    )
 
     args = parser.parse_args()
 
     return args
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     _main()

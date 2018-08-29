@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 #
-'''
+"""
 Solve a linear equation system with the kinetic energy operator.
-'''
+"""
 import numerical_methods as nm
 import sys
 from scipy.sparse.linalg import LinearOperator
@@ -12,8 +12,9 @@ import cmath
 
 import matplotlib.pyplot as pp
 from matplotlib import rc
-rc('text', usetex=True)
-rc('font', family='serif')
+
+rc("text", usetex=True)
+rc("font", family="serif")
 import matplotlib2tikz
 
 import voropy
@@ -23,58 +24,58 @@ import pynosh.preconditioners
 
 
 def _main():
-    '''Main function.
-    '''
+    """Main function.
+    """
 
     # run the preconditioners
     _run_different_meshes()
 
-    #print 'Solving the system without preconditioning, scipy cg...'
-    #sol, info, relresvec0 = nm.cg_wrap(pynosh_modelval._keo, rhs,
-                                        #x0 = psi0,
-                                        #tol = 1.0e-10,
-                                        #maxiter = 1000,
-                                        #M = None
-                                      #)
+    # print 'Solving the system without preconditioning, scipy cg...'
+    # sol, info, relresvec0 = nm.cg_wrap(pynosh_modelval._keo, rhs,
+    # x0 = psi0,
+    # tol = 1.0e-10,
+    # maxiter = 1000,
+    # M = None
+    # )
     ##print 'done.'
     ##print info
 
     ## plot (relative) residuals
-    #pp.semilogy(relresvec0, 'ro')
+    # pp.semilogy(relresvec0, 'ro')
     ##pp.semilogy(relresvec1, 'g')
     ##pp.semilogy(relresvec2, 'b')
     ##pp.semilogy(relresvec3, 'y')
-    #pp.title('Convergence history of CG for the KEO, $\mu=0.1$')
-    #pp.xlabel('$k$')
-    #pp.ylabel('$\|A_{\mathrm{KEO}}\psi_k-b\|_2$')
-    #pp.show()
+    # pp.title('Convergence history of CG for the KEO, $\mu=0.1$')
+    # pp.xlabel('$k$')
+    # pp.ylabel('$\|A_{\mathrm{KEO}}\psi_k-b\|_2$')
+    # pp.show()
 
     return
 
 
 def _run_different_meshes():
     mesh_files = [
-        #'states/rectangle10.vtu',
-        #'states/rectangle20.vtu',
-        #'states/rectangle30.vtu',
-        #'states/rectangle40.vtu',
-        #'states/rectangle50.vtu',
-        #'states/rectangle60.vtu',
-        #'states/rectangle70.vtu',
-        #'states/rectangle80.vtu',
-        #'states/rectangle90.vtu',
-        #'states/rectangle100.vtu',
-        #'states/rectangle110.vtu',
-        #'states/rectangle120.vtu',
-        #'states/rectangle130.vtu',
-        #'states/rectangle140.vtu',
-        #'states/rectangle150.vtu',
-        #'states/rectangle160.vtu',
-        #'states/rectangle170.vtu',
-        #'states/rectangle180.vtu',
-        #'states/rectangle190.vtu',
-        'states/rectangle200.vtu'
-        ]
+        # 'states/rectangle10.vtu',
+        # 'states/rectangle20.vtu',
+        # 'states/rectangle30.vtu',
+        # 'states/rectangle40.vtu',
+        # 'states/rectangle50.vtu',
+        # 'states/rectangle60.vtu',
+        # 'states/rectangle70.vtu',
+        # 'states/rectangle80.vtu',
+        # 'states/rectangle90.vtu',
+        # 'states/rectangle100.vtu',
+        # 'states/rectangle110.vtu',
+        # 'states/rectangle120.vtu',
+        # 'states/rectangle130.vtu',
+        # 'states/rectangle140.vtu',
+        # 'states/rectangle150.vtu',
+        # 'states/rectangle160.vtu',
+        # 'states/rectangle170.vtu',
+        # 'states/rectangle180.vtu',
+        # 'states/rectangle190.vtu',
+        "states/rectangle200.vtu"
+    ]
 
     mu = 1.0e-0
 
@@ -86,13 +87,13 @@ def _run_different_meshes():
     for mesh_file in mesh_files:
         # read and set the mesh
         print()
-        print('Reading the mesh...')
+        print("Reading the mesh...")
         try:
             mesh, point_data, field_data = voropy.reader.read(mesh_file)
         except AttributeError:
-            print('Could not read from file ', mesh_file, '.')
+            print("Could not read from file ", mesh_file, ".")
             sys.exit()
-        print(' done.')
+        print(" done.")
 
         # create model evaluator interface
         pynosh_modelval = pynosh.model_evaluator_nls(mu)
@@ -117,60 +118,50 @@ def _run_different_meshes():
         pynosh_modelval.set_current_psi(current_psi)
 
         # create right hand side and initial guess
-        rhs = numpy.random.rand(num_unknowns) \
-            + 1j * numpy.random.rand(num_unknowns)
+        rhs = numpy.random.rand(num_unknowns) + 1j * numpy.random.rand(num_unknowns)
 
         # initial guess for all operations
         psi0 = numpy.zeros(num_unknowns, dtype=complex)
 
-        test_preconditioners = _create_preconditioner_list(precs,
-                                                           num_unknowns
-                                                           )
+        test_preconditioners = _create_preconditioner_list(precs, num_unknowns)
 
         # build the kinetic energy operator
-        print('Building the KEO...')
+        print("Building the KEO...")
         start_time = time.clock()
         pynosh_modelval._assemble_kinetic_energy_operator()
         end_time = time.clock()
-        print('done. (', end_time - start_time, 's).')
+        print("done. (", end_time - start_time, "s).")
 
         # Run the preconditioners and gather the relative residuals.
-        relresvecs = _run_preconditioners(pynosh_modelval._keo,
-                                          rhs,
-                                          psi0,
-                                          test_preconditioners
-                                          )
+        relresvecs = _run_preconditioners(
+            pynosh_modelval._keo, rhs, psi0, test_preconditioners
+        )
 
         # append the number of iterations to the data
         for prec in test_preconditioners:
-            if prec['name'] not in list(num_iterations.keys()):
-                num_iterations[prec['name']] = []
-            num_iterations[prec['name']].append(
-                len(relresvecs[prec['name']]) - 1
-                )
+            if prec["name"] not in list(num_iterations.keys()):
+                num_iterations[prec["name"]] = []
+            num_iterations[prec["name"]].append(len(relresvecs[prec["name"]]) - 1)
 
     print(num_iterations)
 
     # plot them all
     for prec in test_preconditioners:
-        pp.semilogy(nums_unknowns,
-                    num_iterations[prec['name']],
-                    '-o',
-                    label=prec['name']
-                    )
+        pp.semilogy(
+            nums_unknowns, num_iterations[prec["name"]], "-o", label=prec["name"]
+        )
 
     # plot legend
     pp.legend()
 
     # add title and so forth
-    pp.title('CG convergence for $K$')
-    pp.xlabel('Number of unknowns $n$')
-    pp.ylabel('Number of iterations till $<10^{-10}$')
+    pp.title("CG convergence for $K$")
+    pp.xlabel("Number of unknowns $n$")
+    pp.ylabel("Number of iterations till $<10^{-10}$")
 
-    matplotlib2tikz.save('meshrun-k.tikz',
-                         figurewidth='\\figurewidth',
-                         figureheight='\\figureheight'
-                         )
+    matplotlib2tikz.save(
+        "meshrun-k.tikz", figurewidth="\\figurewidth", figureheight="\\figureheight"
+    )
     pp.show()
     return
 
@@ -180,21 +171,23 @@ def _run_preconditioners(linear_operator, rhs, x0, preconditioners):
     maxiter = 5000
     relresvecs = {}
     for prec in preconditioners:
-        print('Solving the system with', prec['name'], '...')
+        print("Solving the system with", prec["name"], "...")
         start_time = time.clock()
-        sol, info, relresvec = nm.cg_wrap(linear_operator, rhs,
-                                          x0=x0,
-                                          tol=tol,
-                                          maxiter=maxiter,
-                                          M=prec['precondictioner']
-                                          )
+        sol, info, relresvec = nm.cg_wrap(
+            linear_operator,
+            rhs,
+            x0=x0,
+            tol=tol,
+            maxiter=maxiter,
+            M=prec["precondictioner"],
+        )
         end_time = time.clock()
-        relresvecs[prec['name']] = relresvec
+        relresvecs[prec["name"]] = relresvec
         if info == 0:
-            print('success!', end=' ')
+            print("success!", end=" ")
         else:
-            print('no convergence.', end=' ')
-        print(' (', end_time - start_time, 's,', len(relresvec)-1, ' iters).')
+            print("no convergence.", end=" ")
+        print(" (", end_time - start_time, "s,", len(relresvec) - 1, " iters).")
     return relresvecs
 
 
@@ -202,50 +195,41 @@ def _create_preconditioner_list(precs, num_unknowns):
 
     test_preconditioners = []
 
-    test_preconditioners.append({'name': '-',
-                                 'precondictioner': None
-                                 })
+    test_preconditioners.append({"name": "-", "precondictioner": None})
 
-    prec_keo_symilu2 = LinearOperator((num_unknowns, num_unknowns),
-                                      matvec=precs.keo_symmetric_ilu2,
-                                      dtype=complex
-                                      )
+    prec_keo_symilu2 = LinearOperator(
+        (num_unknowns, num_unknowns), matvec=precs.keo_symmetric_ilu2, dtype=complex
+    )
 
-    test_preconditioners.append({'name': 'sym i$LU$2',
-                                 'precondictioner': prec_keo_symilu2
-                                 })
+    test_preconditioners.append(
+        {"name": "sym i$LU$2", "precondictioner": prec_keo_symilu2}
+    )
 
-    prec_keo_symilu4 = LinearOperator((num_unknowns, num_unknowns),
-                                      matvec=precs.keo_symmetric_ilu4,
-                                      dtype=complex
-                                      )
-    test_preconditioners.append({'name': 'sym i$LU$4',
-                                 'precondictioner': prec_keo_symilu4
-                                 })
+    prec_keo_symilu4 = LinearOperator(
+        (num_unknowns, num_unknowns), matvec=precs.keo_symmetric_ilu4, dtype=complex
+    )
+    test_preconditioners.append(
+        {"name": "sym i$LU$4", "precondictioner": prec_keo_symilu4}
+    )
 
-    prec_keo_symilu6 = LinearOperator((num_unknowns, num_unknowns),
-                                      matvec=precs.keo_symmetric_ilu6,
-                                      dtype=complex
-                                      )
-    test_preconditioners.append({'name': 'sym i$LU$6',
-                                 'precondictioner': prec_keo_symilu6
-                                 })
+    prec_keo_symilu6 = LinearOperator(
+        (num_unknowns, num_unknowns), matvec=precs.keo_symmetric_ilu6, dtype=complex
+    )
+    test_preconditioners.append(
+        {"name": "sym i$LU$6", "precondictioner": prec_keo_symilu6}
+    )
 
-    prec_keo_symilu8 = LinearOperator((num_unknowns, num_unknowns),
-                                      matvec=precs.keo_symmetric_ilu8,
-                                      dtype=complex
-                                      )
-    test_preconditioners.append({'name': 'sym i$LU$8',
-                                 'precondictioner': prec_keo_symilu8
-                                 })
+    prec_keo_symilu8 = LinearOperator(
+        (num_unknowns, num_unknowns), matvec=precs.keo_symmetric_ilu8, dtype=complex
+    )
+    test_preconditioners.append(
+        {"name": "sym i$LU$8", "precondictioner": prec_keo_symilu8}
+    )
 
-    prec_keo_amg = LinearOperator((num_unknowns, num_unknowns),
-                                  matvec=precs.keo_amg,
-                                  dtype=complex
-                                  )
-    test_preconditioners.append({'name': 'AMG',
-                                 'precondictioner': prec_keo_amg
-                                 })
+    prec_keo_amg = LinearOperator(
+        (num_unknowns, num_unknowns), matvec=precs.keo_amg, dtype=complex
+    )
+    test_preconditioners.append({"name": "AMG", "precondictioner": prec_keo_amg})
 
     return test_preconditioners
 
@@ -263,25 +247,28 @@ def _construct_matrix(linear_operator):
 
 
 def _parse_input_arguments():
-    '''Parse input arguments.
-    '''
+    """Parse input arguments.
+    """
     from optparse import OptionParser
+
     parser = OptionParser()
-    parser.add_option('-f', '--file',
-                      dest='filename',
-                      type=str,
-                      help='read mesh from VTKFILE',
-                      metavar='VTKFILE'
-                      )
-    #parser.add_option('-q', '--quiet',
-                      #action='store_false', dest='verbose', default=True,
-                      #help='don't print status messages to stdout')
+    parser.add_option(
+        "-f",
+        "--file",
+        dest="filename",
+        type=str,
+        help="read mesh from VTKFILE",
+        metavar="VTKFILE",
+    )
+    # parser.add_option('-q', '--quiet',
+    # action='store_false', dest='verbose', default=True,
+    # help='don't print status messages to stdout')
     (opts, args) = parser.parse_args()
     return opts, args
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _main()
 
-    #import cProfile
-    #cProfile.run('_main()', 'pfvm_profile.dat')
+    # import cProfile
+    # cProfile.run('_main()', 'pfvm_profile.dat')
