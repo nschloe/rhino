@@ -1,31 +1,29 @@
-'''Module that provides magnetic vector potentials.'''
+"""Module that provides magnetic vector potentials."""
 import numpy
 
 
 def constant_field(X, B):
-    '''Converts a spatially constant magnetic field B at X
+    """Converts a spatially constant magnetic field B at X
     into a corresponding potential.
-    '''
+    """
     # This is one particular choice that works.
     return 0.5 * numpy.cross(B, X)
 
 
 def magnetic_dipole(x, x0, m):
-    '''Magnetic vector potential for the static dipole at x0 with orientation
+    """Magnetic vector potential for the static dipole at x0 with orientation
     m.
-    '''
+    """
     r = x - x0
     # npsum(...) = ||r||^3 row-wise;
     # numpy.cross acts on rows by default;
     # The ".T" magic makes sure that each row of numpy.cross(m, r)
     # gets divided by the corresponding entry in ||r||^3.
-    return (numpy.cross(m, r).T /
-            numpy.sum(numpy.abs(r)**2, axis=-1)**(3./2)
-            ).T
+    return (numpy.cross(m, r).T / numpy.sum(numpy.abs(r) ** 2, axis=-1) ** (3. / 2)).T
 
 
 def magnetic_dot(X, radius, heights):
-    '''Magnetic vector potential corresponding to the field that is induced by
+    """Magnetic vector potential corresponding to the field that is induced by
     a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)), with
     the radius `radius` for objects in the x-y-plane.  The potential is derived
     by interpreting the dot as an infinitesimal collection of magnetic dipoles,
@@ -34,7 +32,7 @@ def magnetic_dot(X, radius, heights):
        A(x) = \int_{dot} A_{dipole}(x-r) dr.
 
     Support for input valued (x,y,z), z!=0, is pending.
-    '''
+    """
     # Span a cartesian grid over the sample, and integrate over it.
     # For symmetry, choose a number that is divided by 4.
     n_phi = 100
@@ -79,20 +77,26 @@ def magnetic_dot(X, radius, heights):
 
             # r = x_dist * x_dist + y_dist * y_dist
             # Note that X_dist indeed only has two components.
-            R = numpy.sum(X_dist**2, axis=1)
+            R = numpy.sum(X_dist ** 2, axis=1)
             ind = numpy.nonzero(R > 1.0e-15)
 
             # 3D distance to point on lower edge (xi,yi,height0)
             # and upper edge ( (xi,yi,height1), respectively
-            R_3D = [numpy.sqrt(R[ind] + heights[0]**2),
-                    numpy.sqrt(R[ind] + heights[1]**2)
-                    ]
+            R_3D = [
+                numpy.sqrt(R[ind] + heights[0] ** 2),
+                numpy.sqrt(R[ind] + heights[1] ** 2),
+            ]
             # Volume of circle segment = pi*angular_width * r^2,
             # so the volume of a building brick of the discretization is
             #   V = pi/n_phi * [(r+dr/2)^2 - (r-dr/2)^2]
             #     = pi/n_phi * 2 * r * dr.
-            Alpha = (heights[1]/R_3D[1] - heights[0]/R_3D[0]) / R[ind] \
-                * numpy.pi / n_phi * (2.0*rad*dr)  # volume
+            Alpha = (
+                (heights[1] / R_3D[1] - heights[0] / R_3D[0])
+                / R[ind]
+                * numpy.pi
+                / n_phi
+                * (2.0 * rad * dr)
+            )  # volume
             # ax += y_dist * alpha
             # ay -= x_dist * alpha
             A[ind, 0] += X_dist[ind, 1] * Alpha

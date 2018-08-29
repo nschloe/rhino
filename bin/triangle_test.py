@@ -80,12 +80,12 @@ def _main():
 
     #check_weights(qweights, edges, triangle_vol)
 
-    print 'Compare weights with the previous... ',
+    print('Compare weights with the previous... ')
     err = np.linalg.norm(qweights - weights)
     if err > 1.0e-14:
-        print 'Ah! Diff =', qweights - weights
+        print('Ah! Diff =', qweights - weights)
     else:
-        print 'Cool.'
+        print('Cool.')
 
     ## possible extension to qiang's formula
     #u0 = [ rand(2,1); 0 ];
