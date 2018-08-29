@@ -339,7 +339,7 @@ class NlsModelEvaluator(object):
             if self._edgecoeff_cache is None:
                 self._build_edgecoeff_cache()
             if self.mesh.edges is None:
-                self.mesh.create_adjacent_entities()
+                self.mesh.create_edges()
 
             n_edges = len(self.mesh.edges["nodes"])
             row = numpy.zeros(4 * n_edges, dtype=int)
@@ -379,9 +379,9 @@ class NlsModelEvaluator(object):
         """
         # make sure the mesh has edges
         if self.mesh.edges is None:
-            self.mesh.create_adjacent_entities()
+            self.mesh.create_edges()
 
-        num_edges = len(self.mesh.edges)
+        num_edges = len(self.mesh.edges["nodes"])
         self._edgecoeff_cache = numpy.zeros(num_edges, dtype=float)
 
         if self.mesh.cell_volumes is None:
@@ -395,8 +395,7 @@ class NlsModelEvaluator(object):
         )
 
         # Calculate the covolume-edgelength ratios cell by cell.
-        for vol, cell in zip(vols, self.mesh.cells):
-            cell_edge_gids = cell["edges"]
+        for vol, cell_edge_gids in zip(vols, self.mesh.cells["edges"]):
             # Build the equation system:
             # The equation
             #
@@ -429,7 +428,7 @@ class NlsModelEvaluator(object):
 
         # make sure the mesh has edges
         if self.mesh.edges is None:
-            self.mesh.create_adjacent_entities()
+            self.mesh.create_edges()
 
         # Approximate the integral
         #
