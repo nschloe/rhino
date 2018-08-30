@@ -1,5 +1,0 @@
-numpy
-scipy
-krypy
-voropy
-readme

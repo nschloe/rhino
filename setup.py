@@ -25,6 +25,7 @@ setup(
     long_description_content_type="text/markdown",
     author=about["__author__"],
     author_email=about["__author_email__"],
+    install_requires=["numpy", "scipy", "krypy", "meshplex"],
     url="https://github.com/nschloe/pynosh/",
     classifiers=[
         about["__status__"],
