@@ -7,11 +7,17 @@ from . import preconditioners
 from . import magnetic_vector_potentials
 from . import yaml
 
-from .__about__ import __author__, __email__, __license__, __version__, __status__
+from .__about__ import (
+    __author__,
+    __author_email__,
+    __license__,
+    __version__,
+    __status__,
+)
 
 __all__ = [
     "__author__",
-    "__email__",
+    "__author_email__",
     "__license__",
     "__version__",
     "__status__",
