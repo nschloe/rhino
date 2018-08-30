@@ -6,3 +6,5 @@ doc/_build/
 README.rst
 dist/
 MANIFEST
+.pytest_cache/
+doc/build/
