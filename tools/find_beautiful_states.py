@@ -2,12 +2,13 @@
 #
 """Solve the Ginzburg--Landau equation.
 """
-
 import numpy as np
+
+import meshplex
+import krypy
 
 import pynosh.numerical_methods as nm
 import pynosh.modelevaluator_nls as gm
-import meshplex
 
 
 def _main():
@@ -15,8 +16,14 @@ def _main():
 
     # read the mesh
     print("Reading the mesh...")
-    mesh, point_data, _, _ = meshplex.read(args.filename)
+    mesh, _, _, _ = meshplex.read(args.filename)
     print("done.")
+
+    # Hardcode V, A
+    n = mesh.node_coords.shape[0]
+    X = mesh.node_coords.T
+    A = 0.5 * np.column_stack([-X[1], X[0], np.zeros(n)])
+    point_data = {"V": -np.ones(n), "A": A}
 
     # build the model evaluator
     modeleval = gm.NlsModelEvaluator(mesh, V=point_data["V"], A=point_data["A"])
@@ -42,7 +49,7 @@ def find_beautiful_states(modeleval, mu_range, forcing_term, save_doubles=True):
 
     # Compile the search space.
     # If all nodes sit in x-y-plane, the frequency loop in z-direction can be omitted.
-    if modeleval.mesh.node_coords.shape[1] == 2:
+    if modeleval.mesh.node_coords.shape[1] == 2 or np.all(np.abs(modeleval.mesh.node_coords[:, 2]) < 1.0e-13):
         search_space_k = [(a, b) for a in Frequencies for b in Frequencies]
     elif modeleval.mesh.node_coords.shape[1] == 3:
         search_space_k = [
@@ -78,16 +85,19 @@ def find_beautiful_states(modeleval, mu_range, forcing_term, save_doubles=True):
 
             print("Performing Newton iteration...")
             linsolve_maxiter = 500  # 2*len(psi0)
-            newton_out = nm.newton(
-                psi0[:, None],
-                modeleval,
-                nonlinear_tol=1.0e-10,
-                newton_maxiter=50,
-                compute_f_extra_args={"mu": mu, "g": 1.0},
-                eta0=1.0e-10,
-                forcing_term=forcing_term,
-                debug=True,
-            )
+            try:
+                newton_out = nm.newton(
+                    psi0[:, None],
+                    modeleval,
+                    nonlinear_tol=1.0e-10,
+                    newton_maxiter=50,
+                    compute_f_extra_args={"mu": mu, "g": 1.0},
+                    eta0=1.0e-10,
+                    forcing_term=forcing_term,
+                )
+            except krypy.utils.ConvergenceError:
+                print("Krylov convergence failure. Skip.\n")
+                continue
             print(" done.")
 
             num_krylov_iters = [
@@ -125,31 +135,31 @@ def find_beautiful_states(modeleval, mu_range, forcing_term, save_doubles=True):
                         print("-- But we already have that one.")
                     else:
                         found_solutions.append(psi)
-                        print("Storing in %s." % filename)
-                        if len(k) == 2:
-                            function_string = (
-                                "psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y)"
-                                % (alpha, k[0], k[1])
-                            )
-                        elif len(k) == 3:
-                            function_string = (
-                                "psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y) * cos(%g*pi*z)"
-                                % (alpha, k[0], k[1], k[2])
-                            )
-                        else:
-                            raise RuntimeError("Illegal k.")
+                        print("Storing in {}.".format(filename))
+                        # if len(k) == 2:
+                        #     function_string = (
+                        #         "psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y)"
+                        #         % (alpha, k[0], k[1])
+                        #     )
+                        # elif len(k) == 3:
+                        #     function_string = (
+                        #         "psi0(X) = %g * cos(%g*pi*x) * cos(%g*pi*y) * cos(%g*pi*z)"
+                        #         % (alpha, k[0], k[1], k[2])
+                        #     )
+                        # else:
+                        #     raise RuntimeError("Illegal k.")
                         modeleval.mesh.write(
                             filename,
                             point_data={
-                                "psi": psi,
-                                "psi0": psi0,
+                                "psi": np.column_stack([psi.real, psi.imag]),
+                                "psi0": np.column_stack([psi0.real, psi0.imag]),
                                 "V": modeleval._V,
                                 "A": modeleval._raw_magnetic_vector_potential,
                             },
                             field_data={
-                                "g": modeleval._g,
-                                "mu": modeleval.mu,
-                                "psi0(X)": function_string,
+                                "g": np.array(1.0),
+                                "mu": np.array(mu),
+                                # "psi0(X)": function_string,
                             },
                         )
                         solution_id += 1

@@ -163,7 +163,7 @@ def newton(
         # do the household
         k += 1
         Fx = model_evaluator.compute_f(x, **compute_f_extra_args)
-        Fx_norms.append(numpy.sqrt(model_evaluator.inner_product(Fx, Fx)))
+        Fx_norms.append(numpy.sqrt(model_evaluator.inner_product(Fx, Fx)[0, 0]))
 
         # run garbage collector in order to prevent MemoryErrors from being
         # raised
