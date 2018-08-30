@@ -13,7 +13,7 @@ import matplotlib.pyplot as pp
 # rc( 'text', usetex = True )
 # rc( 'font', family = 'serif' )
 
-import voropy
+import meshplex
 import pynosh.modelevaluator_nls
 import pynosh.modelevaluator_bordering_constant
 
@@ -31,7 +31,7 @@ def _main():
         args.file_mvp = args.filename
 
     # Read the magnetic vector potential.
-    mesh, point_data, field_data = voropy.read(args.file_mvp)
+    mesh, point_data, field_data = meshplex.read(args.file_mvp)
 
     # build the model evaluator
     print(("Creating model evaluator...",))
@@ -72,7 +72,7 @@ def _solve_system(modeleval, filename, timestep, mu, args):
     # read the mesh
     print(("Reading current psi...",))
     start = time.time()
-    mesh, point_data, field_data = voropy.read(filename, timestep=timestep)
+    mesh, point_data, field_data = meshplex.read(filename, timestep=timestep)
     total = time.time() - start
     print(("done (%gs)." % total))
 

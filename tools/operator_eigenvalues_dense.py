@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib2tikz
 
 # from lobpcg import lobpcg as my_lobpcg
-import voropy
+import meshplex
 import pynosh.modelevaluator_nls
 
 
@@ -19,7 +19,7 @@ def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    mesh, point_data, field_data = voropy.read(args.filename, timestep=args.timestep)
+    mesh, point_data, field_data = meshplex.read(args.filename, timestep=args.timestep)
 
     # build the model evaluator
     modeleval = pynosh.modelevaluator_nls.NlsModelEvaluator(

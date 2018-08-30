@@ -32,8 +32,8 @@ def _main():
         """
 import numpy as np
 import pynosh.modelevaluator_nls as gpm
-import voropy
-mesh, point_data, field_data = voropy.read( '%s' )
+import meshplex
+mesh, point_data, field_data = meshplex.read( '%s' )
 modeleval = gpm.NlsModelEvaluator(mesh,
                                               V = point_data['V'],
                                               A = point_data['A'],

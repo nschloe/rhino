@@ -17,7 +17,7 @@ rc("text", usetex=True)
 rc("font", family="serif")
 import matplotlib2tikz
 
-import voropy
+import meshplex
 
 import pynosh.modelevaluator_nls
 import pynosh.preconditioners
@@ -89,7 +89,7 @@ def _run_different_meshes():
         print()
         print("Reading the mesh...")
         try:
-            mesh, point_data, field_data = voropy.reader.read(mesh_file)
+            mesh, point_data, field_data = meshplex.reader.read(mesh_file)
         except AttributeError:
             print("Could not read from file ", mesh_file, ".")
             sys.exit()
