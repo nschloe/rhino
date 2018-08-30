@@ -34,10 +34,11 @@ discretization is 72166 for this example.
 pynosh is currently maintained by [Nico Schlömer](https://github.com/nschloe). Feel free
 to contact Nico. Please submit feature requests and bugs as GitHub issues.
 
-# License
-pynosh is free software licensed under the GPL3 License.
-
 # References
 pynosh was used to conduct the numerical experiments in the paper
 
 * [Preconditioned Recycling Krylov subspace methods for self-adjoint problems, A. Gaul and N. Schlömer, arxiv: 1208.0264, 2012](http://arxiv.org/abs/1208.0264).
+
+
+### License
+pynosh is published under the [MIT license](https://en.wikipedia.org/wiki/MIT_License).
