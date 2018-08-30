@@ -7,7 +7,14 @@ from . import preconditioners
 from . import magnetic_vector_potentials
 from . import yaml
 
+from .__about__ import __author__, __email__, __license__, __version__, __status__
+
 __all__ = [
+    "__author__",
+    "__email__",
+    "__license__",
+    "__version__",
+    "__status__",
     "modelevaluator_nls",
     "modelevaluator_bordering_constant",
     "numerical_methods",
@@ -15,8 +22,3 @@ __all__ = [
     "magnetic_vector_potentials",
     "yaml",
 ]
-
-__name__ = "pynosh"
-__version__ = "0.2.2"
-__author__ = "Nico Schlömer"
-__author_email__ = "nico.schloemer@gmail.com"
