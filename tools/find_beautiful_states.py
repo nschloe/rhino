@@ -7,39 +7,29 @@ import numpy as np
 
 import pynosh.numerical_methods as nm
 import pynosh.modelevaluator_nls as gm
-import voropy
+import meshplex
 
 
 def _main():
     args = _parse_input_arguments()
 
     # read the mesh
-    print("Reading the mesh...", end=" ")
-    mesh, point_data, field_data = voropy.read(args.filename)
+    print("Reading the mesh...")
+    mesh, point_data, _, _ = meshplex.read(args.filename)
     print("done.")
 
     # build the model evaluator
-    modeleval = gm.NlsModelEvaluator(
-        mesh,
-        g=field_data["g"],
-        V=point_data["V"],
-        A=point_data["A"],
-        mu=field_data["mu"],
-    )
+    modeleval = gm.NlsModelEvaluator(mesh, V=point_data["V"], A=point_data["A"])
 
-    param_range = np.linspace(
-        args.parameter_range[0], args.parameter_range[1], args.num_parameter_steps
-    )
-    print("Looking for solutions for %s in" % args.parameter)
-    print(param_range)
+    mu_range = np.linspace(args.mu_range[0], args.mu_range[1], args.num_parameter_steps)
+    print("Looking for solutions for mu in")
+    print(mu_range)
     print()
-    find_beautiful_states(modeleval, args.parameter, param_range, args.forcing_term)
+    find_beautiful_states(modeleval, mu_range, args.forcing_term)
     return
 
 
-def find_beautiful_states(
-    modeleval, param_name, param_range, forcing_term, save_doubles=True
-):
+def find_beautiful_states(modeleval, mu_range, forcing_term, save_doubles=True):
     """Loop through a set of parameters/initial states and try to find
     starting points that (quickly) lead to "interesting looking" solutions.
     Such solutions are filtered out only by their energy at the moment.
@@ -51,8 +41,7 @@ def find_beautiful_states(
     Frequencies = [0.0, 0.5, 1.0, 2.0]
 
     # Compile the search space.
-    # If all nodes sit in x-y-plane, the frequency loop in z-direction can be
-    # omitted.
+    # If all nodes sit in x-y-plane, the frequency loop in z-direction can be omitted.
     if modeleval.mesh.node_coords.shape[1] == 2:
         search_space_k = [(a, b) for a in Frequencies for b in Frequencies]
     elif modeleval.mesh.node_coords.shape[1] == 3:
@@ -62,13 +51,12 @@ def find_beautiful_states(
     search_space = [(a, k) for a in reversed(Alpha) for k in search_space_k]
 
     solution_id = 0
-    for p in param_range:
+    for mu in mu_range:
         # Reset the solutions each time the problem parameters change.
         found_solutions = []
         # Loop over initial states.
         for alpha, k in search_space:
-            modeleval.set_parameter(param_name, p)
-            print("%s = %g; alpha = %g; k = %s" % (param_name, p, alpha, k))
+            print("mu = {}; alpha = {}; k = {}".format(mu, alpha, k))
             # Set the intitial guess for Newton.
             if len(k) == 2:
                 psi0 = (
@@ -90,21 +78,15 @@ def find_beautiful_states(
 
             print("Performing Newton iteration...")
             linsolve_maxiter = 500  # 2*len(psi0)
-            # perform newton iteration
             newton_out = nm.newton(
                 psi0[:, None],
                 modeleval,
-                linear_solver=nm.minres,
-                linear_solver_maxiter=linsolve_maxiter,
-                linear_solver_extra_args={},
                 nonlinear_tol=1.0e-10,
-                forcing_term=forcing_term,
-                eta0=1.0e-10,
-                use_preconditioner=True,
-                deflation_generators=[lambda x: 1j * x],
-                num_deflation_vectors=0,
-                debug=True,
                 newton_maxiter=50,
+                compute_f_extra_args={"mu": mu, "g": 1.0},
+                eta0=1.0e-10,
+                forcing_term=forcing_term,
+                debug=True,
             )
             print(" done.")
 
@@ -116,27 +98,20 @@ def find_beautiful_states(
             if newton_out["info"] == 0:
                 num_newton_iters = len(newton_out["linear relresvecs"])
                 psi = newton_out["x"]
-                # Use the energy as a measure for ruling out boring states
-                # such as psi==0 or psi==1 overall.
+                # Use the energy as a measure for ruling out boring states such as
+                # psi==0 or psi==1 overall.
                 energy = modeleval.energy(psi)
                 print("Energy of solution state: %g." % energy)
                 if energy > -0.999 and energy < -0.001:
-                    # Store the file as VTU such that ParaView can loop through
-                    # and display them at once. For this, also be sure to keep
-                    # the file name in the format
-                    # 'interesting<-krylovfails03>-01414.vtu'.
+                    # Store the file as VTU such that ParaView can loop through and
+                    # display them at once. For this, also be sure to keep the file name
+                    # in the format 'interesting<-krylovfails03>-01414.vtu'.
                     filename = "interesting-"
                     num_krylov_fails = num_krylov_iters.count(linsolve_maxiter)
                     if num_krylov_fails > 0:
-                        filename += "krylovfails%s-" % repr(num_krylov_fails).rjust(
-                            2, "0"
-                        )
-                    filename += (
-                        repr(num_newton_iters).rjust(2, "0")
-                        + repr(solution_id).rjust(3, "0")
-                        + ".vtu"
-                    )
-                    print(("Interesting state found for %s=%g!" % (param_name, p),))
+                        filename += "krylovfails{:02d}-".format(num_krylov_fails)
+                    filename += "{:02d}{:03d}.vtu".format(num_newton_iters, solution_id)
+                    print("Interesting state found for mu={}!".format(mu))
                     # Check if we already stored that one.
                     already_found = False
                     for state in found_solutions:
@@ -199,21 +174,12 @@ def _parse_input_arguments():
     )
 
     parser.add_argument(
-        "--parameter",
-        "-p",
-        required=True,
-        choices=["mu", "g"],
-        type=str,
-        help="Which parameter to sweep",
-    )
-
-    parser.add_argument(
-        "--parameter-range",
+        "--mu-range",
         "-r",
         required=True,
         nargs=2,
         type=float,
-        help="Range for parameter sweep",
+        help="Range for mu sweep",
     )
 
     parser.add_argument(

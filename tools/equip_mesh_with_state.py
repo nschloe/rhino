@@ -3,7 +3,7 @@
 import numpy as np
 import time
 
-import voropy
+import meshplex
 
 
 def _main():
@@ -13,7 +13,7 @@ def _main():
     # read the mesh
     print("Reading mesh...", end=" ")
     start = time.time()
-    mesh, point_data, field_data = voropy.read(args.infile)
+    mesh, point_data, field_data = meshplex.read(args.infile)
     elapsed = time.time() - start
     print("done. (%gs)" % elapsed)
 

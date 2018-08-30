@@ -2,7 +2,7 @@
 #
 import numpy as np
 
-import voropy
+import meshplex
 import pynosh.modelevaluator_nls
 import pynosh.modelevaluator_bordering_constant
 
@@ -14,7 +14,7 @@ def _main():
     """
     args = _parse_input_arguments()
 
-    mesh, point_data, field_data = voropy.read(args.filename, timestep=args.timestep)
+    mesh, point_data, field_data = meshplex.read(args.filename, timestep=args.timestep)
     N = len(mesh.node_coords)
     # build the model evaluator
     nls_modeleval = pynosh.modelevaluator_nls.NlsModelEvaluator(

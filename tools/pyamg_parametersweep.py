@@ -7,7 +7,7 @@ Solve the linearized Ginzburg--Landau problem.
 from solver_diagnostics import solver_diagnostics  # pyamg
 import numpy as np
 
-import voropy
+import meshplex
 import pynosh.modelevaluator_nls
 
 
@@ -18,7 +18,7 @@ def _main():
 
     # read the mesh
     # print "Reading the mesh...",
-    mesh, point_data, _ = voropy.reader.read(args.filename, timestep=args.timestep)
+    mesh, point_data, _ = meshplex.reader.read(args.filename, timestep=args.timestep)
     psi0 = point_data["psi"][:, 0] + 1j * point_data["psi"][:, 1]
 
     # build the model evaluator

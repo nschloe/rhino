@@ -10,7 +10,7 @@ import pynosh.modelevaluator_nls as gpm
 import pynosh.modelevaluator_bordering_constant as bme
 import pynosh.yaml
 
-import voropy
+import meshplex
 import krypy
 
 
@@ -22,7 +22,7 @@ def _main():
 
     # read the mesh
     print("# Reading the mesh...")
-    mesh, point_data, field_data = voropy.reader.read(args.filename)
+    mesh, point_data, field_data = meshplex.reader.read(args.filename)
     print("# done.")
 
     num_nodes = len(mesh.node_coords)
