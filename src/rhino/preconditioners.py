@@ -1,18 +1,12 @@
-# -*- coding: utf-8 -*-
-#
 """
 Preconditioners for the Jacobian of the Ginzburg--Landau problem.
 """
 from scipy import sparse
 from scipy.sparse.linalg import splu, spilu
-import pynosh.numerical_methods as nm
+from . import numerical_methods as nm
 
 
 class Preconditioners(object):
-    """
-    Ginzburg--Landau model evaluator class.
-    """
-
     def __init__(self, model_evaluator):
         """Initialization.
         """
