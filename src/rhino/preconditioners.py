@@ -2,14 +2,14 @@
 Preconditioners for the Jacobian of the Ginzburg--Landau problem.
 """
 from scipy import sparse
-from scipy.sparse.linalg import splu, spilu
+from scipy.sparse.linalg import spilu, splu
+
 from . import numerical_methods as nm
 
 
 class Preconditioners(object):
     def __init__(self, model_evaluator):
-        """Initialization.
-        """
+        """Initialization."""
         self._modeleval = model_evaluator
         self._keo_lu = None
         self._keo_ilu = None
@@ -36,7 +36,7 @@ class Preconditioners(object):
         a = self._modeleval._keo.diagonal() - (
             1.0 - self._modeleval._temperature - 2.0 * abs(self._modeleval._psi) ** 2
         )
-        b = self._modeleval._psi ** 2
+        b = self._modeleval._psi**2
 
         # One needs to solve
         #    a*z + b z.conj = psi
@@ -67,8 +67,7 @@ class Preconditioners(object):
         return sol
 
     def keo_amg(self, psi):
-        """Algebraic multigrid solve.
-        """
+        """Algebraic multigrid solve."""
         import pyamg
 
         if self._keo_amg_solver is None:

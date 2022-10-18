@@ -13,8 +13,7 @@ class YamlEmitter(object):
     """
 
     def __init__(self):
-        """Initialization.
-        """
+        """Initialization."""
         self.envs = []
         self.indent = 0
         self.next_indent = self.indent

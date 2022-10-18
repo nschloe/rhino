@@ -3,10 +3,11 @@
 """
 Provide information around the nonlinear Schrödinger equations.
 """
+import warnings
+
+import krypy
 import numpy
 from scipy import sparse
-import warnings
-import krypy
 
 
 class NlsModelEvaluator(object):
@@ -22,8 +23,7 @@ class NlsModelEvaluator(object):
     def __init__(
         self, mesh, V=None, A=None, preconditioner_type="none", num_amg_cycles=numpy.inf
     ):
-        """Initialization. Set mesh.
-        """
+        """Initialization. Set mesh."""
         self.dtype = complex
         self.mesh = mesh
         n = len(mesh.node_coords)
@@ -93,8 +93,8 @@ class NlsModelEvaluator(object):
 
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
-        alpha = self._V.reshape(x.shape) + g * 2.0 * (x.real ** 2 + x.imag ** 2)
-        gPsi0Squared = g * x ** 2
+        alpha = self._V.reshape(x.shape) + g * 2.0 * (x.real**2 + x.imag**2)
+        gPsi0Squared = g * x**2
 
         num_unknowns = len(self.mesh.node_coords)
 
@@ -119,7 +119,7 @@ class NlsModelEvaluator(object):
 
         A = self._get_keo(mu).copy()
         diag = A.diagonal()
-        alpha = self._V.reshape(x.shape) + g * 2.0 * (x.real ** 2 + x.imag ** 2)
+        alpha = self._V.reshape(x.shape) + g * 2.0 * (x.real**2 + x.imag**2)
         diag += alpha.reshape(diag.shape) * self.mesh.control_volumes.reshape(x.shape)
         A.setdiag(diag)
 
@@ -127,7 +127,7 @@ class NlsModelEvaluator(object):
         from scipy.sparse import spdiags
 
         B = spdiags(
-            g * x ** 2 * self.mesh.control_volumes.reshape(x.shape),
+            g * x**2 * self.mesh.control_volumes.reshape(x.shape),
             [0],
             num_nodes,
             num_nodes,
@@ -135,8 +135,7 @@ class NlsModelEvaluator(object):
         return A, B
 
     def get_preconditioner(self, x, mu, g):
-        """Return the preconditioner.
-        """
+        """Return the preconditioner."""
         if self._preconditioner_type == "none":
             return None
         if self._preconditioner_type == "cycles":
@@ -160,7 +159,7 @@ class NlsModelEvaluator(object):
             self.mesh.compute_control_volumes(variant=self.cv_variant)
 
         if g > 0.0:
-            alpha = g * 2.0 * (x.real ** 2 + x.imag ** 2)
+            alpha = g * 2.0 * (x.real**2 + x.imag**2)
             # beta = g * x**2
         else:
             alpha = numpy.zeros(len(x))
@@ -170,8 +169,7 @@ class NlsModelEvaluator(object):
         )
 
     def get_preconditioner_inverse(self, x, mu, g):
-        """Use AMG to invert M approximately.
-        """
+        """Use AMG to invert M approximately."""
         if self._preconditioner_type == "none":
             return None
         import pyamg
@@ -230,7 +228,7 @@ class NlsModelEvaluator(object):
             alpha = (
                 g
                 * 2.0
-                * (x.real ** 2 + x.imag ** 2)
+                * (x.real**2 + x.imag**2)
                 * self.mesh.control_volumes.reshape(x.shape)
             )
             prec = keo + sparse.spdiags(alpha[:, 0], [0], num_unknowns, num_unknowns)
@@ -286,8 +284,7 @@ class NlsModelEvaluator(object):
             )
 
     def _get_preconditioner_inverse_directsolve(self, x, mu, g):
-        """Use a direct solver for M^{-1}.
-        """
+        """Use a direct solver for M^{-1}."""
         from scipy.sparse.linalg import spsolve
 
         def _apply_inverse_prec(phi):
@@ -300,8 +297,7 @@ class NlsModelEvaluator(object):
         )
 
     def inner_product(self, phi0, phi1):
-        """The natural inner product of the problem.
-        """
+        """The natural inner product of the problem."""
         assert phi0.shape[0] == phi1.shape[0], (
             "Input vectors not matching.",
             phi0.shape,
@@ -322,7 +318,7 @@ class NlsModelEvaluator(object):
         """
         if self.mesh.control_volumes is None:
             self.mesh.compute_control_volumes(variant=self.cv_variant)
-        alpha = -self.inner_product(psi ** 2, psi ** 2)
+        alpha = -self.inner_product(psi**2, psi**2)
         return alpha.real / self.mesh.control_volumes.sum()
 
     def _get_keo(self, mu):

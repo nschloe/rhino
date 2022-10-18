@@ -7,12 +7,12 @@ later be concatenated into a movie.
 """
 
 import os.path
+
+import matplotlib.cm as cm
+import matplotlib.image as mpimg
+import matplotlib.pyplot as pp
 import numpy as np
 import paraview.simple as pv
-
-import matplotlib.pyplot as pp
-import matplotlib.image as mpimg
-import matplotlib.cm as cm
 from matplotlib import rc
 
 rc("font", **{"family": "sans-serif", "sans-serif": ["Helvetica"]})
@@ -187,7 +187,7 @@ def _plot_continuation():
     pp.ylabel("$F/F_0$")
 
     # prepare for the blue moving dot
-    line, = diagram_ax.plot([], [], "bo")
+    (line,) = diagram_ax.plot([], [], "bo")
 
     ## take screenshot
     # filename = 'test0.png'
@@ -391,8 +391,7 @@ def _create_circular_hsv_colormap():
 
 
 def _autocrop(filename):
-    """Autocrop an image stored in file.
-    """
+    """Autocrop an image stored in file."""
     import PythonMagick
 
     image = PythonMagick.Image(filename)

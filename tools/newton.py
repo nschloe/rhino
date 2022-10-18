@@ -3,15 +3,13 @@
 """
 Solve nonlinear Schrödinger equations.
 """
-import numpy as np
-
-import pynosh.numerical_methods as nm
-import pynosh.modelevaluator_nls as gpm
-import pynosh.modelevaluator_bordering_constant as bme
-import pynosh.yaml
-
-import meshplex
 import krypy
+import meshplex
+import numpy as np
+import pynosh.modelevaluator_bordering_constant as bme
+import pynosh.modelevaluator_nls as gpm
+import pynosh.numerical_methods as nm
+import pynosh.yaml
 
 
 def _main():
@@ -69,9 +67,9 @@ def _main():
         # psi0[i] = alpha * np.cos(kx * node[0]) * np.cos(ky * node[1])
 
     ye.begin_map()
-    import sys
-    import os
     import datetime
+    import os
+    import sys
 
     ye.add_comment(
         "Newton run with newton.py (%r, %s)." % (os.uname()[1], datetime.datetime.now())
@@ -126,8 +124,7 @@ class IxFactory(krypy.recycling.factories._DeflationVectorFactory):
 
 
 def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
-    """Solve with Newton.
-    """
+    """Solve with Newton."""
 
     recycling_solver_kwargs = {"explicit_residual": args.resexp, "maxiter": 200}
     if args.krylov_method == "cg":
@@ -179,8 +176,7 @@ def my_newton(args, modeleval, psi0, g, mu, yaml_emitter=None, debug=True):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

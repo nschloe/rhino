@@ -4,16 +4,14 @@
 Solve the linearized Ginzburg--Landau problem.
 """
 
-from solver_diagnostics import solver_diagnostics  # pyamg
-import numpy as np
-
 import meshplex
+import numpy as np
 import pynosh.modelevaluator_nls
+from solver_diagnostics import solver_diagnostics  # pyamg
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     args = _parse_input_arguments()
 
     # read the mesh
@@ -38,7 +36,7 @@ def _main():
         alpha = (
             g
             * 2.0
-            * (psi0.real ** 2 + psi0.imag ** 2)
+            * (psi0.real**2 + psi0.imag**2)
             * modeleval.mesh.control_volumes.reshape(psi0.shape)
         )
         num_unknowns = len(psi0)
@@ -56,8 +54,7 @@ def _main():
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

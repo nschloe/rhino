@@ -2,12 +2,11 @@
 #
 """Visualize (1+T_d/T) k_d/k
 """
-import numpy as np
-
-import yaml
 import matplotlib
-import matplotlib.pyplot as pp
 import matplotlib2tikz
+import matplotlib.pyplot as pp
+import numpy as np
+import yaml
 
 
 def _main():
@@ -117,8 +116,7 @@ def _main():
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Visualize Newton output.")

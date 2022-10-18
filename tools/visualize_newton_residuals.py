@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 #
-import numpy as np
-
-import yaml
 import matplotlib
+import numpy as np
+import yaml
 
 # Use the AGG backend to make sure that we don't need
 # $DISPLAY to plot something (to files).
 matplotlib.use("agg")
-import matplotlib.pyplot as pp
 import matplotlib2tikz
+import matplotlib.pyplot as pp
 
 
 def _main():
@@ -53,8 +52,7 @@ def _main():
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Visualize Newton residuals.")

@@ -3,18 +3,17 @@
 """Solve the Ginzburg--Landau equation.
 """
 
-import pynosh.numerical_methods as nm
-import pynosh.modelevaluator_nls as gm
+import matplotlib.pyplot as pp
 import mesh.mesh_io
 import numpy as np
-import matplotlib.pyplot as pp
+import pynosh.modelevaluator_nls as gm
+import pynosh.numerical_methods as nm
 
 # import matplotlib2tikz
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     args = _parse_input_arguments()
 
     # read the mesh
@@ -67,8 +66,7 @@ def _main():
 
 
 def multiplot_data_series(list_of_data_vectors):
-    """Plot a list of data vectors with increasing black value.
-    """
+    """Plot a list of data vectors with increasing black value."""
     num_plots = len(list_of_data_vectors)
     for k, relresvec in enumerate(list_of_data_vectors):
         pp.semilogy(relresvec, color=str(1.0 - float(k + 1) / num_plots))
@@ -78,8 +76,7 @@ def multiplot_data_series(list_of_data_vectors):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

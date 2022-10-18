@@ -2,13 +2,11 @@
 #
 """Solve the Ginzburg--Landau equation.
 """
-import numpy as np
-
-import meshplex
 import krypy
-
-import pynosh.numerical_methods as nm
+import meshplex
+import numpy as np
 import pynosh.modelevaluator_nls as gm
+import pynosh.numerical_methods as nm
 
 
 def _main():
@@ -49,7 +47,9 @@ def find_beautiful_states(modeleval, mu_range, forcing_term, save_doubles=True):
 
     # Compile the search space.
     # If all nodes sit in x-y-plane, the frequency loop in z-direction can be omitted.
-    if modeleval.mesh.node_coords.shape[1] == 2 or np.all(np.abs(modeleval.mesh.node_coords[:, 2]) < 1.0e-13):
+    if modeleval.mesh.node_coords.shape[1] == 2 or np.all(
+        np.abs(modeleval.mesh.node_coords[:, 2]) < 1.0e-13
+    ):
         search_space_k = [(a, b) for a in Frequencies for b in Frequencies]
     elif modeleval.mesh.node_coords.shape[1] == 3:
         search_space_k = [
@@ -168,8 +168,7 @@ def find_beautiful_states(modeleval, mu_range, forcing_term, save_doubles=True):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

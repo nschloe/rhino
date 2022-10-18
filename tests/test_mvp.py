@@ -1,8 +1,9 @@
 import os
-import numpy
 
 import meshplex
-from pynosh import magnetic_vector_potentials as mvp
+import numpy
+
+from rhino import magnetic_vector_potentials as mvp
 
 
 def _run(filename, control_values):
@@ -16,7 +17,7 @@ def _run(filename, control_values):
     tol = 1.0e-10
 
     A = mvp.constant_field(mesh.node_coords, numpy.array([0, 0, 1]))
-    integral = numpy.sum(mesh.control_volumes * numpy.sum(A ** 2, axis=1))
+    integral = numpy.sum(mesh.control_volumes * numpy.sum(A**2, axis=1))
     assert numpy.all(numpy.abs(control_values["z"] - integral) < tol)
 
     # If this is a 2D mesh, append the z-component 0 to each node
@@ -29,7 +30,7 @@ def _run(filename, control_values):
     A = mvp.magnetic_dipole(
         points, x0=numpy.array([0, 0, 10]), m=numpy.array([0, 0, 1])
     )
-    integral = numpy.sum(mesh.control_volumes * numpy.sum(A ** 2, axis=1))
+    integral = numpy.sum(mesh.control_volumes * numpy.sum(A**2, axis=1))
     assert numpy.all(numpy.abs(control_values["dipole"] - integral) < tol)
 
     # import time
@@ -40,7 +41,7 @@ def _run(filename, control_values):
     # A[k] = mvp.magnetic_dot(node[0], node[1], 2.0, 10.0, 11.0)
     # end = time.time()
     # print end-start
-    integral = numpy.sum(mesh.control_volumes * numpy.sum(A ** 2, axis=1))
+    integral = numpy.sum(mesh.control_volumes * numpy.sum(A**2, axis=1))
     assert numpy.all(numpy.abs(control_values["dot"] - integral) < tol)
     return
 

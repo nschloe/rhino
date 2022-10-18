@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+import krypy
 import numpy
 from scipy.sparse.linalg import LinearOperator
-import krypy
 
 
 class ConstBorderedModelEvaluator(object):
@@ -11,16 +11,14 @@ class ConstBorderedModelEvaluator(object):
     """
 
     def __init__(self, modeleval, bord):
-        """Initialization.
-        """
+        """Initialization."""
         self.inner_modeleval = modeleval
         self.dtype = self.inner_modeleval.dtype
         self.bord = bord
         return
 
     def compute_f(self, x):
-        """Compute bordered F.
-        """
+        """Compute bordered F."""
         n = len(x) - 1
         res = numpy.empty((n + 1, 1), dtype=self.dtype)
         # Right border: bord * eta.
@@ -30,8 +28,7 @@ class ConstBorderedModelEvaluator(object):
         return res
 
     def get_jacobian(self, x0):
-        """Jacobian of the bordered system.
-        """
+        """Jacobian of the bordered system."""
 
         def _apply_jacobian(x):
             y = numpy.empty(x.shape, dtype=self.dtype)
@@ -53,8 +50,7 @@ class ConstBorderedModelEvaluator(object):
         return LinearOperator((n + 1, n + 1), _apply_jacobian, dtype=self.dtype)
 
     def get_jacobian_inverse(self, x0):
-        """Preconditioner based on Schur complement.
-        """
+        """Preconditioner based on Schur complement."""
 
         def _apply_jacobian_inverse(x):
             """Schur thing."""
@@ -107,8 +103,7 @@ class ConstBorderedModelEvaluator(object):
         return None
 
     def get_preconditioner_inverse(self, x0):
-        """Preconditioner based on Schur complement.
-        """
+        """Preconditioner based on Schur complement."""
 
         def _apply_precon_inverse(x):
             """Schur thing."""
@@ -152,7 +147,6 @@ class ConstBorderedModelEvaluator(object):
             return None
 
     def inner_product(self, x0, x1):
-        """The inner product of the bordered problem.
-        """
+        """The inner product of the bordered problem."""
         n = len(x0) - 1
         return self.inner_modeleval.inner_product(x0[0:n], x1[0:n]) + x0[n] * x1[n]

@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 #
-from scipy import rand, zeros, log10, argsort, inf
-from numpy import ones, array, abs, kron, eye, random
-from scipy.sparse import csr_matrix, isspmatrix_bsr, isspmatrix_csr
-
+from numpy import abs, array, eye, kron, ones, random
 from pyamg.aggregation import smoothed_aggregation_solver
 from pyamg.util.linalg import _approximate_eigenvalues, ishermitian
 from pyamg.util.utils import print_table
+from scipy import argsort, inf, log10, rand, zeros
+from scipy.sparse import csr_matrix, isspmatrix_bsr, isspmatrix_csr
 
 
 def solver_diagnostics(
@@ -556,7 +555,7 @@ def solver_diagnostics(
                                                 ] = sa.operator_complexity()
                                                 resid_rate = (
                                                     residuals[-1] / residuals[0]
-                                                ) ** (1.0 / (len(residuals) - 1.))
+                                                ) ** (1.0 / (len(residuals) - 1.0))
                                                 results[
                                                     counter, 2
                                                 ] = sa.cycle_complexity() / abs(

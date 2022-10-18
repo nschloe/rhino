@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
 #
-import numpy as np
-
 import meshplex
-import pynosh.modelevaluator_nls
+import numpy as np
 import pynosh.modelevaluator_bordering_constant
+import pynosh.modelevaluator_nls
 
 # import pynosh.numerical_methods as nm
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     args = _parse_input_arguments()
 
     mesh, point_data, field_data = meshplex.read(args.filename, timestep=args.timestep)
@@ -111,8 +109,7 @@ def _check_positivedefiniteness(operator, inner_product):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

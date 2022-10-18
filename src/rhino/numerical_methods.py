@@ -2,8 +2,8 @@
 """
 Collection of numerical algorithms.
 """
-import numpy
 import krypy
+import numpy
 
 
 class ForcingConstant(object):
@@ -37,7 +37,7 @@ class Forcing_EW1(object):
 
         # linear_relresvec[-1] \approx tol, so this could be replaced.
         eta = abs(F0 - resval_previous) / F_1
-        eta = max(eta, eta_previous ** golden, self.eta_min)
+        eta = max(eta, eta_previous**golden, self.eta_min)
         eta = min(eta, self.eta_max)
         return eta
 
@@ -52,7 +52,7 @@ class Forcing_EW2(object):
 
     def get(self, eta_previous, resval_previous, F0, F_1):
         eta = self.gamma * (F0 / F_1) ** self.alpha
-        eta = max(eta, self.gamma * eta_previous ** self.alpha, self.eta_min)
+        eta = max(eta, self.gamma * eta_previous**self.alpha, self.eta_min)
         eta = min(eta, self.eta_max)
         return eta
 
@@ -71,8 +71,7 @@ def newton(
     debug=False,
     yaml_emitter=None,
 ):
-    """Newton's method with different forcing terms.
-    """
+    """Newton's method with different forcing terms."""
 
     # Default forcing term.
     if forcing_term == "constant":

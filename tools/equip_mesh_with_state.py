@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 #
-import numpy as np
 import time
 
 import meshplex
+import numpy as np
 
 
 def _main():

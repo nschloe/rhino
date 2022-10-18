@@ -3,27 +3,26 @@
 """
 Solve the linearized Ginzburg--Landau problem.
 """
-from scipy.sparse.linalg import LinearOperator
-import time
-import numpy as np
 import cmath
+import time
+
 import matplotlib.pyplot as pp
+import meshplex
+import numpy as np
+import pynosh.modelevaluator_bordering_constant
+import pynosh.modelevaluator_nls
+
+# import pynosh.preconditioners
+import pynosh.numerical_methods as nm
+from scipy.sparse.linalg import LinearOperator
 
 # from matplotlib import rc
 # rc( 'text', usetex = True )
 # rc( 'font', family = 'serif' )
 
-import meshplex
-import pynosh.modelevaluator_nls
-import pynosh.modelevaluator_bordering_constant
-
-# import pynosh.preconditioners
-import pynosh.numerical_methods as nm
-
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     args = _parse_input_arguments()
 
     # Setting the default file_mvp.
@@ -52,9 +51,11 @@ def _main():
     print(("done. (%gs)" % (end - start)))
 
     # Run through all time steps.
-    assert len(args.timesteps) == len(args.mu), (
-        "There must be as many time steps as mus (%d != %d)."
-        % (len(args.timesteps), len(args.mu))
+    assert len(args.timesteps) == len(
+        args.mu
+    ), "There must be as many time steps as mus (%d != %d)." % (
+        len(args.timesteps),
+        len(args.mu),
     )
     for (timestep, mu) in zip(args.timesteps, args.mu):
         relresvec = _solve_system(modeleval, args.filename, timestep, mu, args)
@@ -538,8 +539,7 @@ def _construct_matrix(linear_operator):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

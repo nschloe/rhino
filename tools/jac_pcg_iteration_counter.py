@@ -3,21 +3,21 @@
 """
 Solve Poisson's equation with finite volumes.
 """
-import vtkio
-import numerical_methods as nm
-from scipy.sparse.linalg import LinearOperator
-import time
 import glob
+import time
 
 import matplotlib.pyplot as pp
+import numerical_methods as nm
+import vtkio
 from matplotlib import rc
+from scipy.sparse.linalg import LinearOperator
 
 rc("text", usetex=True)
 rc("font", family="serif")
 
+import matplotlib2tikz
 from model_evaluator import *
 from preconditioners import *
-import matplotlib2tikz
 
 
 def _main():

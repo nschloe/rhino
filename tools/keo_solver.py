@@ -3,29 +3,26 @@
 """
 Solve a linear equation system with the kinetic energy operator.
 """
-import numerical_methods as nm
-import sys
-from scipy.sparse.linalg import LinearOperator
-import time
-import numpy
 import cmath
+import sys
+import time
 
 import matplotlib.pyplot as pp
+import numerical_methods as nm
+import numpy
 from matplotlib import rc
+from scipy.sparse.linalg import LinearOperator
 
 rc("text", usetex=True)
 rc("font", family="serif")
 import matplotlib2tikz
-
 import meshplex
-
 import pynosh.modelevaluator_nls
 import pynosh.preconditioners
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
 
     # run the preconditioners
     _run_different_meshes()
@@ -247,8 +244,7 @@ def _construct_matrix(linear_operator):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     from optparse import OptionParser
 
     parser = OptionParser()

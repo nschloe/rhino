@@ -1,26 +1,25 @@
 # -*- coding: utf-8 -*-
 #
-import vtkio
-import numerical_methods as nm
-from scipy.sparse.linalg import LinearOperator
-from lobpcg import lobpcg
-import time
 import glob
+import time
 
 import matplotlib.pyplot as pp
+import numerical_methods as nm
+import vtkio
+from lobpcg import lobpcg
 from matplotlib import rc
+from scipy.sparse.linalg import LinearOperator
 
 rc("text", usetex=True)
 rc("font", family="serif")
 
+import matplotlib2tikz
 from model_evaluator import *
 from preconditioners import *
-import matplotlib2tikz
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     # parse input arguments
     opts, args = _parse_input_arguments()
 

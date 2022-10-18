@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 #
-from scipy.linalg import norm, eig, eigh
-from scipy.sparse import spdiags
 import time
-import matplotlib.pyplot as pp
-import numpy as np
 
 import matplotlib2tikz
+import matplotlib.pyplot as pp
 
 # from lobpcg import lobpcg as my_lobpcg
 import meshplex
+import numpy as np
 import pynosh.modelevaluator_nls
+from scipy.linalg import eig, eigh, norm
+from scipy.sparse import spdiags
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     args = _parse_input_arguments()
 
     # read the mesh
@@ -158,8 +157,8 @@ def _main():
 
 def _build_stacked_operator(A, B=None):
     """Build the block operator.
-       [ A.real+B.real, -A.imag+B.imag ]
-       [ A.imag+B.imag,  A.real-B.real ]
+    [ A.real+B.real, -A.imag+B.imag ]
+    [ A.imag+B.imag,  A.real-B.real ]
     """
     out = np.empty((2 * A.shape[0], 2 * A.shape[1]), dtype=float)
     out[0::2, 0::2] = A.real
@@ -178,16 +177,14 @@ def _build_stacked_operator(A, B=None):
 
 
 def _build_complex_vector(x):
-    """Build complex vector.
-    """
+    """Build complex vector."""
     xreal = x[0::2, :]
     ximag = x[1::2, :]
     return xreal + 1j * ximag
 
 
 def _build_real_vector(x):
-    """Build complex vector.
-    """
+    """Build complex vector."""
     xx = np.empty((2 * len(x), 1))
     xx[0::2, :] = x.real
     xx[1::2, :] = x.imag
@@ -195,8 +192,7 @@ def _build_real_vector(x):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

@@ -2,11 +2,11 @@
 #
 import os
 
-import numpy
 import meshplex
+import numpy
 import pytest
 
-from pynosh import modelevaluator_nls
+from rhino import modelevaluator_nls
 
 
 @pytest.mark.parametrize(

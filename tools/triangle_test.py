@@ -50,7 +50,7 @@ def _main():
     A = np.dot(edges, edges.T)
     # Careful here! As of NumPy 1.7, np.diag() returns a view.
     rhs = triangle_vol * np.diag(A).copy()
-    A = A ** 2
+    A = A**2
 
     weights = np.zeros(3)
     # Append the the resulting coefficients to the coefficient cache.
@@ -111,7 +111,7 @@ def _main():
             np.dot(edges[1] / edge_lenghts[1], -edges[0] / edge_lenghts[0]),
         ]
     )
-    qweights = 0.5 * t / np.sqrt(1.0 - t ** 2)
+    qweights = 0.5 * t / np.sqrt(1.0 - t**2)
 
     # check_weights(qweights, edges, triangle_vol)
 
@@ -221,8 +221,7 @@ def check_weights(weights, edges, vol, tol=1.0e-14):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

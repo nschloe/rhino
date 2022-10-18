@@ -2,11 +2,12 @@
 #
 """Timings.
 """
-import timeit
-import numpy as np
-import pynosh.yaml
 import datetime
 import os
+import timeit
+
+import numpy as np
+import pynosh.yaml
 
 
 def _main():
@@ -445,8 +446,7 @@ ritz_vals, ritz_vecs, norm_ritz_res = nm.get_ritz(W, AW, Vfull, Hfull,
 
 # ==============================================================================
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Unit timer.")

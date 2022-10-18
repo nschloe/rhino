@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 #
-from scipy.sparse.linalg import eigs, LinearOperator
 import time
-import matplotlib.pyplot as pp
-import numpy as np
 
+import matplotlib.pyplot as pp
 import meshplex
+import numpy as np
+import pynosh.modelevaluator_bordering_constant as bme
 
 # from lobpcg import lobpcg as my_lobpcg
 import pynosh.modelevaluator_nls as nme
-import pynosh.modelevaluator_bordering_constant as bme
+from scipy.sparse.linalg import LinearOperator, eigs
 
 
 def _main():
-    """Main function.
-    """
+    """Main function."""
     args = _parse_input_arguments()
 
     # read the mesh
@@ -296,13 +295,11 @@ def _plot_eigenvalue_series(x, eigenvals_list):
     """
 
     def _linear_extrapolation(x0, x1, Y0, Y1, x2):
-        """Linear extrapolation of the data sets (x0,Y0), (x1,Y1) to x2.
-        """
+        """Linear extrapolation of the data sets (x0,Y0), (x1,Y1) to x2."""
         return ((Y1 - Y0) * x2 + x1 * Y0 - Y1 * x0) / (x1 - x0)
 
     def _permutation_match(y, y2):
-        """Returns the permutation of y that best matches y2.
-        """
+        """Returns the permutation of y that best matches y2."""
         n = len(y2)
         assert len(y) == n
         # y = np.array(y) # to make Boolean indices possible
@@ -344,8 +341,7 @@ def _plot_eigenvalue_series(x, eigenvals_list):
 
 
 def _parse_input_arguments():
-    """Parse input arguments.
-    """
+    """Parse input arguments."""
     import argparse
 
     parser = argparse.ArgumentParser(

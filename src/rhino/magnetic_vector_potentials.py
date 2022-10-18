@@ -19,7 +19,7 @@ def magnetic_dipole(x, x0, m):
     # numpy.cross acts on rows by default;
     # The ".T" magic makes sure that each row of numpy.cross(m, r)
     # gets divided by the corresponding entry in ||r||^3.
-    return (numpy.cross(m, r).T / numpy.sum(numpy.abs(r) ** 2, axis=-1) ** (3. / 2)).T
+    return (numpy.cross(m, r).T / numpy.sum(numpy.abs(r) ** 2, axis=-1) ** (3.0 / 2)).T
 
 
 def magnetic_dot(X, radius, heights):
@@ -77,7 +77,7 @@ def magnetic_dot(X, radius, heights):
 
             # r = x_dist * x_dist + y_dist * y_dist
             # Note that X_dist indeed only has two components.
-            R = numpy.sum(X_dist ** 2, axis=1)
+            R = numpy.sum(X_dist**2, axis=1)
             ind = numpy.nonzero(R > 1.0e-15)
 
             # 3D distance to point on lower edge (xi,yi,height0)
