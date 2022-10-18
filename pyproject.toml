@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.isort]
+profile = "black"
+
+[project]
+name = "rhino"
+authors = [{name = "Nico Schlömer", email = "nico.schloemer@gmail.com"}]
+description = "Nonlinear Schrödinger equations"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Utilities",
+]
+dynamic = ["version"]
+requires-python = ">=3.7"
+dependencies = [
+    "numpy",
+    "scipy",
+    "krypy",
+    "meshplex",
+    "netCDF4"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "rhino.__about__.__version__"}
+
+[project.urls]
+Code = "https://github.com/nschloe/rhino"
+Issues = "https://github.com/nschloe/rhino/issues"
