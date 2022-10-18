@@ -2,6 +2,7 @@ import os
 
 import meshplex
 import numpy
+import pytest
 
 from rhino import magnetic_vector_potentials as mvp
 
@@ -46,6 +47,7 @@ def _run(filename, control_values):
     return
 
 
+@pytest.mark.skip
 def test_rectanglesmall():
     this_path = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(this_path, "rectanglesmall.e")
@@ -58,6 +60,7 @@ def test_rectanglesmall():
     return
 
 
+@pytest.mark.skip
 def test_pacman():
     this_path = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(this_path, "pacman.e")
@@ -70,6 +73,7 @@ def test_pacman():
     return
 
 
+@pytest.mark.skip
 def test_cubesmall():
     this_path = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(this_path, "cubesmall.e")
@@ -82,6 +86,7 @@ def test_cubesmall():
     return
 
 
+@pytest.mark.skip
 def test_brick():
     this_path = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(this_path, "brick-w-hole.e")
@@ -92,7 +97,3 @@ def test_brick():
     }
     _run(filename, control_values)
     return
-
-
-if __name__ == "__main__":
-    test_pacman()

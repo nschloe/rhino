@@ -8,6 +8,7 @@ import pytest
 from rhino import modelevaluator_nls
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize(
     "filename, control_values",
     [

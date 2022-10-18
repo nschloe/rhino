@@ -8,6 +8,7 @@ import pytest
 from rhino import modelevaluator_nls
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize(
     "filename, control_values",
     [
@@ -40,12 +41,12 @@ def test(filename, control_values):
     # read the mesh
     this_path = os.path.dirname(os.path.realpath(__file__))
     filename = os.path.join(this_path, filename)
-    mesh, point_data, field_data, _ = meshplex.read(filename)
+    mesh = meshplex.read(filename)
     mu = 1.0e-2
 
     # build the model evaluator
     modeleval = modelevaluator_nls.NlsModelEvaluator(
-        mesh, V=point_data["V"], A=point_data["A"]
+        mesh, V=mesh.point_data["V"], A=mesh.point_data["A"]
     )
 
     # compute the Ginzburg-Landau residual
