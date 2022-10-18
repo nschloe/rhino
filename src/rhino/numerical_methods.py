@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Collection of numerical algorithms.
 """
@@ -6,7 +5,7 @@ import krypy
 import numpy
 
 
-class ForcingConstant(object):
+class ForcingConstant:
     def __init__(self, eta0):
         self.eta0 = eta0
         return
@@ -15,7 +14,7 @@ class ForcingConstant(object):
         return self.eta0
 
 
-class Forcing_EW1(object):
+class Forcing_EW1:
     """Linear tolerance is given by
 
     "Choosing the Forcing Terms in an Inexact Newton Method (1994)"
@@ -42,7 +41,7 @@ class Forcing_EW1(object):
         return eta
 
 
-class Forcing_EW2(object):
+class Forcing_EW2:
     def __init__(self, eta_min=1.0e-6, eta_max=1.0e-2, alpha=1.5, gamma=0.9):
         self.eta_min = eta_min
         self.eta_max = eta_max
@@ -212,10 +211,10 @@ def poor_mans_continuation(
     If the previous step was unsuccessful, the step size is cut in half,
     but if the step was successful this strategy increases the step size based
     on the number of nonlinear solver iterations required in the previous step.
-    In particular, the new step size :math:`\Delta s_{new}` is given by
+    In particular, the new step size :math:`\\Delta s_{new}` is given by
 
     .. math::
-       \Delta s_{new} = \Delta s_{old}\left(1 + a\left(
+       \\Delta s_{new} = \\Delta s_{old}\\left(1 + a\\left(
          \\frac{N_{max} - N}{N_{max}}\\right)^2\\right).
     """
 
@@ -230,7 +229,7 @@ def poor_mans_continuation(
     current_step_size = initial_step_size
 
     for k in range(max_steps):
-        print(("Continuation step %d (parameter=%e)..." % (k, parameter_value)))
+        print("Continuation step %d (parameter=%e)..." % (k, parameter_value))
 
         # Try to converge to a solution and adapt the step size.
         converged = False
@@ -245,12 +244,10 @@ def poor_mans_continuation(
                 current_step_size *= 0.5
                 print(
                     (
-                        (
-                            "Continuation step failed (error code %d). "
-                            "Setting step size to %e."
-                        )
-                        % (error_code, current_step_size)
+                        "Continuation step failed (error code %d). "
+                        "Setting step size to %e."
                     )
+                    % (error_code, current_step_size)
                 )
             else:
                 current_step_size *= (
@@ -265,10 +262,8 @@ def poor_mans_continuation(
 
         if not converged:
             print(
-                (
-                    "Could not find a solution although "
-                    "the step size was %e. Abort." % current_step_size
-                )
+                "Could not find a solution although "
+                "the step size was %e. Abort." % current_step_size
             )
             break
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 """
 Provide information around the nonlinear Schrödinger equations.
@@ -10,7 +9,7 @@ import numpy
 from scipy import sparse
 
 
-class NlsModelEvaluator(object):
+class NlsModelEvaluator:
     """Nonlinear Schrödinger model evaluator class.
     Incorporates
 

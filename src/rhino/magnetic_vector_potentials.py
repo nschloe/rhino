@@ -23,7 +23,7 @@ def magnetic_dipole(x, x0, m):
 
 
 def magnetic_dot(X, radius, heights):
-    """Magnetic vector potential corresponding to the field that is induced by
+    r"""Magnetic vector potential corresponding to the field that is induced by
     a cylindrical magnetic dot, centered at (0,0,0.5*(height0+height1)), with
     the radius `radius` for objects in the x-y-plane.  The potential is derived
     by interpreting the dot as an infinitesimal collection of magnetic dipoles,

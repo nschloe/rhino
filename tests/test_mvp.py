@@ -7,7 +7,7 @@ from rhino import magnetic_vector_potentials as mvp
 
 
 def _run(filename, control_values):
-    """Test $\int_{\Omega} A^2$."""
+    r"""Test $\int_{\Omega} A^2$."""
 
     # read the mesh
     mesh, _, _, _ = meshplex.read(filename)

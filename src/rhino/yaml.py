@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 """
 Simple YAML emitter.
@@ -7,7 +6,7 @@ Simple YAML emitter.
 # Python 2, 3 compatibility for print().
 
 
-class YamlEmitter(object):
+class YamlEmitter:
     """
     Simple YAML emitter.
     """
@@ -105,7 +104,7 @@ class YamlEmitter(object):
         assert self.envs
         assert self.envs[-1] == "map"
         assert self.key_is_next
-        print(self.next_indent * " " + "%r: %r" % (key, value))
+        print(self.next_indent * " " + "{!r}: {!r}".format(key, value))
         self.next_indent = self.indent
         return
 

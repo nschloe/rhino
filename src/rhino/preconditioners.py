@@ -7,7 +7,7 @@ from scipy.sparse.linalg import spilu, splu
 from . import numerical_methods as nm
 
 
-class Preconditioners(object):
+class Preconditioners:
     def __init__(self, model_evaluator):
         """Initialization."""
         self._modeleval = model_evaluator
