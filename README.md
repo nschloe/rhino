@@ -2,7 +2,7 @@
   <a href="https://github.com/nschloe/rhino"><img alt="logo" src="logo/logo.svg" width="40%"></a>
 </p>
 
-[![gh-actions](https://img.shields.io/github/workflow/status/nschloe/rhino/ci?style=flat-square)](https://github.com/nschloe/rhino/actions?query=workflow%3Atests)
+[![tests](https://github.com/nschloe/rhino/actions/workflows/tests.yml/badge.svg)](https://github.com/nschloe/rhino/actions/workflows/tests.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square)](https://github.com/psf/black)
 
 rhino is a solver package for nonlinear Schrödinger equations. It contains the
